@@ -44,7 +44,7 @@ public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefi
         this.mainClass = mainClass;
         this.args = args;
         this.typ = "artifact";
-        this.getPresentableTyp = "Artifact";
+        this.presentableTyp = "Artifact";
     }
 
     public ArtifactLanguageServerDefinition fromArray(String[] arr) {

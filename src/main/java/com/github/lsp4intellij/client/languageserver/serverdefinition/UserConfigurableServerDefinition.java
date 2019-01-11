@@ -16,11 +16,11 @@ public abstract class UserConfigurableServerDefinition extends LanguageServerDef
   /**
    * @return the type of the server definition in a nicer way
    */
-  protected String getPresentableTyp;
+  protected String presentableTyp;
 
   public UserConfigurableServerDefinition() {
     this.typ  = "userConfigurable";
-    this.getPresentableTyp = "Configurable";
+    this.presentableTyp = "Configurable";
   }
 
   public static String head(String[] arr){

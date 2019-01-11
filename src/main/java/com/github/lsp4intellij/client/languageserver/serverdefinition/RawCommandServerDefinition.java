@@ -28,7 +28,7 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
         this.ext = ext;
         this.command = command;
         this.typ = "rawCommand";
-        this.getPresentableTyp = "Raw command";
+        this.presentableTyp = "Raw command";
     }
 
     /**

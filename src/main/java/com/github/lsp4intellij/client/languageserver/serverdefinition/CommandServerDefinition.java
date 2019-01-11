@@ -12,7 +12,7 @@ public abstract class CommandServerDefinition extends UserConfigurableServerDefi
     protected String[] command;
 
     protected CommandServerDefinition() {
-        this.getPresentableTyp = "Command";
+        this.presentableTyp = "Command";
         this.typ = "command";
     }
 
