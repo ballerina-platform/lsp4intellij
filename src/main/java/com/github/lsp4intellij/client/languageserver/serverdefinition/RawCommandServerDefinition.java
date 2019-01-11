@@ -1,6 +1,5 @@
 package com.github.lsp4intellij.client.languageserver.serverdefinition;
 
-import com.github.gtache.lsp.utils.Utils;
 import com.github.lsp4intellij.utils.Utils;
 
 import java.util.Arrays;
@@ -9,7 +8,16 @@ import java.util.Arrays;
   * A class representing a raw command to launch a languageserver
   *
   */
-public class RawCommandServerDefinition extends CommandServerDefinition implements ServerDefinition {
+public class RawCommandServerDefinition extends CommandServerDefinition {
+    private static final RawCommandServerDefinition INSTANCE = new RawCommandServerDefinition();
+
+    private RawCommandServerDefinition() {
+    }
+
+    public static RawCommandServerDefinition getInstance() {
+        return INSTANCE;
+    }
+
     /**
      * Creates new instance.
      *

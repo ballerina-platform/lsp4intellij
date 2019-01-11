@@ -7,8 +7,17 @@ import java.util.Arrays;
  * way to write a RawCommand
  */
 public class ExeLanguageServerDefinition extends CommandServerDefinition {
-    public String path;
-    public String[] args;
+    private static final ExeLanguageServerDefinition INSTANCE = new ExeLanguageServerDefinition();
+
+    private ExeLanguageServerDefinition() {
+    }
+
+    public static ExeLanguageServerDefinition getInstance() {
+        return INSTANCE;
+    }
+
+    private String path;
+    private String[] args;
 
     /**
      * Creates new JExeLanguageServerDefinition.

@@ -1,11 +1,12 @@
 package com.github.lsp4intellij.client.languageserver.serverdefinition;
 
-import com.github.gtache.lsp.client.LanguageClientImpl;
+import com.github.lsp4intellij.client.LanguageClientImpl;
 import com.github.lsp4intellij.client.connection.StreamConnectionProvider;
 import com.intellij.openapi.diagnostic.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
@@ -42,10 +43,10 @@ private Logger LOG = Logger.getInstance(LanguageServerDefinition.class);
     * @param workingDir The root directory
     * @return The input and output streams of the server
     */
-  public Pair<InputStream, OutputStream> start(String workingDir) {
+  public Pair<InputStream, OutputStream> start(String workingDir) throws IOException {
     StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
     if(streamConnectionProvider != null) {
-      return new ImmutablePair<>(streamConnectionProvider.getInputStream(), streamConnectionProvider.getOutputStream())
+      return new ImmutablePair<>(streamConnectionProvider.getInputStream(), streamConnectionProvider.getOutputStream());
     } else {
       streamConnectionProvider = createConnectionProvider(workingDir);
       streamConnectionProvider.start();

@@ -17,9 +17,18 @@ import java.util.List;
 public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefinition {
     private Logger LOG = Logger.getInstance(UserConfigurableServerDefinition.class);
 
-    public String packge;
-    public String mainClass;
-    public String[] args;
+    private String packge;
+    private String mainClass;
+    private String[] args;
+
+    private static final ArtifactLanguageServerDefinition INSTANCE = new ArtifactLanguageServerDefinition();
+
+    private ArtifactLanguageServerDefinition() {
+    }
+
+    public static ArtifactLanguageServerDefinition getInstance() {
+        return INSTANCE;
+    }
 
     /**
      * Creates a new ArtifactLanguageServerDefinition.
