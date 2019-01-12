@@ -18,9 +18,45 @@ import java.util.Set;
 /**
   * A trait representing a ServerDefinition
   */
-public abstract class LanguageServerDefinition {
+public class LanguageServerDefinition {
+  private static final LanguageServerDefinition INSTANCE = new LanguageServerDefinition();
+
+  private LanguageServerDefinition() {
+  }
+
+  public static LanguageServerDefinition getInstance() {
+    return INSTANCE;
+  }
 
 private Logger LOG = Logger.getInstance(LanguageServerDefinition.class);
+
+  public static final String SPLIT_CHAR = ";";
+  private Set<LanguageServerDefinition> allDefinitions = new HashSet<>();
+
+  /**
+   * @return All registered server definitions
+   */
+  public Set<LanguageServerDefinition> getAllDefinitions() {
+    return new HashSet<>(allDefinitions);
+  }
+
+  /**
+   * Register a server definition
+   *
+   * @param definition The server definition
+   */
+  public void register(LanguageServerDefinition definition){
+    if (definition != null) {
+      allDefinitions.add(definition);
+      LOG.info("Added definition for " + definition);
+    } else {
+      LOG.warn("Trying to add a null definition");
+    }
+  }
+
+  public LanguageServerDefinition fromArray(String[] arr) {
+    return UserConfigurableServerDefinition.fromArray(arr);
+  }
 
   private Set<String> mappedExtensions = new HashSet<>();
   private Map<String, StreamConnectionProvider> streamConnectionProviders = new HashMap<>();
@@ -117,11 +153,11 @@ private Logger LOG = Logger.getInstance(LanguageServerDefinition.class);
     throw new UnsupportedOperationException();
   }
 
-  /**
-    * Creates a StreamConnectionProvider given the working directory
-    *
-    * @param workingDir The root directory
-    * @return The stream connection provider
-    */
-  abstract StreamConnectionProvider createConnectionProvider(String workingDir);
+//  /**
+//    * Creates a StreamConnectionProvider given the working directory
+//    *
+//    * @param workingDir The root directory
+//    * @return The stream connection provider
+//    */
+//  abstract StreamConnectionProvider createConnectionProvider(String workingDir);
 }

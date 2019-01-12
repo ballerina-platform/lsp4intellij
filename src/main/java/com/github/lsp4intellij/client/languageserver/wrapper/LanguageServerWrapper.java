@@ -5,6 +5,7 @@ import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManag
 import com.github.gtache.lsp.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.github.gtache.lsp.editor.EditorEventManager;
 import com.github.gtache.lsp.requests.Timeouts;
+import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import org.eclipse.lsp4j.RegistrationParams;
@@ -28,7 +29,7 @@ public abstract class LanguageServerWrapper {
      * @param timeouts The type of timeout
      * @param success  if it didn't timeout
      */
-    abstract void notifyResult(Timeouts timeouts, boolean success);
+    public abstract void notifyResult(Timeouts timeouts, boolean success);
 
     public void notifySuccess(Timeouts timeouts) {
         notifyResult(timeouts, true);
@@ -43,17 +44,17 @@ public abstract class LanguageServerWrapper {
     /**
      * @return The current status of this server
      */
-    abstract ServerStatus getStatus();
+    public abstract ServerStatus getStatus();
 
     /**
      * @return the server definition corresponding to this wrapper
      */
-    abstract LanguageServerDefinition getServerDefinition();
+    public abstract LanguageServerDefinition getServerDefinition();
 
     /**
      * @return the project corresponding to this wrapper
      */
-    abstract Project getProject();
+    public abstract Project getProject();
 
     /**
      * Register a capability for the language server
@@ -77,81 +78,81 @@ public abstract class LanguageServerWrapper {
      * @param uri the URI as a string
      * @return the EditorEventManager (or null)
      */
-    abstract EditorEventManager getEditorManagerFor(String uri);
+    public abstract EditorEventManager getEditorManagerFor(String uri);
 
     /**
      * @return The request manager for this wrapper
      */
-    abstract RequestManager getRequestManager();
+    public abstract RequestManager getRequestManager();
 
     /**
      * Starts the LanguageServer
      */
-    abstract void start();
+    public abstract void start();
 
     /**
      * @return whether the underlying connection to language languageServer is still active
      */
-    abstract boolean isActive();
+    public abstract boolean isActive();
 
     /**
      * Connects an editor to the languageServer
      *
      * @param editor the editor
      */
-    abstract void connect(Editor editor) throws IOException;
+    public abstract void connect(Editor editor) throws IOException;
 
     /**
      * Disconnects an editor from the LanguageServer
      *
      * @param editor The editor
      */
-    abstract void disconnect(Editor editor);
+    public abstract void disconnect(Editor editor);
 
     /**
      * Disconnects an editor from the LanguageServer
      *
      * @param path The uri of the editor
      */
-    abstract void disconnect(String path);
+    public abstract void disconnect(String path);
 
     /**
      * Checks if the wrapper is already connected to the document at the given path
      */
-    abstract boolean isConnectedTo(String location);
+    public abstract boolean isConnectedTo(String location);
 
     /**
      * @return the LanguageServer
      */
     @Nullable
-    abstract LanguageServer getServer();
+    public abstract LanguageServer getServer();
 
     /**
      * @return the languageServer capabilities, or null if initialization job didn't complete
      */
     @Nullable
-    abstract ServerCapabilities getServerCapabilities();
+    public abstract ServerCapabilities getServerCapabilities();
 
     /**
      * @return The language ID that this wrapper is dealing with if defined in the content type mapping for the language languageServer
      */
     @Nullable
-    abstract String getLanguageId(String[] contentTypes);
+    public abstract String getLanguageId(String[] contentTypes);
 
-    abstract void logMessage(Message message);
+    public abstract void logMessage(Message message);
 
     /**
      * Stops the wrapper
      */
-    abstract void stop();
+    public abstract void stop();
 
     /**
      * Notifies the wrapper that the server has crashed / stopped unexpectedly
      *
      * @param e The exception returned
      */
-    abstract void crashed(Exception e);
+    public abstract void crashed(Exception e);
 
-    abstract void removeWidget();
+    public abstract void removeWidget();
 
 }
