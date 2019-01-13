@@ -2,10 +2,8 @@ package com.github.lsp4intellij.client.languageserver.wrapper;
 
 import com.github.lsp4intellij.client.languageserver.ServerStatus;
 import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManager;
-import com.github.gtache.lsp.client.languageserver.serverdefinition.LanguageServerDefinition;
-import com.github.gtache.lsp.editor.EditorEventManager;
-import com.github.gtache.lsp.requests.Timeouts;
 import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
+import com.github.lsp4intellij.requests.Timeouts;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import org.eclipse.lsp4j.RegistrationParams;
