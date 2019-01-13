@@ -86,7 +86,7 @@ public abstract class LanguageServerWrapper {
     /**
      * Starts the LanguageServer
      */
-    public abstract void start();
+    public abstract void start() throws IOException;
 
     /**
      * @return whether the underlying connection to language languageServer is still active

@@ -25,7 +25,8 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import javafx.util.Pair;
+import org.apache.commons.lang3.tuple.MutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeActionCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
@@ -51,6 +52,7 @@ import org.eclipse.lsp4j.SynchronizationCapabilities;
 import org.eclipse.lsp4j.TextDocumentClientCapabilities;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextDocumentSyncOptions;
+import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceEditCapabilities;
@@ -69,6 +71,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -125,7 +128,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      * @return The wrapper for the given uri, or None
      */
     public static LanguageServerWrapper forUri(String uri, Project project) {
-        return uriToLanguageServerWrapper.get(new Pair<>(uri, FileUtils.projectToUri(project)));
+        return uriToLanguageServerWrapper.get(new MutablePair<>(uri, FileUtils.projectToUri(project)));
     }
 
     /**
@@ -133,8 +136,8 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      * @return The wrapper for the given editor, or None
      */
     public static LanguageServerWrapper forEditor(Editor editor) {
-        return uriToLanguageServerWrapper
-                .get(new Pair<>(FileUtils.editorToURIString(editor), FileUtils.editorToProjectFolderUri(editor)));
+        return uriToLanguageServerWrapper.get(new MutablePair<>(FileUtils.editorToURIString(editor),
+                FileUtils.editorToProjectFolderUri(editor)));
     }
 
     public LanguageServerDefinition getServerDefinition() {
@@ -237,7 +240,8 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
         } else {
             String uri = FileUtils.editorToURIString(editor);
             synchronized (uriToLanguageServerWrapper) {
-                uriToLanguageServerWrapper.put(new Pair<>(uri, FileUtils.editorToProjectFolderUri(editor)), this);
+                uriToLanguageServerWrapper
+                        .put(new MutablePair<>(uri, FileUtils.editorToProjectFolderUri(editor)), this);
             }
 
             if (!this.connectedEditors.containsKey(uri)) {
@@ -314,7 +318,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
             synchronized (uriToLanguageServerWrapper) {
                 this.connectedEditors.remove(uri);
                 for (Map.Entry<String, EditorEventManager> ed : this.connectedEditors.entrySet()) {
-                    uriToLanguageServerWrapper.remove(new Pair<>(uri, FileUtils.projectToUri(project)));
+                    uriToLanguageServerWrapper.remove(new MutablePair<>(uri, FileUtils.projectToUri(project)));
                     ed.removeListeners();
                     ed.documentClosed();
                 }
@@ -369,7 +373,11 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      */
     @Nullable
     public LanguageServer getServer() {
-        start();
+        try {
+            start();
+        } catch (IOException e) {
+            LOG.error("Failed to start server:" + e);
+        }
         if (initializeFuture != null && !this.initializeFuture.isDone()) {
             this.initializeFuture.join();
         }
@@ -458,32 +466,30 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
             params.getRegistrations().forEach(r -> {
                 String id = r.getId();
                 DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
-                val options = r.getRegisterOptions();
+                Object options = r.getRegisterOptions();
                 registrations.put(id, method);
             });
         });
     }
 
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
-        return CompletableFuture.runAsync(() -> {
-            params.getUnregisterations().forEach(r -> {
-                String id = r.getId();
-                DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
-                if (registrations.containsKey(id)) {
-                    registrations.remove(id);
-                } else {
-                    Map<DynamicRegistrationMethods, String> inverted = new HashMap<DynamicRegistrationMethods, String>();
+        return CompletableFuture.runAsync(() -> params.getUnregisterations().forEach((Unregistration r) -> {
+            String id = r.getId();
+            DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
+            if (registrations.containsKey(id)) {
+                registrations.remove(id);
+            } else {
+                Map<DynamicRegistrationMethods, String> inverted = new HashMap<>();
 
-                    for (Entry<String, DynamicRegistrationMethods> entry : registrations.entrySet()) {
-                        inverted.put(entry.getValue(), entry.getKey());
-                    }
-
-                    if (inverted.containsKey(method)) {
-                        registrations.remove(inverted.get(method));
-                    }
+                for (Map.Entry<String, DynamicRegistrationMethods> entry : registrations.entrySet()) {
+                    inverted.put(entry.getValue(), entry.getKey());
                 }
-            });
-        });
+
+                if (inverted.containsKey(method)) {
+                    registrations.remove(inverted.get(method));
+                }
+            }
+        }));
     }
 
     public Project getProject() {
@@ -525,7 +531,13 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
 
     public List<String> getConnectedFiles() {
         List<String> connected = new ArrayList<>();
-        connectedEditors.keySet().forEach(s -> connected.add(new URI(FileUtils.sanitizeURI(s)).toString()));
+        connectedEditors.keySet().forEach(s -> {
+            try {
+                connected.add(new URI(FileUtils.sanitizeURI(s)).toString());
+            } catch (URISyntaxException e) {
+                LOG.warn(e);
+            }
+        });
         return connected;
     }
 

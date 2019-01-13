@@ -37,7 +37,7 @@ public class LanguageClientImpl implements LanguageClient {
      *
      * @param server The LanguageServer
      */
-    void connect(LanguageServer server, LanguageServerWrapper wrapper) {
+    public void connect(LanguageServer server, LanguageServerWrapper wrapper) {
         this.server = server;
         this.wrapper = wrapper;
     }
