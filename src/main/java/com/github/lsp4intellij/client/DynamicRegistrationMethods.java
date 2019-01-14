@@ -1,4 +1,4 @@
-package com.github.gtache.lsp.client;
+package com.github.lsp4intellij.client;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;

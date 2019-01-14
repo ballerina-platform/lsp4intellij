@@ -1,9 +1,9 @@
-package com.github.gtache.lsp.client.languageserver;
+package com.github.lsp4intellij.client.languageserver;
 
-import com.github.gtache.lsp.client.languageserver.wrapper.LanguageServerWrapper;
-import com.github.gtache.lsp.requests.Timeouts;
-import com.github.gtache.lsp.utils.ApplicationUtils;
-import com.github.gtache.lsp.utils.GUIUtils;
+import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import com.github.lsp4intellij.requests.Timeouts;
+import com.github.lsp4intellij.utils.ApplicationUtils;
+import com.github.lsp4intellij.utils.GUIUtils;
 import com.intellij.ide.DataManager;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -18,7 +18,7 @@ import com.intellij.openapi.wm.StatusBarWidget;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.ui.awt.RelativePoint;
 import com.intellij.util.Consumer;
-import javafx.util.Pair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
@@ -41,7 +41,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
     LSPServerStatusWidget(LanguageServerWrapper wrapper) {
         this.wrapper = wrapper;
-        this.ext = wrapper.getServerDefinition().ext();
+        this.ext = wrapper.getServerDefinition().ext;
         this.project = wrapper.getProject();
         this.projectName = project.getName();
         this.icons = GUIUtils.getIconProviderFor(wrapper.getServerDefinition()).getStatusIcons();
@@ -62,7 +62,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         Project project = wrapper.getProject();
         StatusBar statusBar = WindowManager.getInstance().getStatusBar(project);
 
-        widgetIDs.computeIfAbsent(project, k -> new ArrayList<String>("Position");
+        List<String> position = widgetIDs.computeIfAbsent(project, k -> new ArrayList<String>("Position");
 
         statusBar.addWidget(widget, "before " + widgetIDs.get(project).get(0));
         widgetIDs.get(project).add(0, widget.ID());
@@ -83,9 +83,9 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         }
     }
 
-    public StatusBarWidget.IconPresentation getPresentation(@NotNull StatusBarWidget.PlatformType type) {
+    public IconPresentation getPresentation(@NotNull PlatformType type) {
 
-        return new StatusBarWidget.IconPresentation() {
+        return new IconPresentation() {
 
             @NotNull
             @Override
