@@ -1,5 +1,6 @@
 package com.github.lsp4intellij.client.languageserver.wrapper;
 
+import com.github.lsp4intellij.PluginMain;
 import com.github.lsp4intellij.client.DynamicRegistrationMethods;
 import com.github.lsp4intellij.client.LanguageClientImpl;
 import com.github.lsp4intellij.client.languageserver.LSPServerStatusWidget;
@@ -10,9 +11,6 @@ import com.github.lsp4intellij.client.languageserver.requestmanager.SimpleReques
 import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.editor.listeners.DocumentListenerImpl;
-import com.github.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
-import com.github.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
-import com.github.lsp4intellij.editor.listeners.SelectionListenerImpl;
 import com.github.lsp4intellij.requests.Timeout;
 import com.github.lsp4intellij.requests.Timeouts;
 import com.github.lsp4intellij.utils.ApplicationUtils;
@@ -65,7 +63,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage;
 import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.jetbrains.annotations.Nullable;
-import sun.plugin2.main.client.PluginMain;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -233,7 +230,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      *
      * @param editor the editor
      */
-    public void connect(Editor editor) throws IOException {
+    public void connect(Editor editor) {
 
         if (editor == null) {
             LOG.warn("editor is null for " + serverDefinition);
@@ -261,10 +258,14 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                                         } else if (syncOptions.isLeft()) {
                                             syncKind = syncOptions.getLeft();
                                         }
-                                        EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
-                                        EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
+
+                                        //Todo - Implement
+                                        //  EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
+                                        //  EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
+                                        //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
+
                                         DocumentListenerImpl documentListener = new DocumentListenerImpl();
-                                        SelectionListenerImpl selectionListener = new SelectionListenerImpl();
+
                                         ServerOptions serverOptions = new ServerOptions(syncKind,
                                                 capabilities.getCompletionProvider(),
                                                 capabilities.getSignatureHelpProvider(),
@@ -373,11 +374,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      */
     @Nullable
     public LanguageServer getServer() {
-        try {
-            start();
-        } catch (IOException e) {
-            LOG.error("Failed to start server:" + e);
-        }
+        start();
         if (initializeFuture != null && !this.initializeFuture.isDone()) {
             this.initializeFuture.join();
         }
@@ -387,7 +384,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     /**
      * Starts the LanguageServer
      */
-    public void start() throws IOException {
+    public void start() {
         if (status == STOPPED && !alreadyShownCrash && !alreadyShownTimeout) {
             setStatus(STARTING);
             try {
@@ -552,6 +549,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      */
     public void disconnect(Editor editor) {
         disconnect(FileUtils.editorToURIString(editor));
+
     }
 
     private void removeServerWrapper() {
@@ -568,14 +566,9 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
             if (ed instanceof TextEditor) {
                 editors.add(((TextEditor) ed).getEditor());
             }
-
         }
         if (!editors.isEmpty()) {
-            try {
-                connect(editors.get(0));
-            } catch (IOException e) {
-                LOG.warn(e);
-            }
+            connect(editors.get(0));
         }
     }
 }

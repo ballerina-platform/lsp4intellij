@@ -3,6 +3,9 @@ package com.github.lsp4intellij;
 import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapperImpl;
+import com.github.lsp4intellij.editor.listeners.EditorListener;
+import com.github.lsp4intellij.editor.listeners.FileDocumentManagerListenerImpl;
+import com.github.lsp4intellij.editor.listeners.VFSListener;
 import com.github.lsp4intellij.utils.ApplicationUtils;
 import com.github.lsp4intellij.utils.FileUtils;
 import com.intellij.AppTopics;
@@ -48,6 +51,16 @@ public class PluginMain implements ApplicationComponent {
     private static final Object forcedAssociationsInstances_LOCK = new Object(){};
     private static Map<String, LanguageServerDefinition> extToServerDefinition = new HashMap<>();
     private static boolean loadedExtensions = false;
+
+    @Override
+    public void initComponent() {
+        // LSPState.getInstance.getState(); //Need that to trigger loadState
+        EditorFactory.getInstance().addEditorFactoryListener(new EditorListener(), Disposer.newDisposable());
+        VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
+        ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
+                new FileDocumentManagerListenerImpl());
+        LOG.info("PluginMain init finished");
+    }
 
     public static void resetAssociations() {
         synchronized (forcedAssociationsInstances_LOCK) {
@@ -148,7 +161,7 @@ public class PluginMain implements ApplicationComponent {
      *
      * @param editor the editor
      */
-    private static void editorOpened(Editor editor) {
+    public static void editorOpened(Editor editor) {
         addExtensions();
         VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
         if (file != null) {
@@ -300,6 +313,16 @@ public class PluginMain implements ApplicationComponent {
         });
     }
 
+    public static void removeWrapper(LanguageServerWrapper wrapper) {
+        if (wrapper.getProject() != null) {
+            extToLanguageWrapper.remove(new MutablePair<>(wrapper.getServerDefinition().ext,
+                    FileUtils.pathToUri(wrapper.getProject().getBasePath())));
+        } else {
+            LOG.error("No attached projects found for wrapper");
+
+        }
+    }
+
     //    /**
     //     * Returns the corresponding workspaceSymbols given a name and a project
     //     *
@@ -361,26 +384,6 @@ public class PluginMain implements ApplicationComponent {
     //        }
     //    }
 
-    public static void removeWrapper(LanguageServerWrapper wrapper) {
-        if (wrapper.getProject() != null) {
-            extToLanguageWrapper.remove(new MutablePair<>(wrapper.getServerDefinition().ext,
-                    FileUtils.pathToUri(wrapper.getProject().getBasePath())));
-        } else {
-            LOG.error("No attached projects found for wrapper");
-
-        }
-    }
-
-
-    @Override
-    public void initComponent() {
-        // LSPState.getInstance.getState(); //Need that to trigger loadState
-        EditorFactory.getInstance().addEditorFactoryListener(new EditorListener(), Disposer.newDisposable());
-        VirtualFileManager.getInstance().addVirtualFileListener(VFSListener);
-        ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
-                FileDocumentManagerListenerImpl);
-        LOG.info("PluginMain init finished");
-    }
 
     // Todo - Implement
     //    public void setForcedAssociations(Map<String[], String[]> associations) {

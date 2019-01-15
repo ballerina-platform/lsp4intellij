@@ -18,6 +18,7 @@ import com.intellij.openapi.wm.StatusBarWidget;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.ui.awt.RelativePoint;
 import com.intellij.util.Consumer;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 
@@ -47,7 +48,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         this.icons = GUIUtils.getIconProviderFor(wrapper.getServerDefinition()).getStatusIcons();
 
         for (Timeouts t : Timeouts.values()) {
-            timeouts.put(t, new Pair<>(0, 0));
+            timeouts.put(t, new MutablePair<>(0, 0));
         }
     }
 
@@ -62,7 +63,11 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         Project project = wrapper.getProject();
         StatusBar statusBar = WindowManager.getInstance().getStatusBar(project);
 
-        List<String> position = widgetIDs.computeIfAbsent(project, k -> new ArrayList<String>("Position");
+        if(widgetIDs.get(project).isEmpty()){
+            ArrayList<String> list = new ArrayList<>();
+            list.add("Position");
+            widgetIDs.put(project,list);
+        }
 
         statusBar.addWidget(widget, "before " + widgetIDs.get(project).get(0));
         widgetIDs.get(project).add(0, widget.ID());
@@ -77,9 +82,9 @@ public class LSPServerStatusWidget implements StatusBarWidget {
     public void notifyResult(Timeouts timeout, Boolean success) {
         Pair<Integer, Integer> oldValue = timeouts.get(timeout);
         if (success) {
-            timeouts.replace(timeout, new Pair<>(oldValue.getKey() + 1, oldValue.getValue()));
+            timeouts.replace(timeout, new MutablePair<>(oldValue.getKey() + 1, oldValue.getValue()));
         } else {
-            timeouts.replace(timeout, new Pair<>(oldValue.getKey(), oldValue.getValue() + 1));
+            timeouts.replace(timeout, new MutablePair<>(oldValue.getKey(), oldValue.getValue() + 1));
         }
     }
 
@@ -119,8 +124,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                 @Override
                 public void actionPerformed(AnActionEvent e) {
                     //Todo - revisit
-                    Messages.showInfoMessage("Connected files :\n" + wrapper.getConnectedFiles().toString("\n"),
-                            "Connected Files");
+                    Messages.showInfoMessage("Connected files :\n" + wrapper.getConnectedFiles().toString(), "Connected Files");
                 }
             }
 

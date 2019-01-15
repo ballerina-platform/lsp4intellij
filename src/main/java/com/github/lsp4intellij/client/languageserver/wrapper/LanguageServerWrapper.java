@@ -37,7 +37,7 @@ public abstract class LanguageServerWrapper {
         notifyResult(timeouts, false);
     }
 
-    abstract Iterable<String> getConnectedFiles();
+    public abstract Iterable<String> getConnectedFiles();
 
     /**
      * @return The current status of this server
@@ -98,7 +98,7 @@ public abstract class LanguageServerWrapper {
      *
      * @param editor the editor
      */
-    public abstract void connect(Editor editor) throws IOException;
+    public abstract void connect(Editor editor);
 
     /**
      * Disconnects an editor from the LanguageServer

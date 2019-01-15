@@ -70,7 +70,6 @@ public interface RequestManager {
 
     void logMessage(MessageParams messageParams);
 
-    //Todo - verify replacing Any with Object.
     void telemetryEvent(Object o);
 
     CompletableFuture<Void> registerCapability(RegistrationParams params);
