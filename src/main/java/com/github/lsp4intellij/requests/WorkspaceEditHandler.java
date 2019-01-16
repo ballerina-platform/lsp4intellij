@@ -1,6 +1,7 @@
 package com.github.lsp4intellij.requests;
 
 import com.github.lsp4intellij.utils.ApplicationUtils;
+import com.github.lsp4intellij.utils.DocumentUtils;
 import com.github.lsp4intellij.utils.FileUtils;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.command.UndoConfirmationPolicy;
