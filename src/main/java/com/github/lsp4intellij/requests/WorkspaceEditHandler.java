@@ -1,5 +1,6 @@
 package com.github.lsp4intellij.requests;
 
+import com.github.lsp4intellij.contributors.psi.LSPPsiElement;
 import com.github.lsp4intellij.utils.ApplicationUtils;
 import com.github.lsp4intellij.utils.DocumentUtils;
 import com.github.lsp4intellij.utils.FileUtils;
