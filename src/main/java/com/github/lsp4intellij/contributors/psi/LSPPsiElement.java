@@ -14,13 +14,21 @@ import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.KeyWithDefaultValue;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.UserDataHolderBase;
+import com.intellij.psi.ContributedReferenceHost;
+import com.intellij.psi.FileViewProvider;
 import com.intellij.psi.NavigatablePsiElement;
+import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiElementFactory;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiInvalidElementAccessException;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiNameIdentifierOwner;
+import com.intellij.psi.PsiNamedElement;
+import com.intellij.psi.PsiPolyVariantReference;
 import com.intellij.psi.PsiReference;
+import com.intellij.psi.PsiReferenceService;
 import com.intellij.psi.ResolveState;
 import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -28,6 +36,7 @@ import com.intellij.psi.search.SearchScope;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.concurrency.AtomicFieldUpdater;
 import com.intellij.util.keyFMap.KeyFMap;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import javax.swing.*;
@@ -38,8 +47,8 @@ import javax.swing.*;
 public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElement {
 
     private Key<KeyFMap> COPYABLE_USER_MAP_KEY = Key.create("COPYABLE_USER_MAP_KEY");
-    private AtomicFieldUpdater<LSPPsiElement, KeyFMap> updater = AtomicFieldUpdater.forFieldOfType(LSPPsiElement.class,
-                                                                                                   KeyFMap.class);
+    private AtomicFieldUpdater<LSPPsiElement, KeyFMap> updater = AtomicFieldUpdater
+            .forFieldOfType(LSPPsiElement.class, KeyFMap.class);
     private PsiManager manager;
     private LSPPsiReference reference;
     private final Project project;
@@ -63,7 +72,6 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         manager = PsiManager.getInstance(project);
         reference = new LSPPsiReference(this);
     }
-
 
     /**
      * Concurrent writes to this field are via CASes only, using the {@link #updater}
@@ -252,7 +260,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return true if the character is found, false otherwise.
      */
     public boolean textContains(char c) {
-        return getText().contains(c);
+        return getText().indexOf(c) >= 0;
     }
 
     /**
@@ -417,7 +425,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return the element which was actually inserted in the tree (either { @code newElement} or its copy)
      * @throws IncorrectOperationException if the modification is not supported or not possible for some reason.
      */
-    public PsiElement replace(PsiElement newElement) {
+    public PsiElement replace(@NotNull PsiElement newElement) {
         throw new IncorrectOperationException();
     }
 
@@ -482,7 +490,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @see com.intellij.psi.search.searches.ReferencesSearch
      */
     public PsiReference[] getReferences() {
-        return new PsiReference[]{(PsiReference) reference};
+        return new PsiReference[] { (PsiReference) reference };
     }
 
     /**
@@ -496,15 +504,14 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return true if the declaration processing should continue or false if it should be stopped.
      */
     public boolean processDeclarations(PsiScopeProcessor processor, ResolveState state, PsiElement lastParent,
-                                       PsiElement place) {
+            PsiElement place) {
         return false;
     }
 
     /**
      * Returns the element which should be used as the parent of this element in a tree up walk during a resolve
      * operation. For most elements, this returns {@code getParent()}, but the context can be overridden for some
-     * elements like code fragments (see {@link PsiElementFactory#createCodeBlockCodeFragment(String, PsiElement,
-     * boolean)}).
+     * elements like code fragments.
      *
      * @return the resolve context element.
      */
@@ -637,11 +644,14 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         while (control) {
             KeyFMap map = getUserMap();
             KeyFMap copyableMap = map.get(COPYABLE_USER_MAP_KEY);
-            if (copyableMap == null) copyableMap = KeyFMap.EMPTY_MAP;
+            if (copyableMap == null)
+                copyableMap = KeyFMap.EMPTY_MAP;
             KeyFMap newCopyableMap = (value == null) ? copyableMap.minus(key) : copyableMap.plus(key, value);
-            KeyFMap newMap = (newCopyableMap.isEmpty()) ? map.minus(COPYABLE_USER_MAP_KEY) : map.plus(
-                    COPYABLE_USER_MAP_KEY, newCopyableMap);
-            if ((newMap.equalsByReference(map)) || changeUserMap(map, newMap)) control = false;
+            KeyFMap newMap = (newCopyableMap.isEmpty()) ?
+                    map.minus(COPYABLE_USER_MAP_KEY) :
+                    map.plus(COPYABLE_USER_MAP_KEY, newCopyableMap);
+            if ((newMap.equalsByReference(map)) || changeUserMap(map, newMap))
+                control = false;
         }
     }
 
@@ -691,9 +701,9 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         Editor editor = FileUtils.editorFromPsiFile(getContainingFile());
         if (editor == null) {
             OpenFileDescriptor descriptor = new OpenFileDescriptor(getProject(), getContainingFile().getVirtualFile(),
-                                                                   getTextOffset());
-            ApplicationUtils.invokeLater(() -> ApplicationUtils.writeAction(() -> FileEditorManager
-                    .getInstance(getProject()).openTextEditor(descriptor, false)));
+                    getTextOffset());
+            ApplicationUtils.invokeLater(() -> ApplicationUtils
+                    .writeAction(() -> FileEditorManager.getInstance(getProject()).openTextEditor(descriptor, false)));
         }
     }
 
@@ -714,6 +724,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return the project instance.
      * @throws PsiInvalidElementAccessException if this element is invalid
      */
+    @NotNull
     public Project getProject() {
         return project;
     }

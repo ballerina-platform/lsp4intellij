@@ -1,6 +1,8 @@
 package com.github.lsp4intellij.requests;
 
 import com.github.lsp4intellij.contributors.psi.LSPPsiElement;
+import com.github.lsp4intellij.editor.EditorEventManager;
+import com.github.lsp4intellij.editor.EditorEventManagerBase;
 import com.github.lsp4intellij.utils.ApplicationUtils;
 import com.github.lsp4intellij.utils.DocumentUtils;
 import com.github.lsp4intellij.utils.FileUtils;
@@ -29,7 +31,9 @@ import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 import java.io.File;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,10 +46,10 @@ import java.util.stream.Stream;
  * An Object handling WorkspaceEdits
  */
 public class WorkspaceEditHandler {
-    private Logger LOG = Logger.getInstance(WorkspaceEditHandler.class);
+    private static Logger LOG = Logger.getInstance(WorkspaceEditHandler.class);
 
-    public void applyEdit(PsiElement elem, String newName, UsageInfo[] infos, RefactoringElementListener listener,
-                          Iterable<VirtualFile> openedEditors) {
+    public static void applyEdit(PsiElement elem, String newName, UsageInfo[] infos, RefactoringElementListener listener,
+            List<VirtualFile> openedEditors) {
         Map<String, List<TextEdit>> edits = new HashMap<>();
         if (elem instanceof LSPPsiElement) {
             LSPPsiElement lspElem = (LSPPsiElement) elem;
@@ -54,11 +58,16 @@ public class WorkspaceEditHandler {
                     Editor editor = FileUtils.editorFromVirtualFile(ui.getVirtualFile(), ui.getProject());
                     TextRange range = ui.getElement().getTextRange();
                     Range lspRange = new Range(DocumentUtils.offsetToLSPPos(editor, range.getStartOffset()),
-                                               DocumentUtils.offsetToLSPPos(editor, range.getEndOffset()));
+                            DocumentUtils.offsetToLSPPos(editor, range.getEndOffset()));
                     TextEdit edit = new TextEdit(lspRange, newName);
-                    String uri = FileUtils.sanitizeURI(
-                            new URL(ui.getVirtualFile().getUrl().replace(" ", FileUtils.SPACE_ENCODED)).toURI
-                                    .toString());
+                    String uri = null;
+                    try {
+                        uri = FileUtils.sanitizeURI(
+                                new URL(ui.getVirtualFile().getUrl().replace(" ", FileUtils.SPACE_ENCODED)).toURI()
+                                        .toString());
+                    } catch (MalformedURLException | URISyntaxException e) {
+                        LOG.warn(e);
+                    }
                     if (edits.keySet().contains(uri)) {
                         edits.get(uri).add(edit);
                     } else {
@@ -73,23 +82,26 @@ public class WorkspaceEditHandler {
         }
     }
 
+    public static boolean applyEdit(WorkspaceEdit edit, String name) {
+        return applyEdit(edit,name,new ArrayList<>());
+    }
+
     /**
      * Applies a WorkspaceEdit
      *
      * @param edit The edit
      * @return True if everything was applied, false otherwise
      */
-    public boolean applyEdit(WorkspaceEdit edit, String name, Iterable<VirtualFile> toClose) {
+    public static boolean applyEdit(WorkspaceEdit edit, String name, List<VirtualFile> toClose) {
         final String newName = (name == null) ? "LSP edits" : name;
-
         if (edit != null) {
             Map<String, List<TextEdit>> changes = (edit.getChanges() != null) ? edit.getChanges() : null;
-            List<Either<TextDocumentEdit, ResourceOperation>> dChanges =
-                    (edit.getDocumentChanges() != null) ? edit.getDocumentChanges() : null;
-            boolean[] didApply = new boolean[]{true};
+            List<Either<TextDocumentEdit, ResourceOperation>> dChanges = (edit.getDocumentChanges() != null) ?
+                    edit.getDocumentChanges() : null;
+            boolean[] didApply = new boolean[] { true };
 
             ApplicationUtils.invokeLater(() -> {
-                Project[] curProject = new Project[]{null};
+                Project[] curProject = new Project[] { null };
                 List<VirtualFile> openedEditors = new ArrayList<>();
 
                 //Get the runnable of edits for each editor to apply them all in one command
@@ -101,12 +113,13 @@ public class WorkspaceEditHandler {
                             VersionedTextDocumentIdentifier doc = textEdit.getTextDocument();
                             int version = doc.getVersion();
                             String uri = FileUtils.sanitizeURI(doc.getUri());
-                            EditorEventManager manager = EditorEventManager.forUri(uri);
+                            EditorEventManager manager = EditorEventManagerBase.forUri(uri);
                             if (manager != null) {
-                                curProject[0] = manager.editor().getProject();
+                                curProject[0] = manager.editor.getProject();
                                 toApply.add(manager.getEditsRunnable(version, textEdit.getEdits(), newName));
                             } else {
-                                toApply.add(manageUnopenedEditor(textEdit.getEdits(), uri, version, openedEditors, curProject, newName));
+                                toApply.add(manageUnopenedEditor(textEdit.getEdits(), uri, version, openedEditors,
+                                        curProject, newName));
                             }
                             ;
                         } else if (tEdit.isRight()) {
@@ -123,12 +136,14 @@ public class WorkspaceEditHandler {
                         String uri = FileUtils.sanitizeURI(rEdit.getKey());
                         List<TextEdit> lChanges = rEdit.getValue();
 
-                        EditorEventManager manager = EditorEventManager.forUri(uri);
+                        EditorEventManager manager = EditorEventManagerBase.getInstance().forUri(uri);
                         if (manager != null) {
-                            curProject[0] = manager.editor().getProject();
+                            curProject[0] = manager.editor.getProject();
                             toApply.add(manager.getEditsRunnable(Integer.MAX_VALUE, lChanges, newName));
                         } else {
-                            toApply.add(manageUnopenedEditor(lChanges, uri, Integer.MAX_VALUE, openedEditors, curProject, newName));
+                            toApply.add(
+                                    manageUnopenedEditor(lChanges, uri, Integer.MAX_VALUE, openedEditors, curProject,
+                                            newName));
                         }
                         ;
                     });
@@ -143,8 +158,8 @@ public class WorkspaceEditHandler {
                         }
                     };
                     ApplicationUtils.invokeLater(() -> ApplicationUtils.writeAction(() -> {
-                        CommandProcessor.getInstance().executeCommand(curProject, runnable, name, "LSPPlugin",
-                                                                      UndoConfirmationPolicy.DEFAULT, false);
+                        CommandProcessor.getInstance().executeCommand(curProject[0], runnable, name, "LSPPlugin",
+                                UndoConfirmationPolicy.DEFAULT, false);
                         openedEditors.forEach(f -> FileEditorManager.getInstance(curProject[0]).closeFile(f));
                         toClose.forEach(f -> FileEditorManager.getInstance(curProject[0]).closeFile(f));
                     }));
@@ -159,30 +174,28 @@ public class WorkspaceEditHandler {
     /**
      * Opens an editor when needed and gets the Runnable
      *
-     * @param edits   The text edits
-     * @param uri     The uri of the file
-     * @param version The version of the file
+     * @param edits         The text edits
+     * @param uri           The uri of the file
+     * @param version       The version of the file
      * @param openedEditors
      * @param curProject
      * @param name
      * @return The runnable containing the edits
      */
-    public Runnable manageUnopenedEditor(Iterable<TextEdit> edits, String uri, int version,
-                                         List<VirtualFile> openedEditors,
-                                         Project[] curProject, String name){
+    public static Runnable manageUnopenedEditor(Iterable<TextEdit> edits, String uri, int version,
+            List<VirtualFile> openedEditors, Project[] curProject, String name) {
         Project[] projects = ProjectManager.getInstance().getOpenProjects();
         //Infer the project from the uri
         Project project = Stream.of(projects)
-                .map(p -> new ImmutablePair<String, Project>(
-                        FileUtils.VFSToURI(ProjectUtil.guessProjectDir(p)), p))
-                .filter(p -> uri.startsWith(p.getLeft()))
-                .sorted((o1, o2) -> o1.getLeft().length())
-                .sorted(Collections.reverseOrder())
-                .map(p -> p.getRight())
-                .findFirst()
-                .orElse(projects[0]);
-        VirtualFile file = LocalFileSystem.getInstance().findFileByIoFile(
-                new File(new URI(FileUtils.sanitizeURI(uri))));
+                .map(p -> new ImmutablePair<>(FileUtils.VFSToURI(ProjectUtil.guessProjectDir(p)), p))
+                .filter(p -> uri.startsWith(p.getLeft())).sorted((o1, o2) -> o1.getLeft().length())
+                .sorted(Collections.reverseOrder()).map(p -> p.getRight()).findFirst().orElse(projects[0]);
+        VirtualFile file = null;
+        try {
+            file = LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(FileUtils.sanitizeURI(uri))));
+        } catch (URISyntaxException e) {
+            LOG.warn(e);
+        }
         FileEditorManager fileEditorManager = FileEditorManager.getInstance(project);
         OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
         Editor editor = ApplicationUtils.computableWriteAction(() -> {
@@ -191,14 +204,14 @@ public class WorkspaceEditHandler {
         openedEditors.add(file);
         curProject[0] = editor.getProject();
         Runnable runnable = null;
-        EditorEventManager manager = EditorEventManager.forEditor(editor);
+        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
             runnable = manager.getEditsRunnable(version, edits, name);
         }
         return runnable;
     }
 
-    class Foo implements  Runnable {
+    class Foo implements Runnable {
 
         @Override
         public void run() {
