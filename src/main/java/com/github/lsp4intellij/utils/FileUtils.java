@@ -27,7 +27,7 @@ import java.net.URL;
 public class FileUtils {
     private final static OS os = (System.getProperty("os.name").toLowerCase().contains("win")) ? OS.WINDOWS : OS.UNIX;
     private final static String COLON_ENCODED = "%3A";
-    private final static String SPACE_ENCODED = "%20";
+    public final static String SPACE_ENCODED = "%20";
     private final static String URI_FILE_BEGIN = "file:";
     private final static String URI_VALID_FILE_BEGIN = "file:///";
     private final static char URI_PATH_SEP = '/';
