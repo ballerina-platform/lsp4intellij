@@ -3,6 +3,7 @@ package com.github.lsp4intellij.client.languageserver.wrapper;
 import com.github.lsp4intellij.client.languageserver.ServerStatus;
 import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
+import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.requests.Timeouts;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
@@ -131,11 +132,12 @@ public abstract class LanguageServerWrapper {
     @Nullable
     public abstract ServerCapabilities getServerCapabilities();
 
-    /**
-     * @return The language ID that this wrapper is dealing with if defined in the content type mapping for the language languageServer
-     */
-    @Nullable
-    public abstract String getLanguageId(String[] contentTypes);
+    // Todo - Implement
+    //    /**
+    //     * @return The language ID that this wrapper is dealing with if defined in the content type mapping for the language languageServer
+    //     */
+    //    @Nullable
+    //    public abstract String getLanguageId(String[] contentTypes);
 
     public abstract void logMessage(Message message);
 

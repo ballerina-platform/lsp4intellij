@@ -17,10 +17,12 @@ import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiDocumentManager;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
@@ -414,6 +416,48 @@ public class EditorEventManager {
                 }
             }
         });
+    }
+
+    public void documentChanged(DocumentEvent event) {
+        if (!editor.isDisposed()) {
+            if (event.getDocument() == editor.getDocument()) {
+                //Todo - restore when adding hover support
+                // long predTime = System.nanoTime(); //So that there are no hover events while typing
+                changesParams.getTextDocument().setVersion(version++);
+
+                if(syncKind==TextDocumentSyncKind.Incremental) {
+                    TextDocumentContentChangeEvent changeEvent = changesParams.getContentChanges().get(0);
+                    CharSequence newText = event.getNewFragment();
+                    int offset = event.getOffset();
+                    int newTextLength = event.getNewLength();
+                    Position lspPosition = DocumentUtils.offsetToLSPPos(editor, offset);
+                    int startLine = lspPosition.getLine();
+                    int startColumn = lspPosition.getCharacter();
+                    CharSequence oldText = event.getOldFragment();
+
+                    //if text was deleted/replaced, calculate the end position of inserted/deleted text
+                    int endLine,endColumn = -1;
+                    if (oldText.length() > 0) {
+                        endLine = startLine + StringUtil.countNewLines(oldText);
+                        String[] oldLines = oldText.toString().split("\n");
+                        int oldTextLength = oldLines.length==0 ? 0 : oldLines[oldLines.length-1].length();
+                        endColumn = oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
+                    } else { //if insert or no text change, the end position is the same
+                        endLine = startLine;
+                        endColumn = startColumn;
+                    }
+                    Range range = new Range(new Position(startLine, startColumn), new Position(endLine, endColumn));
+                    changeEvent.setRange(range);
+                    changeEvent.setRangeLength(newTextLength);
+                    changeEvent.setText(newText.toString());
+                } else if(syncKind==TextDocumentSyncKind.Full) {
+                    changesParams.getContentChanges().get(0).setText(editor.getDocument().getText());
+                }
+                requestManager.didChange(changesParams);
+            } else {
+                LOG.error("Wrong document for the EditorEventManager");
+            }
+        }
     }
 
     /**

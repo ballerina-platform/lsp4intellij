@@ -93,7 +93,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     private Logger LOG = Logger.getInstance(LanguageServerWrapperImpl.class);
 
     private static final Map<Pair<String, String>, LanguageServerWrapper> uriToLanguageServerWrapper = new ConcurrentHashMap<>();
-    private LanguageServerDefinition serverDefinition;
+    public LanguageServerDefinition serverDefinition;
     private Project project;
     private final HashSet<Editor> toConnect = new HashSet<>();
     private String rootPath;
@@ -170,14 +170,14 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 start();
                 if (this.initializeFuture != null) {
                     this.initializeFuture
-                            .get((capabilitiesAlreadyRequested ? 0 : Timeout.INIT_TIMEOUT()), TimeUnit.MILLISECONDS);
+                            .get((capabilitiesAlreadyRequested ? 0 : Timeout.INIT_TIMEOUT), TimeUnit.MILLISECONDS);
                     notifySuccess(Timeouts.INIT);
                 }
             } catch (TimeoutException e) {
 
                 notifyFailure(Timeouts.INIT);
                 String msg = "LanguageServer for definition\n " + serverDefinition + "\nnot initialized after "
-                        + Timeout.INIT_TIMEOUT() / 1000 + "s\nCheck settings";
+                        + Timeout.INIT_TIMEOUT / 1000 + "s\nCheck settings";
                 LOG.warn(msg, e);
 
                 ApplicationUtils.invokeLater(() -> {
@@ -196,8 +196,9 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
         return initializeResult != null ? this.initializeResult.getCapabilities() : null;
     }
 
-    public void notifyResult(Timeouts timeout, Boolean success) {
-        statusWidget.notifyResult(timeout, success);
+    @Override
+    public void notifyResult(Timeouts timeouts, boolean success) {
+        statusWidget.notifyResult(timeouts, success);
     }
 
     /**
@@ -274,13 +275,13 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                                                 capabilities.getDocumentLinkProvider(),
                                                 capabilities.getExecuteCommandProvider(),
                                                 capabilities.getSemanticHighlighting());
-                                        EditorEventManager manager = new EditorEventManager(editor, mouseListener,
-                                                mouseMotionListener, documentListener, selectionListener,
+                                        EditorEventManager manager = new EditorEventManager(editor, documentListener,
                                                 requestManager, serverOptions, this);
-                                        mouseListener.setManager(manager);
-                                        mouseMotionListener.setManager(manager);
+//                                        mouseListener.setManager(manager);
+//                                        mouseMotionListener.setManager(manager);
+//                                        selectionListener.setManager(manager);
                                         documentListener.setManager(manager);
-                                        selectionListener.setManager(manager);
+
                                         manager.registerListeners();
                                         synchronized (this.connectedEditors) {
                                             this.connectedEditors.put(uri, manager);
@@ -320,8 +321,8 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 this.connectedEditors.remove(uri);
                 for (Map.Entry<String, EditorEventManager> ed : this.connectedEditors.entrySet()) {
                     uriToLanguageServerWrapper.remove(new MutablePair<>(uri, FileUtils.projectToUri(project)));
-                    ed.removeListeners();
-                    ed.documentClosed();
+                    ed.getValue().removeListeners();
+                    ed.getValue().documentClosed();
                 }
             }
         }
@@ -340,7 +341,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
         if (this.languageServer != null) {
             try {
                 CompletableFuture<Object> shutdown = this.languageServer.shutdown();
-                shutdown.get(Timeout.SHUTDOWN_TIMEOUT(), TimeUnit.MILLISECONDS);
+                shutdown.get(Timeout.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
                 notifySuccess(Timeouts.SHUTDOWN);
             } catch (Exception e) {
                 notifyFailure(Timeouts.SHUTDOWN);
