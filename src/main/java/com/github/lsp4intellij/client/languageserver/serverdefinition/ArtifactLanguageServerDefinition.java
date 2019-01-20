@@ -15,7 +15,7 @@ import java.util.List;
  * Represents a ServerDefinition for a LanguageServer stored on a repository
  */
 public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefinition {
-    private Logger LOG = Logger.getInstance(UserConfigurableServerDefinition.class);
+    private final static Logger LOG = Logger.getInstance(UserConfigurableServerDefinition.class);
 
     private String packge;
     private String mainClass;
@@ -76,12 +76,13 @@ public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefi
     }
 
     public String toString() {
-        return super.toString() + " " + typ + " : " + packge + " mainClass : " + mainClass + " args : " + String.join(
+        return super.toString() + " " + getTyp() + " : " + packge + " mainClass : " + mainClass + " args : " +
+                String.join(
                 " ", args);
     }
 
     public String[] toArray() {
-        String[] strings = new String[]{typ, ext, packge, mainClass};
+        String[] strings = new String[]{getTyp(), ext, packge, mainClass};
         String[] merged = Arrays.copyOf(strings, strings.length + args.length);
         System.arraycopy(args, 0, merged, strings.length, args.length);
         return merged;

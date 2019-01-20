@@ -16,148 +16,149 @@ import java.util.Map;
 import java.util.Set;
 
 /**
-  * A trait representing a ServerDefinition
-  */
+ * A trait representing a ServerDefinition
+ */
 public class LanguageServerDefinition {
-  private static final LanguageServerDefinition INSTANCE = new LanguageServerDefinition();
+    public static final String SPLIT_CHAR = ";";
+    private static final Logger LOG = Logger.getInstance(LanguageServerDefinition.class);
+    private static final LanguageServerDefinition INSTANCE = new LanguageServerDefinition();
+    /**
+     * @return The extension that the language server manages
+     */
+    public String ext;
+    /**
+     * @return The id of the language server (same as extension)
+     */
+    public String id = ext;
+    private Set<LanguageServerDefinition> allDefinitions = new HashSet<>();
+    private Set<String> mappedExtensions = new HashSet<>();
+    private Map<String, StreamConnectionProvider> streamConnectionProviders = new HashMap<>();
 
-  private LanguageServerDefinition() {
-  }
-
-  public static LanguageServerDefinition getInstance() {
-    return INSTANCE;
-  }
-
-private Logger LOG = Logger.getInstance(LanguageServerDefinition.class);
-
-  public static final String SPLIT_CHAR = ";";
-  private Set<LanguageServerDefinition> allDefinitions = new HashSet<>();
-
-  /**
-   * @return All registered server definitions
-   */
-  public Set<LanguageServerDefinition> getAllDefinitions() {
-    return new HashSet<>(allDefinitions);
-  }
-
-  /**
-   * Register a server definition
-   *
-   * @param definition The server definition
-   */
-  public void register(LanguageServerDefinition definition){
-    if (definition != null) {
-      allDefinitions.add(definition);
-      LOG.info("Added definition for " + definition);
-    } else {
-      LOG.warn("Trying to add a null definition");
+    protected LanguageServerDefinition() {
     }
-  }
 
-  public LanguageServerDefinition fromArray(String[] arr) {
-    return UserConfigurableServerDefinition.fromArray(arr);
-  }
-
-  private Set<String> mappedExtensions = new HashSet<>();
-  private Map<String, StreamConnectionProvider> streamConnectionProviders = new HashMap<>();
-
-  //TODO: Verify logic here in scala
-  /**
-    * @return The extension that the language server manages
-    */
-  public String ext;
-
-  //TODO: Verify logic here in scala
-  /**
-    * @return The id of the language server (same as extension)
-    */
-  public String id =  ext;
-
-  /**
-    * Starts a Language server for the given directory and returns a tuple (InputStream, OutputStream)
-    *
-    * @param workingDir The root directory
-    * @return The input and output streams of the server
-    */
-  public Pair<InputStream, OutputStream> start(String workingDir) throws IOException {
-    StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
-    if(streamConnectionProvider != null) {
-      return new ImmutablePair<>(streamConnectionProvider.getInputStream(), streamConnectionProvider.getOutputStream());
-    } else {
-      streamConnectionProvider = createConnectionProvider(workingDir);
-      streamConnectionProvider.start();
-      streamConnectionProviders.put(workingDir, streamConnectionProvider);
-      return new ImmutablePair<>(streamConnectionProvider.getInputStream(), streamConnectionProvider.getOutputStream());
+    public static LanguageServerDefinition getInstance() {
+        return INSTANCE;
     }
-  }
 
-  /**
-    * Stops the Language server corresponding to the given working directory
-    *
-    * @param workingDir The root directory
-    */
-  public void stop(String workingDir){
-    StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
-    if(streamConnectionProvider != null) {
-      streamConnectionProvider.stop();
-    } else {
-      LOG.warn("No connection for workingDir " + workingDir + " and ext " + ext);
+    /**
+     * @return All registered server definitions
+     */
+    public Set<LanguageServerDefinition> getAllDefinitions() {
+        return new HashSet<>(allDefinitions);
     }
-  }
 
-  /**
-    * Adds a file extension for this LanguageServer
-    *
-    * @param ext the extension
-    */
-  public void addMappedExtension(String ext) {
-    mappedExtensions.add(ext);
-  }
+    //TODO: Verify logic here in scala
 
-  /**
-    * Removes a file extension for this LanguageServer
-    *
-    * @param ext the extension
-    */
-  public void removeMappedExtension(String ext) {
-    mappedExtensions.remove(ext);
-  }
+    /**
+     * Register a server definition
+     *
+     * @param definition The server definition
+     */
+    public void register(LanguageServerDefinition definition) {
+        if (definition != null) {
+            allDefinitions.add(definition);
+            LOG.info("Added definition for " + definition);
+        } else {
+            LOG.warn("Trying to add a null definition");
+        }
+    }
 
-  /**
-    * @return the extensions linked to this LanguageServer
-    */
-  public Set<String> getMappedExtensions() {
-    return new HashSet<>(mappedExtensions);
-  }
+    //TODO: Verify logic here in scala
 
-  /**
-    * @return the LanguageClient for this LanguageServer
-    */
-  public LanguageClientImpl createLanguageClient() {
-     return new LanguageClientImpl();
-  }
+    public LanguageServerDefinition fromArray(String[] arr) {
+        return new UserConfigurableServerDefinition().fromArray(arr);
+    }
 
-  public Object getInitializationOptions(URI uri) {
-    return null;
-  }
+    /**
+     * Starts a Language server for the given directory and returns a tuple (InputStream, OutputStream)
+     *
+     * @param workingDir The root directory
+     * @return The input and output streams of the server
+     */
+    public Pair<InputStream, OutputStream> start(String workingDir) throws IOException {
+        StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
+        if (streamConnectionProvider != null) {
+            return new ImmutablePair<>(streamConnectionProvider.getInputStream(),
+                                       streamConnectionProvider.getOutputStream());
+        } else {
+            streamConnectionProvider = createConnectionProvider(workingDir);
+            streamConnectionProvider.start();
+            streamConnectionProviders.put(workingDir, streamConnectionProvider);
+            return new ImmutablePair<>(streamConnectionProvider.getInputStream(),
+                                       streamConnectionProvider.getOutputStream());
+        }
+    }
 
-  @Override
-  public String toString(){
-    return "ServerDefinition for " + ext;
-  }
+    /**
+     * Stops the Language server corresponding to the given working directory
+     *
+     * @param workingDir The root directory
+     */
+    public void stop(String workingDir) {
+        StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
+        if (streamConnectionProvider != null) {
+            streamConnectionProvider.stop();
+        } else {
+            LOG.warn("No connection for workingDir " + workingDir + " and ext " + ext);
+        }
+    }
 
-  /**
-    * @return The array corresponding to the server definition
-    */
-  public String[] toArray(){
-    throw new UnsupportedOperationException();
-  }
+    /**
+     * Adds a file extension for this LanguageServer
+     *
+     * @param ext the extension
+     */
+    public void addMappedExtension(String ext) {
+        mappedExtensions.add(ext);
+    }
 
-//  /**
-//    * Creates a StreamConnectionProvider given the working directory
-//    *
-//    * @param workingDir The root directory
-//    * @return The stream connection provider
-//    */
-//  abstract StreamConnectionProvider createConnectionProvider(String workingDir);
+    /**
+     * Removes a file extension for this LanguageServer
+     *
+     * @param ext the extension
+     */
+    public void removeMappedExtension(String ext) {
+        mappedExtensions.remove(ext);
+    }
+
+    /**
+     * @return the extensions linked to this LanguageServer
+     */
+    public Set<String> getMappedExtensions() {
+        return new HashSet<>(mappedExtensions);
+    }
+
+    /**
+     * @return the LanguageClient for this LanguageServer
+     */
+    public LanguageClientImpl createLanguageClient() {
+        return new LanguageClientImpl();
+    }
+
+    public Object getInitializationOptions(URI uri) {
+        return null;
+    }
+
+    @Override
+    public String toString() {
+        return "ServerDefinition for " + ext;
+    }
+
+    /**
+     * @return The array corresponding to the server definition
+     */
+    public String[] toArray() {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Creates a StreamConnectionProvider given the working directory
+     *
+     * @param workingDir The root directory
+     * @return The stream connection provider
+     */
+    public StreamConnectionProvider createConnectionProvider(String workingDir) {
+        throw new UnsupportedOperationException();
+    }
 }

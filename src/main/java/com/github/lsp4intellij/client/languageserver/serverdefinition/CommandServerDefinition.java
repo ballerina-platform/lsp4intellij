@@ -8,7 +8,13 @@ import java.util.Arrays;
 /**
  * A base trait for every command-line server definition
  */
-public abstract class CommandServerDefinition extends UserConfigurableServerDefinition {
+public class CommandServerDefinition extends UserConfigurableServerDefinition {
+    private static final CommandServerDefinition INSTANCE = new CommandServerDefinition();
+
+    public static CommandServerDefinition getInstance() {
+        return INSTANCE;
+    }
+
     protected String[] command;
 
     protected CommandServerDefinition() {
