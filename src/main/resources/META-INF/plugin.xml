@@ -25,11 +25,12 @@
 
 
     <extensions defaultExtensionNs="com.intellij">
-
-
-
         <completion.contributor implementationClass="com.github.lsp4intellij.contributors.LSPCompletionContributor"
-                                id="LSPCompletionContributor" />
+                                id="LSPCompletionContributor" language="any"/>
+
+        <preloadingActivity
+                implementation="com.github.lsp4intellij.preloading.LSPPreloadingActivity"
+                id="com.github.lsp4intellij.preloading.LSPPreloadingActivity"/>
 
     </extensions>
 
