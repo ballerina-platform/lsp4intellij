@@ -1,5 +1,7 @@
 package com.github.lsp4intellij.requests;
 
+import com.intellij.history.core.StreamUtil;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -58,4 +60,7 @@ public class Timeout {
 
     public static int WILLSAVE_TIMEOUT = timeouts.get(WILLSAVE);
 
+    public static void setTimeouts(Map<Timeouts, Integer> loaded) {
+        timeouts = loaded;
+    }
 }

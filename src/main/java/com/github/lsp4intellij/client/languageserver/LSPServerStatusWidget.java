@@ -63,7 +63,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         Project project = wrapper.getProject();
         StatusBar statusBar = WindowManager.getInstance().getStatusBar(project);
 
-        if(widgetIDs.get(project).isEmpty()){
+        if(widgetIDs.get(project) == null || widgetIDs.get(project).isEmpty()){
             ArrayList<String> list = new ArrayList<>();
             list.add("Position");
             widgetIDs.put(project,list);

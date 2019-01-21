@@ -280,7 +280,8 @@ public class PluginMain implements ApplicationComponent {
             for (LanguageServerDefinition s : extensions) {
                 extToServerDefinition.put(s.ext, s);
             }
-            flattenExt();
+            //Todo - Add this after fixing
+         //   flattenExt();
             loadedExtensions = true;
         }
     }
@@ -291,7 +292,7 @@ public class PluginMain implements ApplicationComponent {
             LanguageServerDefinition sDef = p.getValue();
             String[] split = ext.split(SPLIT_CHAR);
             Stream<AbstractMap.SimpleEntry<String, LanguageServerDefinition>> stream = Stream.of(split)
-                    .map(s -> new AbstractMap.SimpleEntry<>(s, sDef));
+                        .map(s -> new AbstractMap.SimpleEntry<>(s, sDef));
             return Stream.concat(stream, Stream.of(new AbstractMap.SimpleEntry<>(ext, sDef)));
         }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }

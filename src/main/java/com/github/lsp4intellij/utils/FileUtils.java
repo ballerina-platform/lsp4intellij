@@ -119,16 +119,18 @@ public class FileUtils {
     public static String sanitizeURI(String uri) {
         if (uri != null) {
             StringBuilder reconstructed = new StringBuilder();
-            String uriCp = new String(uri).replace(" ", SPACE_ENCODED); //Don't trust servers
+            String uriCp = new String(uri).replaceAll(" ", SPACE_ENCODED); //Don't trust servers
             if (!uri.startsWith(URI_FILE_BEGIN)) {
                 LOG.warn("Malformed uri : " + uri);
                 return uri; //Probably not an uri
             } else {
                 uriCp = uriCp.substring(URI_FILE_BEGIN.length());
-                uriCp = uriCp.substring(0, uriCp.indexOf(URI_PATH_SEP));
+                while (uriCp.startsWith(Character.toString(URI_PATH_SEP))){
+                    uriCp = uriCp.substring(1);
+                }
                 reconstructed.append(URI_VALID_FILE_BEGIN);
                 if (os == OS.UNIX) {
-                    reconstructed.append(uriCp).toString();
+                    return reconstructed.append(uriCp).toString();
                 } else {
                     reconstructed.append(uriCp.substring(0, uriCp.indexOf(URI_PATH_SEP)));
                     char driveLetter = reconstructed.charAt(URI_VALID_FILE_BEGIN.length());
@@ -141,14 +143,12 @@ public class FileUtils {
                     if (!reconstructed.toString().endsWith(":")) {
                         reconstructed.append(":");
                     }
-                    reconstructed.append(uriCp.substring(0, uriCp.indexOf(URI_PATH_SEP))).toString();
+                    return reconstructed.append(uriCp.substring(0, uriCp.indexOf(URI_PATH_SEP))).toString();
                 }
-
             }
         } else {
             return null;
         }
-        return null;
     }
 
     /**

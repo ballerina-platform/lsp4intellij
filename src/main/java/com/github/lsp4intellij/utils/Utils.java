@@ -10,7 +10,7 @@ import java.util.ResourceBundle;
  */
 public class Utils {
 
-    ResourceBundle bundle = ResourceBundle.getBundle("com.github.gtache.lsp.LSPBundle");
+    ResourceBundle bundle = ResourceBundle.getBundle("com.github.lsp4intellij.LSPBundle");
     String lineSeparator = System.getProperty("line.separator");
 
     /**
