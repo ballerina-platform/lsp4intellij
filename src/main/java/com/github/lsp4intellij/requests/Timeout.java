@@ -28,7 +28,7 @@ public class Timeout {
 
     private static Map<Timeouts, Integer> timeouts = new HashMap<>();
 
-    Timeout() {
+    static {
         Arrays.stream(Timeouts.values()).forEach(t -> timeouts.put(t, t.getDefaultTimeout()));
     }
 
