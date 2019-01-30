@@ -12,7 +12,6 @@ import com.intellij.AppTopics;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.diff.impl.incrementalMerge.ui.EditorPlace;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
@@ -45,10 +44,6 @@ public class PluginMain implements ApplicationComponent {
 
     private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new HashMap<>();
     private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new HashMap<>();
-    private static final Map<Pair<String, String>, LanguageServerWrapper> forcedAssociationsInstances = new HashMap<>();
-    private static Map<Pair<String, String>, LanguageServerDefinition> forcedAssociations = new HashMap<>();
-    private static final Object forcedAssociations_LOCK = new Object(){};
-    private static final Object forcedAssociationsInstances_LOCK = new Object(){};
     private static Map<String, LanguageServerDefinition> extToServerDefinition = new HashMap<>();
     private static boolean loadedExtensions = false;
 
@@ -57,25 +52,9 @@ public class PluginMain implements ApplicationComponent {
         // LSPState.getInstance.getState(); //Need that to trigger loadState
         EditorFactory.getInstance().addEditorFactoryListener(new EditorListener(), Disposer.newDisposable());
         VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
-        ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
-                new FileDocumentManagerListenerImpl());
+        ApplicationManager.getApplication().getMessageBus().connect()
+                .subscribe(AppTopics.FILE_DOCUMENT_SYNC, new FileDocumentManagerListenerImpl());
         LOG.info("PluginMain init finished");
-    }
-
-    public static void resetAssociations() {
-        synchronized (forcedAssociationsInstances_LOCK) {
-            forcedAssociationsInstances
-                    .forEach((s, languageServerWrapper) -> languageServerWrapper.disconnect(s.getKey()));
-            forcedAssociationsInstances.clear();
-        }
-        synchronized (forcedAssociations_LOCK) {
-            forcedAssociations.clear();
-            Map<String[], String[]> collect = forcedAssociations.entrySet().stream().collect(Collectors
-                    .toMap(e -> new String[] { e.getKey().getKey(), e.getKey().getValue() },
-                            e -> e.getValue().toArray()));
-            //Todo - Restore
-            // BallerinaLSPState.getInstance().setForcedAssociations(collect);
-        }
     }
 
     /**
@@ -119,26 +98,14 @@ public class PluginMain implements ApplicationComponent {
                     .collect(Collectors.toSet());
             Set<String> removed = oldServerDef.keySet().stream().filter(e -> !flattened.keySet().contains(e))
                     .collect(Collectors.toSet());
-            synchronized (forcedAssociations_LOCK) {
-                synchronized (forcedAssociationsInstances_LOCK) {
-                    Set<LanguageServerDefinition> newValues = flattened.values().stream().collect(Collectors.toSet());
-                    forcedAssociations = forcedAssociations.entrySet().stream()
-                            .filter(t -> newValues.contains(t.getValue()))
-                            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
-                    forcedAssociationsInstances.entrySet().stream()
-                            .filter(t -> !newValues.contains(t.getValue().getServerDefinition()))
-                            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())).keySet().forEach(k -> {
-                        forcedAssociationsInstances.get(k).disconnect(k.getKey());
-                        forcedAssociationsInstances.remove(k);
-                    });
-                }
-            }
+
             extToLanguageWrapper.keySet().stream().filter(k -> removed.contains(k.getKey())).forEach(k -> {
                 LanguageServerWrapper wrapper = extToLanguageWrapper.get(k);
                 wrapper.stop();
                 wrapper.removeWidget();
                 extToLanguageWrapper.remove(k);
             });
+
             List<Editor> openedEditors = ApplicationUtils.computableReadAction(
                     () -> Arrays.stream(ProjectManager.getInstance().getOpenProjects())
                             .flatMap(proj -> Arrays.stream(FileEditorManager.getInstance(proj).getAllEditors()))
@@ -164,111 +131,34 @@ public class PluginMain implements ApplicationComponent {
     public static void editorOpened(Editor editor) {
         addExtensions();
         VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
+        Project project = editor.getProject();
+        String rootPath = FileUtils.editorToProjectFolderPath(editor);
+        String rootUri = FileUtils.pathToUri(rootPath);
         if (file != null) {
             ApplicationUtils.pool(() -> {
                 String ext = file.getExtension();
                 LOG.info("Opened " + file.getName());
-                String uri = FileUtils.editorToURIString(editor);
-                String pUri = FileUtils.editorToProjectFolderUri(editor);
-                LanguageServerWrapper forced = forcedAssociationsInstances.get(new ImmutablePair<>(uri, pUri));
-                if (forced == null) {
-                    LanguageServerDefinition forcedDef = forcedAssociations.get(new ImmutablePair<>(uri, pUri));
-                    if (forcedDef == null) {
-                        LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
-                        if (serverDefinition != null) {
-                            LanguageServerWrapper wrapper = getWrapperFor(ext, editor, serverDefinition);
-                            LOG.info("Adding file " + file.getName());
-                            wrapper.connect(editor);
+                LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
+                if (serverDefinition != null) {
+                    synchronized (extToLanguageWrapper) {
+                        LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, rootUri));
+                        if (wrapper == null) {
+                            LOG.info("Instantiating wrapper for " + ext + " : " + rootUri);
+                            wrapper = new LanguageServerWrapperImpl(serverDefinition, project);
+                            String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
+                            for (String exension : exts) {
+                                extToLanguageWrapper.put(new ImmutablePair<>(exension, rootUri), wrapper);
+                            }
+                        } else {
+                            LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
                         }
-                    } else {
-                        LanguageServerWrapper wrapper = getWrapperFor(ext, editor, forcedDef);
                         LOG.info("Adding file " + file.getName());
                         wrapper.connect(editor);
                     }
-                } else {
-                    forced.connect(editor);
                 }
             });
         } else {
             LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
-        }
-    }
-
-    public static void forceEditorOpened(Editor editor, LanguageServerDefinition serverDefinition, Project project) {
-        addExtensions();
-        VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
-        if (file != null) {
-            String uri = FileUtils.editorToURIString(editor);
-            String pUri = FileUtils.projectToUri(project);
-            synchronized (forcedAssociations) {
-                forcedAssociations.put(new ImmutablePair<>(uri, pUri), serverDefinition);
-            }
-            ApplicationUtils.pool(() -> {
-                LanguageServerWrapper serverWrapper = LanguageServerWrapperImpl.forEditor(editor);
-
-                if (serverWrapper != null) {
-                    LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
-                    serverWrapper.disconnect(editor);
-                }
-            });
-            LOG.info("Opened " + file.getName());
-            LanguageServerWrapper wrapper = getWrapperFor(serverDefinition.ext, editor, serverDefinition);
-            Map<String[], String[]> associations = forcedAssociations.entrySet().stream().collect(Collectors
-                    .toMap(e -> new String[] { e.getKey().getKey(), e.getKey().getValue() },
-                            e -> e.getValue().toArray()));
-            //Todo - Restore
-            // BallerinaLSPState.getInstance().setForcedAssociations(associations);
-            wrapper.connect(editor);
-            LOG.info("Adding file " + file.getName());
-        } else {
-            LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
-        }
-    }
-
-    private static LanguageServerWrapper getWrapperFor(String ext, Editor editor, LanguageServerDefinition
-            serverDefinition) {
-        Project project = editor.getProject();
-        String rootPath = FileUtils.editorToProjectFolderPath(editor);
-        String rootUri = FileUtils.pathToUri(rootPath);
-        synchronized (forcedAssociationsInstances) {
-            LanguageServerWrapper wrapper = forcedAssociationsInstances
-                    .get(new ImmutablePair<>(FileUtils.editorToURIString(editor), FileUtils.projectToUri(project)));
-            if (wrapper == null || wrapper.getServerDefinition() != serverDefinition) {
-                synchronized (extToLanguageWrapper) {
-                    wrapper = extToLanguageWrapper.get(new ImmutablePair<>(ext, rootUri));
-                    if (wrapper == null) {
-                        LOG.info("Instantiating wrapper for " + ext + " : " + rootUri);
-                        wrapper = new LanguageServerWrapperImpl(serverDefinition, project);
-                        String[] exts = serverDefinition.ext.split(SPLIT_CHAR);
-                        LanguageServerWrapper tempWrapper = wrapper;
-                        Stream.of(exts).forEach(
-                                ext2 -> extToLanguageWrapper.put(new ImmutablePair<>(ext2, rootUri), tempWrapper));
-                        extToLanguageWrapper.put(new ImmutablePair<>(serverDefinition.ext, rootUri), wrapper);
-                        Set<LanguageServerWrapper> serverWrappers = projectToLanguageWrappers.get(rootUri);
-                        if (serverWrappers == null || serverWrappers.isEmpty()) {
-                            Set<LanguageServerWrapper> a = new HashSet<>();
-                            a.add(wrapper);
-                            projectToLanguageWrappers.put(rootUri, a);
-                        }
-                    } else {
-                        LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
-                    }
-
-                    synchronized (forcedAssociationsInstances) {
-                        LanguageServerWrapper tempWrapper = wrapper;
-                        forcedAssociations.forEach((key, value) -> {
-                            if (value == serverDefinition && key.getValue().equals(rootUri)) {
-                                forcedAssociationsInstances.put(key, tempWrapper);
-                            }
-                        });
-                        forcedAssociationsInstances
-                                .put(new ImmutablePair<>(FileUtils.editorToURIString(editor), rootUri), wrapper);
-                    }
-                    return wrapper;
-                }
-            } else {
-                return wrapper;
-            }
         }
     }
 
@@ -281,7 +171,7 @@ public class PluginMain implements ApplicationComponent {
                 extToServerDefinition.put(s.ext, s);
             }
             //Todo - Add this after fixing
-         //   flattenExt();
+            //   flattenExt();
             loadedExtensions = true;
         }
     }
@@ -292,12 +182,10 @@ public class PluginMain implements ApplicationComponent {
             LanguageServerDefinition sDef = p.getValue();
             String[] split = ext.split(SPLIT_CHAR);
             Stream<AbstractMap.SimpleEntry<String, LanguageServerDefinition>> stream = Stream.of(split)
-                        .map(s -> new AbstractMap.SimpleEntry<>(s, sDef));
+                    .map(s -> new AbstractMap.SimpleEntry<>(s, sDef));
             return Stream.concat(stream, Stream.of(new AbstractMap.SimpleEntry<>(ext, sDef)));
         }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
-
-    //-----
 
     /**
      * Called when an editor is closed. Notifies the LanguageServerWrapper if needed
@@ -384,7 +272,6 @@ public class PluginMain implements ApplicationComponent {
     //            return new NavigationItem[]{};
     //        }
     //    }
-
 
     // Todo - Implement
     //    public void setForcedAssociations(Map<String[], String[]> associations) {
