@@ -9,6 +9,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
@@ -33,14 +34,14 @@ import javax.swing.*;
 public class LSPServerStatusWidget implements StatusBarWidget {
     private static Map<Project, List<String>> widgetIDs = new HashMap<>();
     private Map<Timeouts, Pair<Integer, Integer>> timeouts = new HashMap<>();
-    LanguageServerWrapper wrapper;
+    private LanguageServerWrapper wrapper;
     private String ext;
     private Project project;
     private String projectName;
     private Map<ServerStatus, Icon> icons;
     private ServerStatus status = ServerStatus.STOPPED;
 
-    LSPServerStatusWidget(LanguageServerWrapper wrapper) {
+    private LSPServerStatusWidget(LanguageServerWrapper wrapper) {
         this.wrapper = wrapper;
         this.ext = wrapper.getServerDefinition().ext;
         this.project = wrapper.getProject();
@@ -63,10 +64,10 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         Project project = wrapper.getProject();
         StatusBar statusBar = WindowManager.getInstance().getStatusBar(project);
 
-        if(widgetIDs.get(project) == null || widgetIDs.get(project).isEmpty()){
+        if (widgetIDs.get(project) == null || widgetIDs.get(project).isEmpty()) {
             ArrayList<String> list = new ArrayList<>();
             list.add("Position");
-            widgetIDs.put(project,list);
+            widgetIDs.put(project, list);
         }
 
         statusBar.addWidget(widget, "before " + widgetIDs.get(project).get(0));
@@ -74,7 +75,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         return widget;
     }
 
-    public static void removeWidgetID(LSPServerStatusWidget widget) {
+    private static void removeWidgetID(LSPServerStatusWidget widget) {
         Project project = widget.wrapper.getProject();
         widgetIDs.get(project).remove(widget.ID());
     }
@@ -91,7 +92,6 @@ public class LSPServerStatusWidget implements StatusBarWidget {
     public IconPresentation getPresentation(@NotNull PlatformType type) {
 
         return new IconPresentation() {
-
             @NotNull
             @Override
             public Icon getIcon() {
@@ -120,18 +120,49 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                 };
             }
 
-            class ShowConnectedFiles extends AnAction {
+            class ShowConnectedFiles extends AnAction implements DumbAware {
+                ShowConnectedFiles() {
+                    super("&Show connected files", "Show the files connected to the server", null);
+                }
+
                 @Override
                 public void actionPerformed(AnActionEvent e) {
-                    //Todo - revisit
-                    Messages.showInfoMessage("Connected files :\n" + wrapper.getConnectedFiles().toString(), "Connected Files");
+                    StringBuilder connectedFiles = new StringBuilder("Connected files :");
+                    wrapper.getConnectedFiles().forEach(f -> connectedFiles.append(System.lineSeparator()).append(f));
+                    Messages.showInfoMessage(connectedFiles.toString(), "Connected Files");
                 }
             }
 
-            class ShowTimeouts extends AnAction {
+            class ShowTimeouts extends AnAction implements DumbAware {
+                ShowTimeouts() {
+                    super("&Show timeouts", "Show the timeouts proportions of the server", null);
+                }
+
                 @Override
                 public void actionPerformed(AnActionEvent e) {
-                    //Todo - Implement
+                    StringBuilder message = new StringBuilder();
+                    message.append("<html>");
+                    message.append("Timeouts (failed requests) :<br>");
+                    timeouts.forEach((t, v) -> {
+                        int timeouts = v.getRight();
+                        message.append(t.name().substring(0, 1)).append(t.name().substring(1).toLowerCase())
+                                .append(" => ");
+                        int total = v.getLeft() + timeouts;
+                        if (total != 0) {
+                            if (timeouts > 0) {
+                                message.append("<font color=\"red\">");
+                            }
+                            message.append(timeouts).append("/").append(total).append(" (")
+                                    .append(100 * (double) timeouts / total).append("%)<br>");
+                            if (timeouts > 0) {
+                                message.append("</font>");
+                            }
+                        } else {
+                            message.append("0/0 (0%)<br>");
+                        }
+                    });
+                    message.append("</html>");
+                    Messages.showInfoMessage(message.toString(), "Timeouts");
                 }
             }
 
@@ -139,7 +170,6 @@ public class LSPServerStatusWidget implements StatusBarWidget {
             public String getTooltipText() {
                 return "Language server for extension " + ext + ", project " + projectName;
             }
-
         };
 
     }
