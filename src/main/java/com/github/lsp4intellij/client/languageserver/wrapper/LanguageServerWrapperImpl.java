@@ -74,6 +74,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -97,9 +98,9 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     private Project project;
     private final HashSet<Editor> toConnect = new HashSet<>();
     private String rootPath;
-    private final Map<String, EditorEventManager> connectedEditors = new HashMap();
+    private final Map<String, EditorEventManager> connectedEditors = new ConcurrentHashMap<>();
     private LSPServerStatusWidget statusWidget;
-    private Map<String, DynamicRegistrationMethods> registrations = new HashMap();
+    private Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
     private int crashCount = 0;
     volatile private boolean alreadyShownTimeout = false;
     volatile private boolean alreadyShownCrash = false;
@@ -117,7 +118,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
         this.serverDefinition = serverDefinition;
         this.project = project;
         this.rootPath = project.getBasePath();
-        statusWidget = LSPServerStatusWidget.createWidgetFor(this);
+        this.statusWidget = LSPServerStatusWidget.createWidgetFor(this);
     }
 
     /**
@@ -163,23 +164,21 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      * @return the languageServer capabilities, or null if initialization job didn't complete
      */
     public ServerCapabilities getServerCapabilities() {
-        if (this.initializeResult != null)
-            this.initializeResult.getCapabilities();
+        if (initializeResult != null)
+            initializeResult.getCapabilities();
         else {
             try {
                 start();
-                if (this.initializeFuture != null) {
-                    this.initializeFuture
+                if (initializeFuture != null) {
+                    initializeFuture
                             .get((capabilitiesAlreadyRequested ? 0 : Timeout.INIT_TIMEOUT), TimeUnit.MILLISECONDS);
                     notifySuccess(Timeouts.INIT);
                 }
             } catch (TimeoutException e) {
-
                 notifyFailure(Timeouts.INIT);
                 String msg = "LanguageServer for definition\n " + serverDefinition + "\nnot initialized after "
                         + Timeout.INIT_TIMEOUT / 1000 + "s\nCheck settings";
                 LOG.warn(msg, e);
-
                 ApplicationUtils.invokeLater(() -> {
                     if (!alreadyShownTimeout) {
                         Messages.showErrorDialog(msg, "LSP Error");
@@ -192,8 +191,8 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 stop();
             }
         }
-        this.capabilitiesAlreadyRequested = true;
-        return initializeResult != null ? this.initializeResult.getCapabilities() : null;
+        capabilitiesAlreadyRequested = true;
+        return initializeResult != null ? initializeResult.getCapabilities() : null;
     }
 
     @Override
@@ -222,7 +221,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      * @return whether the underlying connection to language languageServer is still active
      */
     public boolean isActive() {
-        return this.launcherFuture != null && !this.launcherFuture.isDone() && !this.launcherFuture.isCancelled()
+        return launcherFuture != null && !launcherFuture.isDone() && !launcherFuture.isCancelled()
                 && !alreadyShownTimeout && !alreadyShownCrash;
     }
 
@@ -232,79 +231,71 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      * @param editor the editor
      */
     public void connect(Editor editor) {
-
         if (editor == null) {
             LOG.warn("editor is null for " + serverDefinition);
-        } else {
-            String uri = FileUtils.editorToURIString(editor);
-            synchronized (uriToLanguageServerWrapper) {
-                uriToLanguageServerWrapper
-                        .put(new MutablePair<>(uri, FileUtils.editorToProjectFolderUri(editor)), this);
-            }
-
-            if (!this.connectedEditors.containsKey(uri)) {
-                start();
-                if (this.initializeFuture != null) {
-                    ServerCapabilities capabilities = getServerCapabilities();
-                    if (capabilities != null) {
-                        initializeFuture.thenRun(() -> {
-                            if (!this.connectedEditors.containsKey(uri)) {
-                                try {
-                                    Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities
-                                            .getTextDocumentSync();
-                                    TextDocumentSyncKind syncKind = null;
-                                    if (syncOptions != null) {
-                                        if (syncOptions.isRight()) {
-                                            syncKind = syncOptions.getRight().getChange();
-                                        } else if (syncOptions.isLeft()) {
-                                            syncKind = syncOptions.getLeft();
-                                        }
-
-                                        //Todo - Implement
-                                        //  EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
-                                        //  EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
-                                        //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
-
-                                        DocumentListenerImpl documentListener = new DocumentListenerImpl();
-
-                                        ServerOptions serverOptions = new ServerOptions(syncKind,
-                                                capabilities.getCompletionProvider(),
-                                                capabilities.getSignatureHelpProvider(),
-                                                capabilities.getCodeLensProvider(),
-                                                capabilities.getDocumentOnTypeFormattingProvider(),
-                                                capabilities.getDocumentLinkProvider(),
-                                                capabilities.getExecuteCommandProvider(),
-                                                capabilities.getSemanticHighlighting());
-                                        EditorEventManager manager = new EditorEventManager(editor, documentListener,
-                                                requestManager, serverOptions, this);
-//                                        mouseListener.setManager(manager);
-//                                        mouseMotionListener.setManager(manager);
-//                                        selectionListener.setManager(manager);
-                                        documentListener.setManager(manager);
-
-                                        manager.registerListeners();
-                                        synchronized (this.connectedEditors) {
-                                            this.connectedEditors.put(uri, manager);
-                                        }
-                                        manager.documentOpened();
-                                        LOG.info("Created a manager for " + uri);
-                                        toConnect.remove(editor);
-                                        for (Editor ed : toConnect) {
-                                            connect(ed);
-                                        }
+        }
+        String uri = FileUtils.editorToURIString(editor);
+        uriToLanguageServerWrapper.put(new MutablePair<>(uri, FileUtils.editorToProjectFolderUri(editor)), this);
+        if (!connectedEditors.containsKey(uri)) {
+            start();
+            if (initializeFuture != null) {
+                ServerCapabilities capabilities = getServerCapabilities();
+                if (capabilities != null) {
+                    initializeFuture.thenRun(() -> {
+                        if (!connectedEditors.containsKey(uri)) {
+                            try {
+                                Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities
+                                        .getTextDocumentSync();
+                                TextDocumentSyncKind syncKind = null;
+                                if (syncOptions != null) {
+                                    if (syncOptions.isRight()) {
+                                        syncKind = syncOptions.getRight().getChange();
+                                    } else if (syncOptions.isLeft()) {
+                                        syncKind = syncOptions.getLeft();
                                     }
-                                } catch (Exception e) {
-                                    LOG.error(e);
+
+                                    //Todo - Implement
+                                    //  EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
+                                    //  EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
+                                    //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
+
+                                    DocumentListenerImpl documentListener = new DocumentListenerImpl();
+
+                                    ServerOptions serverOptions = new ServerOptions(syncKind,
+                                            capabilities.getCompletionProvider(),
+                                            capabilities.getSignatureHelpProvider(), capabilities.getCodeLensProvider(),
+                                            capabilities.getDocumentOnTypeFormattingProvider(),
+                                            capabilities.getDocumentLinkProvider(),
+                                            capabilities.getExecuteCommandProvider(),
+                                            capabilities.getSemanticHighlighting());
+                                    EditorEventManager manager = new EditorEventManager(editor, documentListener,
+                                            requestManager, serverOptions, this);
+                                    //                                        mouseListener.setManager(manager);
+                                    //                                        mouseMotionListener.setManager(manager);
+                                    //                                        selectionListener.setManager(manager);
+                                    documentListener.setManager(manager);
+                                    manager.registerListeners();
+                                    connectedEditors.put(uri, manager);
+                                    manager.documentOpened();
+                                    LOG.info("Created a manager for " + uri);
+                                    synchronized (toConnect) {
+                                        toConnect.remove(editor);
+                                    }
+                                    for (Editor ed : toConnect) {
+                                        connect(ed);
+                                    }
                                 }
+                            } catch (Exception e) {
+                                LOG.error(e);
                             }
-                        });
-                    } else {
-                        LOG.warn("Capabilities are null for " + serverDefinition);
-                    }
+                        }
+                    });
                 } else {
-                    synchronized (this.toConnect) {
-                        toConnect.add(editor);
-                    }
+                    LOG.warn("Capabilities are null for " + serverDefinition);
+                }
+            } else {
+                synchronized (toConnect) {
+                    toConnect.add(editor);
                 }
             }
         }
@@ -316,49 +307,46 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      * @param uri The uri of the editor
      */
     public void disconnect(String uri) {
-        synchronized (this.connectedEditors) {
-            synchronized (uriToLanguageServerWrapper) {
-                this.connectedEditors.remove(uri);
-                for (Map.Entry<String, EditorEventManager> ed : this.connectedEditors.entrySet()) {
-                    uriToLanguageServerWrapper.remove(new MutablePair<>(uri, FileUtils.projectToUri(project)));
-                    ed.getValue().removeListeners();
-                    ed.getValue().documentClosed();
-                }
-            }
+        connectedEditors.remove(uri);
+        for (Map.Entry<String, EditorEventManager> ed : connectedEditors.entrySet()) {
+            uriToLanguageServerWrapper.remove(new MutablePair<>(uri, FileUtils.projectToUri(project)));
+            ed.getValue().removeListeners();
+            ed.getValue().documentClosed();
         }
-        if (this.connectedEditors.isEmpty()) {
+
+        if (connectedEditors.isEmpty()) {
             stop();
         }
     }
 
     public void stop() {
-        if (this.initializeFuture != null) {
-            this.initializeFuture.cancel(true);
-            this.initializeFuture = null;
-        }
-        this.initializeResult = null;
-        this.capabilitiesAlreadyRequested = false;
-        if (this.languageServer != null) {
-            try {
-                CompletableFuture<Object> shutdown = this.languageServer.shutdown();
+        try {
+            if (initializeFuture != null) {
+                initializeFuture.cancel(true);
+                initializeFuture = null;
+            }
+            initializeResult = null;
+            capabilitiesAlreadyRequested = false;
+            if (languageServer != null) {
+                CompletableFuture<Object> shutdown = languageServer.shutdown();
                 shutdown.get(Timeout.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
                 notifySuccess(Timeouts.SHUTDOWN);
-            } catch (Exception e) {
-                notifyFailure(Timeouts.SHUTDOWN);
-                // most likely closed externally
             }
-        }
-        if (this.launcherFuture != null) {
-            this.launcherFuture.cancel(true);
-            this.launcherFuture = null;
-        }
-        if (this.serverDefinition != null) {
-            this.serverDefinition.stop(rootPath);
-        }
-
-        for (Map.Entry<String, EditorEventManager> ed : this.connectedEditors.entrySet()) {
-            disconnect(ed.getKey());
-            this.languageServer = null;
+        } catch (Exception e) {
+            // most likely closed externally.
+            notifyFailure(Timeouts.SHUTDOWN);
+        } finally {
+            if (launcherFuture != null) {
+                launcherFuture.cancel(true);
+                launcherFuture = null;
+            }
+            if (serverDefinition != null) {
+                serverDefinition.stop(rootPath);
+            }
+            for (Map.Entry<String, EditorEventManager> ed : connectedEditors.entrySet()) {
+                disconnect(ed.getKey());
+            }
+            languageServer = null;
             setStatus(STOPPED);
         }
     }
@@ -367,7 +355,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      * Checks if the wrapper is already connected to the document at the given path
      */
     public boolean isConnectedTo(String location) {
-        return this.connectedEditors.containsKey(location);
+        return connectedEditors.containsKey(location);
     }
 
     /**
@@ -376,10 +364,10 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     @Nullable
     public LanguageServer getServer() {
         start();
-        if (initializeFuture != null && !this.initializeFuture.isDone()) {
-            this.initializeFuture.join();
+        if (initializeFuture != null && !initializeFuture.isDone()) {
+            initializeFuture.join();
         }
-        return this.languageServer;
+        return languageServer;
     }
 
     /**
@@ -396,15 +384,15 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 InitializeParams initParams = new InitializeParams();
                 initParams.setRootUri(FileUtils.pathToUri(rootPath));
                 Launcher<LanguageServer> launcher = LSPLauncher.createClientLauncher(client, inputStream, outputStream);
-                this.languageServer = launcher.getRemoteProxy();
+                languageServer = launcher.getRemoteProxy();
                 client.connect(languageServer, this);
-                this.launcherFuture = launcher.startListening();
+                launcherFuture = launcher.startListening();
                 //TODO update capabilities when implemented
                 WorkspaceClientCapabilities workspaceClientCapabilities = new WorkspaceClientCapabilities();
                 workspaceClientCapabilities.setApplyEdit(true);
                 workspaceClientCapabilities.setDidChangeWatchedFiles(new DidChangeWatchedFilesCapabilities());
                 workspaceClientCapabilities.setExecuteCommand(new ExecuteCommandCapabilities());
-                workspaceClientCapabilities.setWorkspaceEdit(new WorkspaceEditCapabilities(true));
+                workspaceClientCapabilities.setWorkspaceEdit(new WorkspaceEditCapabilities());
                 workspaceClientCapabilities.setSymbol(new SymbolCapabilities());
                 workspaceClientCapabilities.setWorkspaceFolders(false);
                 workspaceClientCapabilities.setConfiguration(false);
@@ -428,7 +416,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 initParams.setCapabilities(
                         new ClientCapabilities(workspaceClientCapabilities, textDocumentClientCapabilities, null));
                 initParams.setInitializationOptions(
-                        this.serverDefinition.getInitializationOptions(URI.create(initParams.getRootUri())));
+                        serverDefinition.getInitializationOptions(URI.create(initParams.getRootUri())));
                 initializeFuture = languageServer.initialize(initParams).thenApply(res -> {
                     initializeResult = res;
                     LOG.info("Got initializeResult for " + serverDefinition + " ; " + rootPath);
@@ -449,7 +437,6 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     }
 
     public void logMessage(Message message) {
-
         if (message instanceof ResponseMessage) {
             ResponseMessage responseMessage = (ResponseMessage) message;
             if (responseMessage.getError() != null && (responseMessage.getId()
@@ -460,14 +447,12 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     }
 
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
-        return CompletableFuture.runAsync(() -> {
-            params.getRegistrations().forEach(r -> {
-                String id = r.getId();
-                DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
-                Object options = r.getRegisterOptions();
-                registrations.put(id, method);
-            });
-        });
+        return CompletableFuture.runAsync(() -> params.getRegistrations().forEach(r -> {
+            String id = r.getId();
+            DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
+            Object options = r.getRegisterOptions();
+            registrations.put(id, method);
+        }));
     }
 
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
@@ -478,11 +463,9 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 registrations.remove(id);
             } else {
                 Map<DynamicRegistrationMethods, String> inverted = new HashMap<>();
-
                 for (Map.Entry<String, DynamicRegistrationMethods> entry : registrations.entrySet()) {
                     inverted.put(entry.getValue(), entry.getKey());
                 }
-
                 if (inverted.containsKey(method)) {
                     registrations.remove(inverted.get(method));
                 }
@@ -550,7 +533,6 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      */
     public void disconnect(Editor editor) {
         disconnect(FileUtils.editorToURIString(editor));
-
     }
 
     private void removeServerWrapper() {
@@ -560,9 +542,10 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     }
 
     private void connect(String uri) {
-        FileEditor[] fileEditors = FileEditorManager.getInstance(project).getAllEditors(FileUtils.URIToVFS(uri));
-        List<Editor> editors = new ArrayList<>();
+        FileEditor[] fileEditors = FileEditorManager.getInstance(project)
+                .getAllEditors(Objects.requireNonNull(FileUtils.URIToVFS(uri)));
 
+        List<Editor> editors = new ArrayList<>();
         for (FileEditor ed : fileEditors) {
             if (ed instanceof TextEditor) {
                 editors.add(((TextEditor) ed).getEditor());
