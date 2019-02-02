@@ -32,6 +32,7 @@ import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
+import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.MarkupContent;
@@ -60,6 +61,7 @@ import javax.swing.*;
 
 import static com.github.lsp4intellij.requests.Timeout.COMPLETION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
+import static com.github.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static com.github.lsp4intellij.utils.ApplicationUtils.pool;
 import static com.github.lsp4intellij.utils.ApplicationUtils.writeAction;
@@ -82,7 +84,7 @@ public class EditorEventManager {
     DocumentListener documentListener;
     RequestManager requestManager;
     ServerOptions serverOptions;
-    LanguageServerWrapperImpl wrapper;
+    public LanguageServerWrapperImpl wrapper;
 
     private TextDocumentIdentifier identifier;
     private Logger LOG = Logger.getInstance(EditorEventManager.class);
@@ -425,7 +427,7 @@ public class EditorEventManager {
                 // long predTime = System.nanoTime(); //So that there are no hover events while typing
                 changesParams.getTextDocument().setVersion(version++);
 
-                if(syncKind==TextDocumentSyncKind.Incremental) {
+                if (syncKind == TextDocumentSyncKind.Incremental) {
                     TextDocumentContentChangeEvent changeEvent = changesParams.getContentChanges().get(0);
                     CharSequence newText = event.getNewFragment();
                     int offset = event.getOffset();
@@ -436,11 +438,11 @@ public class EditorEventManager {
                     CharSequence oldText = event.getOldFragment();
 
                     //if text was deleted/replaced, calculate the end position of inserted/deleted text
-                    int endLine,endColumn = -1;
+                    int endLine, endColumn = -1;
                     if (oldText.length() > 0) {
                         endLine = startLine + StringUtil.countNewLines(oldText);
                         String[] oldLines = oldText.toString().split("\n");
-                        int oldTextLength = oldLines.length==0 ? 0 : oldLines[oldLines.length-1].length();
+                        int oldTextLength = oldLines.length == 0 ? 0 : oldLines[oldLines.length - 1].length();
                         endColumn = oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
                     } else { //if insert or no text change, the end position is the same
                         endLine = startLine;
@@ -450,7 +452,7 @@ public class EditorEventManager {
                     changeEvent.setRange(range);
                     changeEvent.setRangeLength(newTextLength);
                     changeEvent.setText(newText.toString());
-                } else if(syncKind==TextDocumentSyncKind.Full) {
+                } else if (syncKind == TextDocumentSyncKind.Full) {
                     changesParams.getContentChanges().get(0).setText(editor.getDocument().getText());
                 }
                 requestManager.didChange(changesParams);
@@ -461,20 +463,71 @@ public class EditorEventManager {
     }
 
     /**
+     * Notifies the server that the corresponding document has been saved
+     */
+    public void documentSaved() {
+        pool(() -> {
+            if (!editor.isDisposed()) {
+                DidSaveTextDocumentParams params = new DidSaveTextDocumentParams(identifier,
+                        editor.getDocument().getText());
+                requestManager.didSave(params);
+            }
+        });
+    }
+
+    /**
      * Indicates that the document will be saved
      */
     //TODO Manual
-    void willSave() {
-        if (wrapper.isWillSaveWaitUntil() && !needSave){
+    public void willSave() {
+        if (wrapper.isWillSaveWaitUntil() && !needSave) {
             willSaveWaitUntil();
-        } else pool(() -> {
-        if (!editor.isDisposed()) {
-            requestManager.willSave(new WillSaveTextDocumentParams(identifier, TextDocumentSaveReason.Manual));
-        }
-    });
+        } else
+            pool(() -> {
+                if (!editor.isDisposed()) {
+                    requestManager.willSave(new WillSaveTextDocumentParams(identifier, TextDocumentSaveReason.Manual));
+                }
+            });
     }
 
-    void willSaveWaitUntil(){
-        //Todo - Implement
+    /**
+     * If the server supports willSaveWaitUntil, the LSPVetoer will check if  a save is needed
+     * (needSave will basically alterate between true or false, so the document will always be saved)
+     */
+    private void willSaveWaitUntil() {
+        if (wrapper.isWillSaveWaitUntil()) {
+            pool(() -> {
+                if (!editor.isDisposed()) {
+                    WillSaveTextDocumentParams params = new WillSaveTextDocumentParams(identifier,
+                            TextDocumentSaveReason.Manual);
+                    CompletableFuture<List<TextEdit>> future = requestManager.willSaveWaitUntil(params);
+                    if (future != null) {
+                        try {
+                            List<TextEdit> edits = future.get(WILLSAVE_TIMEOUT, TimeUnit.MILLISECONDS);
+                            wrapper.notifySuccess(Timeouts.WILLSAVE);
+                            if (edits != null) {
+                                invokeLater(() -> applyEdit(edits, "WaitUntil edits"));
+                            }
+                        } catch (TimeoutException e) {
+                            LOG.warn(e);
+                            wrapper.notifyFailure(Timeouts.WILLSAVE);
+                        } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+                            LOG.warn(e);
+                            wrapper.crashed(e);
+                        } finally {
+                            needSave = true;
+                            saveDocument();
+                        }
+                    } else {
+                        needSave = true;
+                        saveDocument();
+                    }
+                }
+            });
+        } else {
+            LOG.error("Server doesn't support WillSaveWaitUntil");
+            needSave = true;
+            saveDocument();
+        }
     }
 }

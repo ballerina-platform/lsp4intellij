@@ -6,12 +6,13 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorEventManagerBase {
 
     private static final EditorEventManagerBase EDITOR_EVENT_MANAGER_BASE = new EditorEventManagerBase();
-    public static Map<String, EditorEventManager> uriToManager = new HashMap<>();
-    public static Map<Editor, EditorEventManager> editorToManager = new HashMap<>();
+    public static Map<String, EditorEventManager> uriToManager = new ConcurrentHashMap<>();
+    public static Map<Editor, EditorEventManager> editorToManager = new ConcurrentHashMap<>();
 
     volatile private boolean isKeyPressed = false;
     volatile private boolean isCtrlDown = false;
@@ -50,10 +51,16 @@ public class EditorEventManagerBase {
     }
 
     private static void prune() {
-        //Todo - Implement
-        // editorToManager.entrySet().stream().filter(x -> x.getValue().);
-        // editorToManager.filter(e => !e._2.wrapper.isActive).keys.foreach(editorToManager.remove)
-        // riToManager.filter(e => !e._2.wrapper.isActive).keys.foreach(uriToManager.remove)
+        editorToManager.forEach((key, value) -> {
+            if (!value.wrapper.isActive()) {
+                editorToManager.remove(key);
+            }
+        });
+        uriToManager.forEach((key, value) -> {
+            if (!value.wrapper.isActive()) {
+                editorToManager.remove(key);
+            }
+        });
     }
 
     /**

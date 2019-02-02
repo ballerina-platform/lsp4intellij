@@ -3,9 +3,12 @@ package com.github.lsp4intellij.requests;
 import com.github.lsp4intellij.PluginMain;
 import com.github.lsp4intellij.client.languageserver.ServerStatus;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import com.github.lsp4intellij.editor.EditorEventManager;
+import com.github.lsp4intellij.editor.EditorEventManagerBase;
 import com.github.lsp4intellij.utils.ApplicationUtils;
 import com.github.lsp4intellij.utils.FileUtils;
 import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.FileChangeType;
@@ -23,15 +26,18 @@ public class FileEventManager {
      * @param doc The document
      */
     public static void willSave(Document doc) {
-        //  String uri = FileUtils.VFSToURI(FileDocumentManager.getInstance().getFile(doc));
-        //  EditorEventManager.forUri(uri).foreach(e => e.willSave());
+        String uri = FileUtils.VFSToURI(FileDocumentManager.getInstance().getFile(doc));
+        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+        if (manager != null) {
+            manager.willSave();
+        }
     }
 
     /**
      * Indicates that all documents will be saved
      */
     public static void willSaveAllDocuments() {
-        //  EditorEventManager.willSaveAll();
+        EditorEventManagerBase.willSaveAll();
     }
 
     /**
@@ -42,11 +48,13 @@ public class FileEventManager {
     public static void fileChanged(VirtualFile file) {
         String uri = FileUtils.VFSToURI(file);
         if (uri != null) {
-            //            EditorEventManager.forUri(uri) match {
-            //                case Some(m) => m.documentSaved()
-            //                    changedConfiguration(uri, FileChangeType.Changed, m.wrapper)
-            //                case None => changedConfiguration(uri, FileChangeType.Changed)
-            //            }
+            EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+            if (manager != null) {
+                manager.documentSaved();
+                changedConfiguration(uri, FileChangeType.Changed, manager.wrapper);
+            } else {
+                changedConfiguration(uri, FileChangeType.Changed);
+            }
         }
     }
 
@@ -72,7 +80,7 @@ public class FileEventManager {
     }
 
     private static void changedConfiguration(String uri, FileChangeType typ) {
-      changedConfiguration(uri,typ,null);
+        changedConfiguration(uri, typ, null);
     }
 
     private static void changedConfiguration(String uri, FileChangeType typ, LanguageServerWrapper wrapper) {
@@ -111,6 +119,6 @@ public class FileEventManager {
         String uri = FileUtils.VFSToURI(file);
         if (uri != null) {
             changedConfiguration(uri, FileChangeType.Created);
-    }
+        }
     }
 }
