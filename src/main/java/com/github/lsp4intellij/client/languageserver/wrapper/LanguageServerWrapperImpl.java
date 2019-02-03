@@ -23,6 +23,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.ClientCapabilities;
@@ -163,9 +164,11 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      *
      * @return the languageServer capabilities, or null if initialization job didn't complete
      */
+    @Nullable
+    @Override
     public ServerCapabilities getServerCapabilities() {
         if (initializeResult != null)
-            initializeResult.getCapabilities();
+            return initializeResult.getCapabilities();
         else {
             try {
                 start();
@@ -206,6 +209,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      * @param uri the URI as a string
      * @return the EditorEventManager (or null)
      */
+    @Override
     public EditorEventManager getEditorManagerFor(String uri) {
         return connectedEditors.get(uri);
     }
@@ -213,6 +217,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     /**
      * @return The request manager for this wrapper
      */
+    @Override
     public RequestManager getRequestManager() {
         return requestManager;
     }
@@ -220,6 +225,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     /**
      * @return whether the underlying connection to language languageServer is still active
      */
+    @Override
     public boolean isActive() {
         return launcherFuture != null && !launcherFuture.isDone() && !launcherFuture.isCancelled()
                 && !alreadyShownTimeout && !alreadyShownCrash;
@@ -230,6 +236,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      *
      * @param editor the editor
      */
+    @Override
     public void connect(Editor editor) {
         if (editor == null) {
             LOG.warn("editor is null for " + serverDefinition);
@@ -308,11 +315,11 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
      */
     public void disconnect(String uri) {
         connectedEditors.remove(uri);
-        for (Map.Entry<String, EditorEventManager> ed : connectedEditors.entrySet()) {
-            uriToLanguageServerWrapper.remove(new MutablePair<>(uri, FileUtils.projectToUri(project)));
-            ed.getValue().removeListeners();
-            ed.getValue().documentClosed();
-        }
+        connectedEditors.forEach((key, value) -> {
+            uriToLanguageServerWrapper.remove(new ImmutablePair<>(uri, FileUtils.projectToUri(project)));
+            value.removeListeners();
+            value.documentClosed();
+        });
 
         if (connectedEditors.isEmpty()) {
             stop();

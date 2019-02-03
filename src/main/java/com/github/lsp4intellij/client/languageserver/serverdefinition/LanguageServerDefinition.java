@@ -10,10 +10,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A trait representing a ServerDefinition
@@ -32,7 +32,7 @@ public class LanguageServerDefinition {
     public String id = ext;
     private Set<LanguageServerDefinition> allDefinitions = new HashSet<>();
     private Set<String> mappedExtensions = new HashSet<>();
-    private Map<String, StreamConnectionProvider> streamConnectionProviders = new HashMap<>();
+    private Map<String, StreamConnectionProvider> streamConnectionProviders = new ConcurrentHashMap<>();
 
     protected LanguageServerDefinition() {
     }
@@ -80,13 +80,13 @@ public class LanguageServerDefinition {
         StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
         if (streamConnectionProvider != null) {
             return new ImmutablePair<>(streamConnectionProvider.getInputStream(),
-                                       streamConnectionProvider.getOutputStream());
+                    streamConnectionProvider.getOutputStream());
         } else {
             streamConnectionProvider = createConnectionProvider(workingDir);
             streamConnectionProvider.start();
             streamConnectionProviders.put(workingDir, streamConnectionProvider);
             return new ImmutablePair<>(streamConnectionProvider.getInputStream(),
-                                       streamConnectionProvider.getOutputStream());
+                    streamConnectionProvider.getOutputStream());
         }
     }
 
@@ -99,6 +99,7 @@ public class LanguageServerDefinition {
         StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
         if (streamConnectionProvider != null) {
             streamConnectionProvider.stop();
+            streamConnectionProviders.remove(workingDir);
         } else {
             LOG.warn("No connection for workingDir " + workingDir + " and ext " + ext);
         }

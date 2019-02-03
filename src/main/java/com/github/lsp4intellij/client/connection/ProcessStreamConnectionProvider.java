@@ -7,7 +7,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A class symbolizing a stream to a process
@@ -30,8 +32,8 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
     private Process process = null;
 
     public void start() throws IOException {
-        if (this.workingDir == null || this.commands == null || this.commands.isEmpty()
-                || this.commands.contains(null)) {
+        if (this.workingDir == null || this.commands == null || this.commands.isEmpty() || this.commands
+                .contains(null)) {
             throw new IOException("Unable to start language server: " + this.toString()); //$NON-NLS-1$
         }
         ProcessBuilder builder = createProcessBuilder();
@@ -46,18 +48,21 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
 
     private ProcessBuilder createProcessBuilder() {
         //TODO for cquery, REMOVE
-        ProcessBuilder builder = new ProcessBuilder(this.commands);
+        commands.forEach(c -> c = c.replace("\'", ""));
+        ProcessBuilder builder = new ProcessBuilder(commands);
         builder.directory(new File(workingDir));
         builder.redirectError(ProcessBuilder.Redirect.INHERIT);
         return builder;
     }
 
     @Nullable
+    @Override
     public InputStream getInputStream() {
         return process != null ? process.getInputStream() : null;
     }
 
     @Nullable
+    @Override
     public OutputStream getOutputStream() {
         return process != null ? process.getOutputStream() : null;
     }
@@ -68,4 +73,18 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
         }
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof ProcessStreamConnectionProvider) {
+            ProcessStreamConnectionProvider other = (ProcessStreamConnectionProvider) obj;
+            return commands.size() == other.commands.size() && new HashSet<>(commands) == new HashSet<>(other.commands)
+                    && workingDir.equals(other.workingDir);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(commands) ^ Objects.hashCode(workingDir);
+    }
 }
