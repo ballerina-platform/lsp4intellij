@@ -144,7 +144,7 @@ public abstract class LanguageServerWrapper {
     /**
      * Stops the wrapper
      */
-    public abstract void stop();
+    public abstract void stop(boolean exit);
 
     /**
      * Notifies the wrapper that the server has crashed / stopped unexpectedly

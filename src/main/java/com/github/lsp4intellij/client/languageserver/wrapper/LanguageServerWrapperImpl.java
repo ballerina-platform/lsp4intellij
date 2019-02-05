@@ -188,10 +188,10 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                         alreadyShownTimeout = true;
                     }
                 });
-                stop();
+                stop(false);
             } catch (Exception e) {
                 LOG.warn(e);
-                stop();
+                stop(false);
             }
         }
         capabilitiesAlreadyRequested = true;
@@ -322,11 +322,16 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
         });
 
         if (connectedEditors.isEmpty()) {
-            stop();
+            stop(true);
         }
     }
 
-    public void stop() {
+    /*
+     * The shutdown request is sent from the client to the server. It asks the server to shut down, but to not exit \
+     * (otherwise the response might not be delivered correctly to the client).
+     * Only if the exit flag is true, particular server instance will exit.
+     */
+    public void stop(boolean exit) {
         try {
             if (initializeFuture != null) {
                 initializeFuture.cancel(true);
@@ -338,6 +343,9 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 CompletableFuture<Object> shutdown = languageServer.shutdown();
                 shutdown.get(Timeout.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
                 notifySuccess(Timeouts.SHUTDOWN);
+                if (exit) {
+                    languageServer.exit();
+                }
             }
         } catch (Exception e) {
             // most likely closed externally.
@@ -437,7 +445,6 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 ApplicationUtils.invokeLater(() -> Messages
                         .showErrorDialog("Can't start server, please check " + "settings\n" + e.getMessage(),
                                 "LSP Error"));
-                stop();
                 removeServerWrapper();
             }
         }
@@ -497,7 +504,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
         crashCount += 1;
         if (crashCount < 2) {
             final Set<String> editors = connectedEditors.keySet();
-            stop();
+            stop(false);
             for (String uri : editors) {
                 connect(uri);
             }
@@ -543,7 +550,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     }
 
     private void removeServerWrapper() {
-        stop();
+        stop(false);
         removeWidget();
         PluginMain.removeWrapper(this);
     }

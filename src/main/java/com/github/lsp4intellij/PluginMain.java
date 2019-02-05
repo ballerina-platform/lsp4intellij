@@ -101,7 +101,7 @@ public class PluginMain implements ApplicationComponent {
 
             extToLanguageWrapper.keySet().stream().filter(k -> removed.contains(k.getKey())).forEach(k -> {
                 LanguageServerWrapper wrapper = extToLanguageWrapper.get(k);
-                wrapper.stop();
+                wrapper.stop(false);
                 wrapper.removeWidget();
                 extToLanguageWrapper.remove(k);
             });
