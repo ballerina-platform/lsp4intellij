@@ -4,13 +4,12 @@ import com.intellij.openapi.editor.Editor;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorEventManagerBase {
 
-    private static final EditorEventManagerBase EDITOR_EVENT_MANAGER_BASE = new EditorEventManagerBase();
+    private static final EditorEventManagerBase INSTANCE = new EditorEventManagerBase();
     public static Map<String, EditorEventManager> uriToManager = new ConcurrentHashMap<>();
     public static Map<Editor, EditorEventManager> editorToManager = new ConcurrentHashMap<>();
 
@@ -38,7 +37,7 @@ public class EditorEventManagerBase {
     }
 
     public static EditorEventManagerBase getInstance() {
-        return EDITOR_EVENT_MANAGER_BASE;
+        return INSTANCE;
     }
 
     /**

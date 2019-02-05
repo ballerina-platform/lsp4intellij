@@ -17,9 +17,10 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void propertyChanged(@NotNull VirtualFilePropertyEvent event) {
         if (event.getPropertyName().equals(VirtualFile.PROP_NAME)) {
-            FileEventManager.fileRenamed((String) event.getOldValue(), (String)event.getNewValue());
+            FileEventManager.fileRenamed((String) event.getOldValue(), (String) event.getNewValue());
         }
     }
 
@@ -28,6 +29,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void contentsChanged(@NotNull VirtualFileEvent event) {
         FileEventManager.fileChanged(event.getFile());
     }
@@ -37,6 +39,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void fileDeleted(@NotNull VirtualFileEvent event) {
         FileEventManager.fileDeleted(event.getFile());
     }
@@ -46,6 +49,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void fileMoved(@NotNull VirtualFileMoveEvent event) {
         FileEventManager.fileMoved(event.getFile());
     }
@@ -55,6 +59,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void fileCopied(@NotNull VirtualFileCopyEvent event) {
         fileCreated(event);
     }
@@ -64,6 +69,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void fileCreated(@NotNull VirtualFileEvent event) {
         FileEventManager.fileCreated(event.getFile());
     }
@@ -73,6 +79,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void beforePropertyChange(@NotNull VirtualFilePropertyEvent event) {
     }
 
@@ -81,6 +88,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void beforeContentsChange(@NotNull VirtualFileEvent event) {
     }
 
@@ -89,6 +97,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void beforeFileDeletion(@NotNull VirtualFileEvent event) {
     }
 
@@ -97,6 +106,7 @@ public class VFSListener implements VirtualFileListener {
      *
      * @param event the event object containing information about the change.
      */
+    @Override
     public void beforeFileMovement(@NotNull VirtualFileMoveEvent event) {
     }
 }
