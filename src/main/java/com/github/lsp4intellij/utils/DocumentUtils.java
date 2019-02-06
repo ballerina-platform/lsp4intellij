@@ -4,10 +4,8 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.DocumentUtil;
-
 import org.eclipse.lsp4j.Position;
 
 /**
@@ -32,8 +30,9 @@ public class DocumentUtils {
         String line = doc.getText(new TextRange(lineStartOff, lineEndOff));
         int startOffsetInLine = startOffset - lineStartOff;
         int endOffsetInLine = endOffset - lineStartOff;
-        return ApplicationUtils.computableReadAction(() -> line.substring(0, startOffsetInLine) + "<b>"
-                + line.substring(startOffsetInLine, endOffsetInLine) + "</b>" + line.substring(endOffsetInLine));
+        return ApplicationUtils.computableReadAction(
+                () -> line.substring(0, startOffsetInLine) + "<b>" + line.substring(startOffsetInLine, endOffsetInLine)
+                        + "</b>" + line.substring(endOffsetInLine));
     }
 
     /**
@@ -86,7 +85,7 @@ public class DocumentUtils {
         }
         int docLength = doc.getTextLength();
         if (offset > docLength) {
-//            LOG.warn("Offset greater than text length : " + offset + " > " + docLength);
+            //            LOG.warn("Offset greater than text length : " + offset + " > " + docLength);
         }
         return ApplicationUtils.computableReadAction(() -> Math.min(Math.max(offset, 0), docLength));
     }

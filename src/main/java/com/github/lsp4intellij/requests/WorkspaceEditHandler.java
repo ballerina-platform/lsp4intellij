@@ -48,8 +48,8 @@ import java.util.stream.Stream;
 public class WorkspaceEditHandler {
     private static Logger LOG = Logger.getInstance(WorkspaceEditHandler.class);
 
-    public static void applyEdit(PsiElement elem, String newName, UsageInfo[] infos, RefactoringElementListener listener,
-            List<VirtualFile> openedEditors) {
+    public static void applyEdit(PsiElement elem, String newName, UsageInfo[] infos,
+            RefactoringElementListener listener, List<VirtualFile> openedEditors) {
         Map<String, List<TextEdit>> edits = new HashMap<>();
         if (elem instanceof LSPPsiElement) {
             LSPPsiElement lspElem = (LSPPsiElement) elem;
@@ -83,7 +83,7 @@ public class WorkspaceEditHandler {
     }
 
     public static boolean applyEdit(WorkspaceEdit edit, String name) {
-        return applyEdit(edit,name,new ArrayList<>());
+        return applyEdit(edit, name, new ArrayList<>());
     }
 
     /**
@@ -95,9 +95,8 @@ public class WorkspaceEditHandler {
     public static boolean applyEdit(WorkspaceEdit edit, String name, List<VirtualFile> toClose) {
         final String newName = (name == null) ? "LSP edits" : name;
         if (edit != null) {
-            Map<String, List<TextEdit>> changes = (edit.getChanges() != null) ? edit.getChanges() : null;
-            List<Either<TextDocumentEdit, ResourceOperation>> dChanges = (edit.getDocumentChanges() != null) ?
-                    edit.getDocumentChanges() : null;
+            Map<String, List<TextEdit>> changes = edit.getChanges();
+            List<Either<TextDocumentEdit, ResourceOperation>> dChanges = edit.getDocumentChanges();
             boolean[] didApply = new boolean[] { true };
 
             ApplicationUtils.invokeLater(() -> {
@@ -107,7 +106,7 @@ public class WorkspaceEditHandler {
                 //Get the runnable of edits for each editor to apply them all in one command
                 List<Runnable> toApply = new ArrayList<>();
                 if (dChanges != null) {
-                    dChanges.stream().forEach(tEdit -> {
+                    dChanges.forEach(tEdit -> {
                         if (tEdit.isLeft()) {
                             TextDocumentEdit textEdit = tEdit.getLeft();
                             VersionedTextDocumentIdentifier doc = textEdit.getTextDocument();
@@ -132,11 +131,10 @@ public class WorkspaceEditHandler {
                     });
 
                 } else if (changes != null) {
-                    changes.entrySet().stream().forEach(rEdit -> {
-                        String uri = FileUtils.sanitizeURI(rEdit.getKey());
-                        List<TextEdit> lChanges = rEdit.getValue();
+                    changes.forEach((key, lChanges) -> {
+                        String uri = FileUtils.sanitizeURI(key);
 
-                        EditorEventManager manager = EditorEventManagerBase.getInstance().forUri(uri);
+                        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
                         if (manager != null) {
                             curProject[0] = manager.editor.getProject();
                             toApply.add(manager.getEditsRunnable(Integer.MAX_VALUE, lChanges, newName));
@@ -152,11 +150,7 @@ public class WorkspaceEditHandler {
                     LOG.warn("Didn't apply, null runnable");
                     didApply[0] = false;
                 } else {
-                    Runnable runnable = new Runnable() {
-                        public void run() {
-                            toApply.forEach(r -> r.run());
-                        }
-                    };
+                    Runnable runnable = () -> toApply.forEach(r -> r.run());
                     ApplicationUtils.invokeLater(() -> ApplicationUtils.writeAction(() -> {
                         CommandProcessor.getInstance().executeCommand(curProject[0], runnable, name, "LSPPlugin",
                                 UndoConfirmationPolicy.DEFAULT, false);
@@ -182,7 +176,7 @@ public class WorkspaceEditHandler {
      * @param name
      * @return The runnable containing the edits
      */
-    public static Runnable manageUnopenedEditor(Iterable<TextEdit> edits, String uri, int version,
+    private static Runnable manageUnopenedEditor(Iterable<TextEdit> edits, String uri, int version,
             List<VirtualFile> openedEditors, Project[] curProject, String name) {
         Project[] projects = ProjectManager.getInstance().getOpenProjects();
         //Infer the project from the uri
@@ -198,9 +192,8 @@ public class WorkspaceEditHandler {
         }
         FileEditorManager fileEditorManager = FileEditorManager.getInstance(project);
         OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
-        Editor editor = ApplicationUtils.computableWriteAction(() -> {
-            return fileEditorManager.openTextEditor(descriptor, false);
-        });
+        Editor editor = ApplicationUtils
+                .computableWriteAction(() -> fileEditorManager.openTextEditor(descriptor, false));
         openedEditors.add(file);
         curProject[0] = editor.getProject();
         Runnable runnable = null;
@@ -209,13 +202,5 @@ public class WorkspaceEditHandler {
             runnable = manager.getEditsRunnable(version, edits, name);
         }
         return runnable;
-    }
-
-    class Foo implements Runnable {
-
-        @Override
-        public void run() {
-
-        }
     }
 }

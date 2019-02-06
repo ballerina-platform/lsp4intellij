@@ -5,13 +5,13 @@ import com.github.lsp4intellij.utils.Utils;
 import java.util.Arrays;
 
 /**
-  * A class representing a raw command to launch a languageserver
-  *
-  */
+ * A class representing a raw command to launch a languageserver
+ */
 public class RawCommandServerDefinition extends CommandServerDefinition {
     private static final RawCommandServerDefinition INSTANCE = new RawCommandServerDefinition();
 
     private RawCommandServerDefinition() {
+
     }
 
     public static RawCommandServerDefinition getInstance() {
@@ -41,29 +41,28 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
         if (arr[0].equals(typ)) {
             String[] arrTail = Arrays.copyOfRange(arr, 1, arr.length - 1);
             if (arrTail.length > 1) {
-                new RawCommandServerDefinition(arrTail[0], Utils.parseArgs(Arrays.copyOfRange(arrTail, 1, arrTail.length - 1)));
-            } else {
-                return null;
+                new RawCommandServerDefinition(arrTail[0],
+                        Utils.parseArgs(Arrays.copyOfRange(arrTail, 1, arrTail.length - 1)));
             }
-        } else {
-            return null;
         }
         return null;
     }
 
-//  import RawCommandServerDefinition.typ
+    //  import RawCommandServerDefinition.typ
 
     /**
      * @return The array corresponding to the server definition
      */
     public String[] toArray() {
-        String[] strings = {typ, ext};
+        String[] strings = { typ, ext };
         String[] merged = Arrays.copyOf(strings, strings.length + command.length);
         System.arraycopy(command, 0, merged, strings.length, command.length);
         return merged;
     }
 
-   public String toString() { return typ + " : " + String.join(" ", command);}
+    public String toString() {
+        return typ + " : " + String.join(" ", command);
+    }
 
     @Override
     public boolean equals(Object obj) {
@@ -74,8 +73,8 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
         return false;
     }
 
-  @Override
-  public int hashCode() {
+    @Override
+    public int hashCode() {
         return ext.hashCode() + 3 * command.hashCode();
     }
 }

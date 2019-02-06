@@ -125,7 +125,7 @@ public class FileUtils {
                 return uri; //Probably not an uri
             } else {
                 uriCp = uriCp.substring(URI_FILE_BEGIN.length());
-                while (uriCp.startsWith(Character.toString(URI_PATH_SEP))){
+                while (uriCp.startsWith(Character.toString(URI_PATH_SEP))) {
                     uriCp = uriCp.substring(1);
                 }
                 reconstructed.append(URI_VALID_FILE_BEGIN);

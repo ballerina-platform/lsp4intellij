@@ -25,7 +25,6 @@ public class Utils {
         return String.join(sep, arr.toString());
     }
 
-
     /**
      * Concatenate multiple arrays
      *
@@ -52,51 +51,50 @@ public class Utils {
         for (String str : strArr) {
             for (int i = 0; i < str.length(); i++) {
                 switch (str.charAt(i)) {
-                    case '\'':
-                        if (!wasEscaped) {
-                            isSingleQuote = !isSingleQuote;
-                        }
+                case '\'':
+                    if (!wasEscaped) {
+                        isSingleQuote = !isSingleQuote;
+                    }
+                    wasEscaped = false;
+                    curStr.append('\'');
+                    break;
+                case '\"':
+                    if (!wasEscaped) {
+                        isDoubleQuote = !isDoubleQuote;
+                    }
+                    wasEscaped = false;
+                    curStr.append('\"');
+                    break;
+                case ' ':
+                    if (isSingleQuote || isDoubleQuote) {
+                        curStr.append(" ");
+                    } else {
+                        buffer.add(curStr.toString());
+                        curStr.setLength(0);
+                    }
+                    wasEscaped = false;
+                    break;
+                case '\\':
+                    if (wasEscaped) {
                         wasEscaped = false;
-                        curStr.append('\'');
-                        break;
-                    case '\"':
-                        if (!wasEscaped) {
-                            isDoubleQuote = !isDoubleQuote;
-                        }
-                        wasEscaped = false;
-                        curStr.append('\"');
-                        break;
-                    case ' ':
-                        if (isSingleQuote || isDoubleQuote) {
-                            curStr.append(" ");
-                        } else {
-                            buffer.add(curStr.toString());
-                            curStr.setLength(0);
-                        }
-                        wasEscaped = false;
-                        break;
-                    case '\\':
-                        if (wasEscaped) {
-                            wasEscaped = false;
-                        } else {
-                            wasEscaped = true;
-                        }
-                        curStr.append('\\');
-                        break;
-                    case 'c':
-                        curStr.append('c');
-                        wasEscaped = false;
-                        break;
+                    } else {
+                        wasEscaped = true;
+                    }
+                    curStr.append('\\');
+                    break;
+                case 'c':
+                    curStr.append('c');
+                    wasEscaped = false;
+                    break;
                 }
             }
-
 
             if (curStr.length() != 0) {
                 buffer.add(curStr.toString());
                 curStr.setLength(0);
             }
         }
-        String [] result = new String[buffer.size()];
+        String[] result = new String[buffer.size()];
         buffer.toArray(result);
         return result;
     }

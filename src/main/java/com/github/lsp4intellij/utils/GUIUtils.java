@@ -12,7 +12,7 @@ public class GUIUtils {
      * @param serverDefinition The serverDefinition
      * @return The LSPIconProvider, or LSPDefaultIconProvider if none are found
      */
-    public static LSPIconProvider getIconProviderFor( LanguageServerDefinition serverDefinition){
+    public static LSPIconProvider getIconProviderFor(LanguageServerDefinition serverDefinition) {
         return new LSPDefaultIconProvider();
     }
 }
