@@ -32,8 +32,6 @@ public class LSPPreloadingActivity extends PreloadingActivity {
     @Override
     public void preload(@NotNull ProgressIndicator indicator) {
 
-        // Stops all running language server instances.
-        stopProcesses();
         // Registers language server definitions for initially opened projects.
         registerServerDefinition();
 
@@ -43,14 +41,6 @@ public class LSPPreloadingActivity extends PreloadingActivity {
             public void projectOpened(@Nullable final Project project) {
                 registerServerDefinition(project);
             }
-        });
-
-        ProjectManager.getInstance().addProjectManagerListener(project -> {
-            Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
-            if (openProjects.length <= 1) {
-                stopProcesses();
-            }
-            return true;
         });
     }
 
@@ -71,7 +61,6 @@ public class LSPPreloadingActivity extends PreloadingActivity {
     }
 
     private static boolean doRegister(@NotNull String sdkPath) {
-
         String os = getOperatingSystem();
         if (os != null) {
             String[] args = new String[1];
@@ -91,46 +80,10 @@ public class LSPPreloadingActivity extends PreloadingActivity {
         return false;
     }
 
-    /**
-     * Stops running language server instances.
-     */
-    private static void stopProcesses() {
-        try {
-            String os = getOperatingSystem();
-            if (os == null) {
-                LOGGER.error("unsupported operating system");
-                return;
-            }
-            Terminator terminator = new TerminatorFactory().getTerminator(os);
-            if (terminator == null) {
-                LOGGER.error("unsupported operating system");
-                return;
-            }
-            terminator.terminate();
-
-        } catch (Exception e) {
-            LOGGER.error("Error occured", e);
-        }
-    }
-
     @Nullable
     private static String getBallerinaSdk(Project project) {
         // Todo - Add logic
-        return "/usr/lib/ballerina/ballerina-0.990.2";
-    }
-
-    private static boolean isBallerinaSdkHome(String sdkPath) {
-        if (sdkPath == null || sdkPath.equals("")) {
-            return false;
-        }
-
-        // Checks for either shell script or batch file, since the shell script recognition error in windows.
-        String balShellScript = Paths.get(sdkPath, "bin", "ballerina").toString();
-        String balBatchScript = Paths.get(sdkPath, "bin", "ballerina.bat").toString();
-        String launcherShellScript = Paths.get(sdkPath, launcherScriptPath, "language-server-launcher.sh").toString();
-        String launcherBatchScript = Paths.get(sdkPath, launcherScriptPath, "language-server-launcher.bat").toString();
-        return (new File(balShellScript).exists() || new File(balBatchScript).exists())
-                && (new File(launcherShellScript).exists() || new File(launcherBatchScript).exists());
+        return "/usr/lib/ballerina/ballerina-0.990.3-SNAPSHOT";
     }
 
     private enum ProjectStatus {
