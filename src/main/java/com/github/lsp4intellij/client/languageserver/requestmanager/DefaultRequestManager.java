@@ -68,9 +68,9 @@ import org.eclipse.lsp4j.services.WorkspaceService;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class SimpleRequestManager implements RequestManager {
+public class DefaultRequestManager implements RequestManager {
 
-    private Logger LOG = Logger.getInstance(SimpleRequestManager.class);
+    private Logger LOG = Logger.getInstance(DefaultRequestManager.class);
     private TextDocumentSyncOptions textDocumentOptions;
     private WorkspaceService workspaceService;
     private TextDocumentService textDocumentService;
@@ -79,7 +79,7 @@ public class SimpleRequestManager implements RequestManager {
     private LanguageClient client;
     private ServerCapabilities serverCapabilities;
 
-    public SimpleRequestManager(LanguageServerWrapper wrapper, LanguageServer server, LanguageClient client,
+    public DefaultRequestManager(LanguageServerWrapper wrapper, LanguageServer server, LanguageClient client,
             ServerCapabilities serverCapabilities) {
 
         this.wrapper = wrapper;

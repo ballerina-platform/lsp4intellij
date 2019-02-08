@@ -18,7 +18,6 @@ import org.eclipse.lsp4j.ShowMessageRequestParams;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.eclipse.lsp4j.services.LanguageServer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,16 +28,14 @@ import javax.swing.*;
 
 public class LanguageClientImpl implements LanguageClient {
     private Logger LOG = Logger.getInstance(LanguageClientImpl.class);
-    private LanguageServer server;
     private LanguageServerWrapper wrapper;
 
     /**
      * Connects the LanguageClient to the server
      *
-     * @param server The LanguageServer
+     * @param wrapper The Language Server Wrapper
      */
-    public void connect(LanguageServer server, LanguageServerWrapper wrapper) {
-        this.server = server;
+    public void connect(LanguageServerWrapper wrapper) {
         this.wrapper = wrapper;
     }
 

@@ -118,9 +118,17 @@ public class EditorEventManager {
 
         this.project = editor.getProject();
 
-        EditorEventManagerBase.getInstance().uriToManager.put(FileUtils.editorToURIString(editor), this);
-        EditorEventManagerBase.getInstance().editorToManager.put(editor, this);
+        EditorEventManagerBase.uriToManager.put(FileUtils.editorToURIString(editor), this);
+        EditorEventManagerBase.editorToManager.put(editor, this);
         changesParams.getTextDocument().setUri(identifier.getUri());
+    }
+
+    public TextDocumentIdentifier getIdentifier() {
+        return this.identifier;
+    }
+
+    public RequestManager getRequestManager() {
+        return this.requestManager;
     }
 
     /**
@@ -178,7 +186,6 @@ public class EditorEventManager {
      * @return The corresponding LookupElement
      */
     private LookupElement createLookupItem(CompletionItem item) {
-        List<TextEdit> addTextEdits = item.getAdditionalTextEdits();
         Command command = item.getCommand();
         Object data = item.getData();
         String detail = item.getDetail();
@@ -189,6 +196,7 @@ public class EditorEventManager {
         CompletionItemKind kind = item.getKind();
         String label = item.getLabel();
         TextEdit textEdit = item.getTextEdit();
+        List<TextEdit> addTextEdits = item.getAdditionalTextEdits();
         String sortText = item.getSortText();
         String presentableText = (label != null && label != "") ? label : (insertText != null) ? insertText : "";
         String tailText = (detail != null) ? detail : "";

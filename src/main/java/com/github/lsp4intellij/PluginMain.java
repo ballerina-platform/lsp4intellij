@@ -6,6 +6,7 @@ import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapp
 import com.github.lsp4intellij.editor.listeners.EditorListener;
 import com.github.lsp4intellij.editor.listeners.FileDocumentManagerListenerImpl;
 import com.github.lsp4intellij.editor.listeners.VFSListener;
+import com.github.lsp4intellij.extensions.LSPExtensionManager;
 import com.github.lsp4intellij.utils.ApplicationUtils;
 import com.github.lsp4intellij.utils.FileUtils;
 import com.intellij.AppTopics;
@@ -28,11 +29,11 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.AbstractMap;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -42,9 +43,10 @@ public class PluginMain implements ApplicationComponent {
 
     private static final String SPLIT_CHAR = ";";
 
-    private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new HashMap<>();
-    private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new HashMap<>();
-    private static Map<String, LanguageServerDefinition> extToServerDefinition = new HashMap<>();
+    private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new ConcurrentHashMap<>();
+    private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
+    private static Map<String, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
+    private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
     private static boolean loadedExtensions = false;
 
     @Override
@@ -55,6 +57,10 @@ public class PluginMain implements ApplicationComponent {
         ApplicationManager.getApplication().getMessageBus().connect()
                 .subscribe(AppTopics.FILE_DOCUMENT_SYNC, new FileDocumentManagerListenerImpl());
         LOG.info("PluginMain init finished");
+    }
+
+    public static void addLSPExtension(String ext, LSPExtensionManager manager) {
+        extToExtManager.put(ext, manager);
     }
 
     /**
@@ -140,21 +146,24 @@ public class PluginMain implements ApplicationComponent {
                 LOG.info("Opened " + file.getName());
                 LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
                 if (serverDefinition != null) {
-                    synchronized (extToLanguageWrapper) {
-                        LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, rootUri));
-                        if (wrapper == null) {
-                            LOG.info("Instantiating wrapper for " + ext + " : " + rootUri);
-                            wrapper = new LanguageServerWrapperImpl(serverDefinition, project);
-                            String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
-                            for (String exension : exts) {
-                                extToLanguageWrapper.put(new ImmutablePair<>(exension, rootUri), wrapper);
-                            }
+                    LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, rootUri));
+                    if (wrapper == null) {
+                        LOG.info("Instantiating wrapper for " + ext + " : " + rootUri);
+                        if (extToExtManager.get(ext) != null) {
+                            wrapper = new LanguageServerWrapperImpl(serverDefinition, project,
+                                    extToExtManager.get(ext));
                         } else {
-                            LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
+                            wrapper = new LanguageServerWrapperImpl(serverDefinition, project);
                         }
-                        LOG.info("Adding file " + file.getName());
-                        wrapper.connect(editor);
+                        String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
+                        for (String exension : exts) {
+                            extToLanguageWrapper.put(new ImmutablePair<>(exension, rootUri), wrapper);
+                        }
+                    } else {
+                        LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
                     }
+                    LOG.info("Adding file " + file.getName());
+                    wrapper.connect(editor);
                 }
             });
         } else {
@@ -193,11 +202,14 @@ public class PluginMain implements ApplicationComponent {
      * @param editor the editor.
      */
     public static void editorClosed(Editor editor) {
+        VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
         ApplicationUtils.pool(() -> {
+            String ext = file.getExtension();
             LanguageServerWrapper serverWrapper = LanguageServerWrapperImpl.forEditor(editor);
             if (serverWrapper != null) {
                 LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
                 serverWrapper.disconnect(editor);
+                extToLanguageWrapper.remove(ext);
             }
         });
     }
@@ -212,82 +224,5 @@ public class PluginMain implements ApplicationComponent {
         }
     }
 
-    //    /**
-    //     * Returns the corresponding workspaceSymbols given a name and a project
-    //     *
-    //     * @param name                   The name to search for
-    //     * @param pattern                The pattern (unused)
-    //     * @param project                The project in which to search
-    //     * @param includeNonProjectItems Whether to search in libraries for example (unused)
-    //     * @param onlyKind               Filter the results to only the kinds in the set (all by default)
-    //     * @return An array of NavigationItem
-    //     */
-    //    public NavigationItem[]  workspaceSymbols(String name, String pattern, Project project, boolean includeNonProjectItems, Set<SymbolKind> onlyKind) {
-    //        Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers.get(
-    //                FileUtils.pathToUri(project.getBasePath()));
-    //        if(wrappers != null && !wrappers.isEmpty()){
-    //            WorkspaceSymbolParams params = new WorkspaceSymbolParams(name);
-    //            List<AbstractMap.SimpleEntry<LanguageServerWrapper, CompletableFuture<List<? extends SymbolInformation>>>>
-    //                    servDefToReq = wrappers.stream()
-    //                    .filter(w -> w.getStatus() == ServerStatus.STARTED && w.getRequestManager() != null)
-    //                    .map(w -> new AbstractMap.SimpleEntry<>(w, w.getRequestManager().symbol(params)))
-    //                    .filter(w -> w.getValue() != null)
-    //                    .collect(Collectors.toList());
-    //
-    //
-    //            if (!servDefToReq.contains(null)) {
-    //                val servDefToSymb = servDefToReq.stream().map(w -> {
-    //                try {
-    //                    val symbols = w.getValue().get(Timeout.SYMBOLS_TIMEOUT, TimeUnit.MILLISECONDS);
-    //                    w.getKey().notifyResult(Timeouts.SYMBOLS, true);
-    //
-    //                    (w.getKey(), if (symbols != null) symbols.
-    //                            .filter(s -> if (onlyKind.isEmpty) true else onlyKind.contains(s.getKind)) else null)
-    //
-    //                    return new AbstractMap.SimpleEntry<>(w.getKey(), (symbols != null) ? );
-    //
-    //                } catch (TimeoutException e) {
-    //                        LOG.warn(e);
-    //                        w.getKey().notifyResult(Timeouts.SYMBOLS, false);
-    //                        return null;
-    //                }
-    //          }
-    //          ).filter(r => r._2 != null)
-    //                servDefToSymb.flatMap(res => {
-    //                        val definition = res._1
-    //                        val symbols = res._2
-    //                        symbols.map(symb => {
-    //                                val start = symb.getLocation.getRange.getStart
-    //                                val uri = FileUtils.URIToVFS(symb.getLocation.getUri)
-    //                                val iconProvider = GUIUtils.getIconProviderFor(definition.getServerDefinition)
-    //                                LSPNavigationItem(symb.getName, symb.getContainerName, project, uri, start.getLine, start.getCharacter, iconProvider.getSymbolIcon(symb.getKind))
-    //                        })
-    //          }).toArray.asInstanceOf[Array[NavigationItem]]
-    //
-    //            } else {
-    //                return new NavigationItem[]{};
-    //            }
-    //        }else {
-    //            LOG.info("No wrapper for project " + project.getBasePath());
-    //            return new NavigationItem[]{};
-    //        }
-    //    }
-
-    // Todo - Implement
-    //    public void setForcedAssociations(Map<String[], String[]> associations) {
-    //        Map<String[], String[]> scAssociations = associations;
-    //        boolean isBadArrayLength = false;
-    //        for (Map.Entry<String[], String[]> entry : scAssociations.entrySet()) {
-    //            if (entry.getKey().length == 2) {
-    //                LOG.warn("Unable to set forced associations : bad array length");
-    //                isBadArrayLength = true;
-    //                break;
-    //            }
-    //        }
-    //        if (!isBadArrayLength){
-    //            this.forcedAssociations = mutable.Map()++ scAssociations.map(mapping = > (mapping._1(0), mapping._1(1)) ->
-    //            LanguageServerDefinition.fromArray(mapping._2))
-    //
-    //        }
-    //    }
+    // Todo - Implement workspace symbols support
 }
