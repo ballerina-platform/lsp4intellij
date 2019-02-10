@@ -1,4 +1,4 @@
-package com.github.lsp4intellij.extensionpoints;
+package com.github.lsp4intellij.extensions;
 
 import com.github.lsp4intellij.client.languageserver.ServerOptions;
 import com.github.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
@@ -14,11 +14,11 @@ import org.eclipse.lsp4j.services.LanguageServer;
 
 public interface LSPExtensionManager {
 
-    <T extends DefaultRequestManager> T  getExtendedRequestManagerFor(LanguageServerWrapper wrapper,
+    <T extends DefaultRequestManager> T getExtendedRequestManagerFor(LanguageServerWrapper wrapper,
             LanguageServer server, LanguageClient client, ServerCapabilities serverCapabilities);
 
-    <T extends EditorEventManager> T getExtendedEditorEventManagerFor(Editor editor, DocumentListener documentListener, RequestManager requestManager,
-            ServerOptions serverOptions, LanguageServerWrapperImpl wrapper);
+    <T extends EditorEventManager> T getExtendedEditorEventManagerFor(Editor editor, DocumentListener documentListener,
+            RequestManager requestManager, ServerOptions serverOptions, LanguageServerWrapperImpl wrapper);
 
     Class<? extends LanguageServer> getExtendedServerInterface();
 

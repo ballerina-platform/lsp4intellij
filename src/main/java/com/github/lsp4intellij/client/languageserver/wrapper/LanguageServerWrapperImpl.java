@@ -6,11 +6,12 @@ import com.github.lsp4intellij.client.LanguageClientImpl;
 import com.github.lsp4intellij.client.languageserver.LSPServerStatusWidget;
 import com.github.lsp4intellij.client.languageserver.ServerOptions;
 import com.github.lsp4intellij.client.languageserver.ServerStatus;
+import com.github.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
 import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManager;
-import com.github.lsp4intellij.client.languageserver.requestmanager.SimpleRequestManager;
 import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.editor.listeners.DocumentListenerImpl;
+import com.github.lsp4intellij.extensions.LSPExtensionManager;
 import com.github.lsp4intellij.requests.Timeout;
 import com.github.lsp4intellij.requests.Timeouts;
 import com.github.lsp4intellij.utils.ApplicationUtils;
@@ -61,7 +62,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Message;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage;
-import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.jetbrains.annotations.Nullable;
 
@@ -95,6 +95,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     private Logger LOG = Logger.getInstance(LanguageServerWrapperImpl.class);
 
     private static final Map<Pair<String, String>, LanguageServerWrapper> uriToLanguageServerWrapper = new ConcurrentHashMap<>();
+    private static LSPExtensionManager extManager = null;
     public LanguageServerDefinition serverDefinition;
     private Project project;
     private final HashSet<Editor> toConnect = new HashSet<>();
@@ -120,6 +121,15 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
         this.project = project;
         this.rootPath = project.getBasePath();
         this.statusWidget = LSPServerStatusWidget.createWidgetFor(this);
+    }
+
+    public LanguageServerWrapperImpl(LanguageServerDefinition serverDefinition, Project project,
+            LSPExtensionManager extManager) {
+        this.serverDefinition = serverDefinition;
+        this.project = project;
+        this.rootPath = project.getBasePath();
+        this.statusWidget = LSPServerStatusWidget.createWidgetFor(this);
+        this.extManager = extManager;
     }
 
     /**
@@ -275,8 +285,14 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                                             capabilities.getDocumentLinkProvider(),
                                             capabilities.getExecuteCommandProvider(),
                                             capabilities.getSemanticHighlighting());
-                                    EditorEventManager manager = new EditorEventManager(editor, documentListener,
-                                            requestManager, serverOptions, this);
+                                    EditorEventManager manager;
+                                    if (extManager != null) {
+                                        manager = extManager.getExtendedEditorEventManagerFor(editor, documentListener,
+                                                requestManager, serverOptions, this);
+                                    } else {
+                                        manager = new EditorEventManager(editor, documentListener, requestManager,
+                                                serverOptions, this);
+                                    }
                                     //                                        mouseListener.setManager(manager);
                                     //                                        mouseMotionListener.setManager(manager);
                                     //                                        selectionListener.setManager(manager);
@@ -396,46 +412,30 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 InputStream inputStream = streams.getKey();
                 OutputStream outputStream = streams.getValue();
                 client = serverDefinition.createLanguageClient();
-                InitializeParams initParams = new InitializeParams();
-                initParams.setRootUri(FileUtils.pathToUri(rootPath));
-                Launcher<LanguageServer> launcher = LSPLauncher.createClientLauncher(client, inputStream, outputStream);
-                languageServer = launcher.getRemoteProxy();
-                client.connect(languageServer, this);
-                launcherFuture = launcher.startListening();
-                //TODO update capabilities when implemented
-                WorkspaceClientCapabilities workspaceClientCapabilities = new WorkspaceClientCapabilities();
-                workspaceClientCapabilities.setApplyEdit(true);
-                workspaceClientCapabilities.setDidChangeWatchedFiles(new DidChangeWatchedFilesCapabilities());
-                workspaceClientCapabilities.setExecuteCommand(new ExecuteCommandCapabilities());
-                workspaceClientCapabilities.setWorkspaceEdit(new WorkspaceEditCapabilities());
-                workspaceClientCapabilities.setSymbol(new SymbolCapabilities());
-                workspaceClientCapabilities.setWorkspaceFolders(false);
-                workspaceClientCapabilities.setConfiguration(false);
+                InitializeParams initParams = getInitParams();
+                if (extManager != null) {
+                    Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
+                    Launcher<? extends LanguageServer> launcher = Launcher
+                            .createLauncher(client, remoteServerInterFace, inputStream, outputStream);
+                    languageServer = launcher.getRemoteProxy();
+                    launcherFuture = launcher.startListening();
+                } else {
+                    Launcher<LanguageServer> launcher = Launcher
+                            .createLauncher(client, LanguageServer.class, inputStream, outputStream);
+                    languageServer = launcher.getRemoteProxy();
+                    launcherFuture = launcher.startListening();
+                }
+                client.connect(this);
 
-                TextDocumentClientCapabilities textDocumentClientCapabilities = new TextDocumentClientCapabilities();
-                textDocumentClientCapabilities.setCodeAction(new CodeActionCapabilities());
-                textDocumentClientCapabilities
-                        .setCompletion(new CompletionCapabilities(new CompletionItemCapabilities(false)));
-                textDocumentClientCapabilities.setDefinition(new DefinitionCapabilities());
-                textDocumentClientCapabilities.setDocumentHighlight(new DocumentHighlightCapabilities());
-                textDocumentClientCapabilities.setFormatting(new FormattingCapabilities());
-                textDocumentClientCapabilities.setHover(new HoverCapabilities());
-                textDocumentClientCapabilities.setOnTypeFormatting(new OnTypeFormattingCapabilities());
-                textDocumentClientCapabilities.setRangeFormatting(new RangeFormattingCapabilities());
-                textDocumentClientCapabilities.setReferences(new ReferencesCapabilities());
-                textDocumentClientCapabilities.setRename(new RenameCapabilities());
-                textDocumentClientCapabilities
-                        .setSemanticHighlightingCapabilities(new SemanticHighlightingCapabilities(false));
-                textDocumentClientCapabilities.setSignatureHelp(new SignatureHelpCapabilities());
-                textDocumentClientCapabilities.setSynchronization(new SynchronizationCapabilities(true, true, true));
-                initParams.setCapabilities(
-                        new ClientCapabilities(workspaceClientCapabilities, textDocumentClientCapabilities, null));
-                initParams.setInitializationOptions(
-                        serverDefinition.getInitializationOptions(URI.create(initParams.getRootUri())));
                 initializeFuture = languageServer.initialize(initParams).thenApply(res -> {
                     initializeResult = res;
                     LOG.info("Got initializeResult for " + serverDefinition + " ; " + rootPath);
-                    requestManager = new SimpleRequestManager(this, languageServer, client, res.getCapabilities());
+                    if (extManager != null) {
+                        requestManager = extManager
+                                .getExtendedRequestManagerFor(this, languageServer, client, res.getCapabilities());
+                    } else {
+                        requestManager = new DefaultRequestManager(this, languageServer, client, res.getCapabilities());
+                    }
                     setStatus(STARTED);
                     return res;
                 });
@@ -448,6 +448,41 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
                 removeServerWrapper();
             }
         }
+    }
+
+    private InitializeParams getInitParams() {
+        InitializeParams initParams = new InitializeParams();
+        initParams.setRootUri(FileUtils.pathToUri(rootPath));
+        //TODO update capabilities when implemented
+        WorkspaceClientCapabilities workspaceClientCapabilities = new WorkspaceClientCapabilities();
+        workspaceClientCapabilities.setApplyEdit(true);
+        workspaceClientCapabilities.setDidChangeWatchedFiles(new DidChangeWatchedFilesCapabilities());
+        workspaceClientCapabilities.setExecuteCommand(new ExecuteCommandCapabilities());
+        workspaceClientCapabilities.setWorkspaceEdit(new WorkspaceEditCapabilities());
+        workspaceClientCapabilities.setSymbol(new SymbolCapabilities());
+        workspaceClientCapabilities.setWorkspaceFolders(false);
+        workspaceClientCapabilities.setConfiguration(false);
+
+        TextDocumentClientCapabilities textDocumentClientCapabilities = new TextDocumentClientCapabilities();
+        textDocumentClientCapabilities.setCodeAction(new CodeActionCapabilities());
+        textDocumentClientCapabilities.setCompletion(new CompletionCapabilities(new CompletionItemCapabilities(false)));
+        textDocumentClientCapabilities.setDefinition(new DefinitionCapabilities());
+        textDocumentClientCapabilities.setDocumentHighlight(new DocumentHighlightCapabilities());
+        textDocumentClientCapabilities.setFormatting(new FormattingCapabilities());
+        textDocumentClientCapabilities.setHover(new HoverCapabilities());
+        textDocumentClientCapabilities.setOnTypeFormatting(new OnTypeFormattingCapabilities());
+        textDocumentClientCapabilities.setRangeFormatting(new RangeFormattingCapabilities());
+        textDocumentClientCapabilities.setReferences(new ReferencesCapabilities());
+        textDocumentClientCapabilities.setRename(new RenameCapabilities());
+        textDocumentClientCapabilities.setSemanticHighlightingCapabilities(new SemanticHighlightingCapabilities(false));
+        textDocumentClientCapabilities.setSignatureHelp(new SignatureHelpCapabilities());
+        textDocumentClientCapabilities.setSynchronization(new SynchronizationCapabilities(true, true, true));
+        initParams.setCapabilities(
+                new ClientCapabilities(workspaceClientCapabilities, textDocumentClientCapabilities, null));
+        initParams.setInitializationOptions(
+                serverDefinition.getInitializationOptions(URI.create(initParams.getRootUri())));
+
+        return initParams;
     }
 
     public void logMessage(Message message) {
