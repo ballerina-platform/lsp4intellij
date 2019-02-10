@@ -1,4 +1,4 @@
-package com.github.lsp4intellij.extensions.server;
+package com.github.lsp4intellij.ballerinaextension.server;
 
 /**
  * Represents a Ballerina service list reuqest.

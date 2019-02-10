@@ -1,4 +1,4 @@
-package com.github.lsp4intellij.extensions.server;
+package com.github.lsp4intellij.ballerinaextension.server;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
