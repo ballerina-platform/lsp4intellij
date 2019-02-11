@@ -95,7 +95,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
     private Logger LOG = Logger.getInstance(LanguageServerWrapperImpl.class);
 
     private static final Map<Pair<String, String>, LanguageServerWrapper> uriToLanguageServerWrapper = new ConcurrentHashMap<>();
-    private static LSPExtensionManager extManager = null;
+    private final LSPExtensionManager extManager;
     public LanguageServerDefinition serverDefinition;
     private Project project;
     private final HashSet<Editor> toConnect = new HashSet<>();
@@ -121,6 +121,7 @@ public class LanguageServerWrapperImpl extends LanguageServerWrapper {
         this.project = project;
         this.rootPath = project.getBasePath();
         this.statusWidget = LSPServerStatusWidget.createWidgetFor(this);
+        this.extManager = null;
     }
 
     public LanguageServerWrapperImpl(LanguageServerDefinition serverDefinition, Project project,

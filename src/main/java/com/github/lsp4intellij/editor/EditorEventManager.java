@@ -80,19 +80,18 @@ import static com.github.lsp4intellij.utils.ApplicationUtils.writeAction;
  */
 public class EditorEventManager {
 
+    protected Logger LOG = Logger.getInstance(EditorEventManager.class);
+
     public Editor editor;
-    DocumentListener documentListener;
-    RequestManager requestManager;
-    ServerOptions serverOptions;
+    protected DocumentListener documentListener;
+    protected RequestManager requestManager;
+    protected ServerOptions serverOptions;
     public LanguageServerWrapperImpl wrapper;
-
-    private TextDocumentIdentifier identifier;
-    private Logger LOG = Logger.getInstance(EditorEventManager.class);
-    private DidChangeTextDocumentParams changesParams;
-    private TextDocumentSyncKind syncKind;
-
-    private List<String> completionTriggers;
-    private Project project;
+    protected TextDocumentIdentifier identifier;
+    protected DidChangeTextDocumentParams changesParams;
+    protected TextDocumentSyncKind syncKind;
+    protected List<String> completionTriggers;
+    protected Project project;
     volatile boolean needSave = false;
     private int version = -1;
     private boolean isOpen = false;
@@ -121,14 +120,6 @@ public class EditorEventManager {
         EditorEventManagerBase.uriToManager.put(FileUtils.editorToURIString(editor), this);
         EditorEventManagerBase.editorToManager.put(editor, this);
         changesParams.getTextDocument().setUri(identifier.getUri());
-    }
-
-    public TextDocumentIdentifier getIdentifier() {
-        return this.identifier;
-    }
-
-    public RequestManager getRequestManager() {
-        return this.requestManager;
     }
 
     /**
