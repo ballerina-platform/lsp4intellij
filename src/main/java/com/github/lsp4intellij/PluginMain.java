@@ -2,7 +2,6 @@ package com.github.lsp4intellij;
 
 import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapperImpl;
 import com.github.lsp4intellij.editor.listeners.EditorListener;
 import com.github.lsp4intellij.editor.listeners.FileDocumentManagerListenerImpl;
 import com.github.lsp4intellij.editor.listeners.VFSListener;
@@ -150,10 +149,10 @@ public class PluginMain implements ApplicationComponent {
                     if (wrapper == null) {
                         LOG.info("Instantiating wrapper for " + ext + " : " + rootUri);
                         if (extToExtManager.get(ext) != null) {
-                            wrapper = new LanguageServerWrapperImpl(serverDefinition, project,
+                            wrapper = new LanguageServerWrapper(serverDefinition, project,
                                     extToExtManager.get(ext));
                         } else {
-                            wrapper = new LanguageServerWrapperImpl(serverDefinition, project);
+                            wrapper = new LanguageServerWrapper(serverDefinition, project);
                         }
                         String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
                         for (String exension : exts) {
@@ -205,7 +204,7 @@ public class PluginMain implements ApplicationComponent {
         VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
         ApplicationUtils.pool(() -> {
             String ext = file.getExtension();
-            LanguageServerWrapper serverWrapper = LanguageServerWrapperImpl.forEditor(editor);
+            LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
             if (serverWrapper != null) {
                 LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
                 serverWrapper.disconnect(editor);

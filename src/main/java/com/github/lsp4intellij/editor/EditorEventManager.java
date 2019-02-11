@@ -2,7 +2,7 @@ package com.github.lsp4intellij.editor;
 
 import com.github.lsp4intellij.client.languageserver.ServerOptions;
 import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManager;
-import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapperImpl;
+import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import com.github.lsp4intellij.contributors.icon.LSPIconProvider;
 import com.github.lsp4intellij.requests.Timeouts;
 import com.github.lsp4intellij.requests.WorkspaceEditHandler;
@@ -86,7 +86,7 @@ public class EditorEventManager {
     protected DocumentListener documentListener;
     protected RequestManager requestManager;
     protected ServerOptions serverOptions;
-    public LanguageServerWrapperImpl wrapper;
+    public LanguageServerWrapper wrapper;
     protected TextDocumentIdentifier identifier;
     protected DidChangeTextDocumentParams changesParams;
     protected TextDocumentSyncKind syncKind;
@@ -98,7 +98,7 @@ public class EditorEventManager {
 
     //Todo - Revisit and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, RequestManager requestManager,
-            ServerOptions serverOptions, LanguageServerWrapperImpl wrapper) {
+            ServerOptions serverOptions, LanguageServerWrapper wrapper) {
         this.editor = editor;
         this.documentListener = documentListener;
         this.requestManager = requestManager;
