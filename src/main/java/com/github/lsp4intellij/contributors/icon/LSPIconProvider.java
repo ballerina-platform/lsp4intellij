@@ -9,6 +9,7 @@ import java.util.Map;
 import javax.swing.*;
 
 public abstract class LSPIconProvider {
+
     public static Icon getCompletionIcon(CompletionItemKind kind){
         return LSPDefaultIconProvider.getCompletionIcon(kind);
     }

@@ -193,12 +193,13 @@ public class EditorEventManager {
         String tailText = (detail != null) ? detail : "";
         LSPIconProvider iconProvider = GUIUtils.getIconProviderFor(wrapper.getServerDefinition());
         Icon icon = iconProvider.getCompletionIcon(kind);
-        LookupElementBuilder lookupElementBuilder = null;
+        LookupElementBuilder lookupElementBuilder;
 
         if (textEdit != null) {
             if (addTextEdits != null) {
                 addTextEdits.add(textEdit);
-                lookupElementBuilder = LookupElementBuilder.create("")
+                lookupElementBuilder = LookupElementBuilder
+                        .create((insertText != null && insertText != "") ? insertText : label)
                         .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
                             context.commitDocument();
                             invokeLater(() -> {
@@ -209,7 +210,8 @@ public class EditorEventManager {
                             });
                         });
             } else {
-                lookupElementBuilder = LookupElementBuilder.create("")
+                lookupElementBuilder = LookupElementBuilder
+                        .create((insertText != null && insertText != "") ? insertText : label)
                         .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
                             context.commitDocument();
                             invokeLater(() -> {
@@ -221,7 +223,8 @@ public class EditorEventManager {
                         });
             }
         } else if (addTextEdits != null) {
-            lookupElementBuilder = LookupElementBuilder.create("")
+            lookupElementBuilder = LookupElementBuilder
+                    .create((insertText != null && insertText != "") ? insertText : label)
                     .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
                         context.commitDocument();
                         invokeLater(() -> {
@@ -245,7 +248,7 @@ public class EditorEventManager {
         }
         if (kind == CompletionItemKind.Keyword)
             lookupElementBuilder = lookupElementBuilder.withBoldness(true);
-        return lookupElementBuilder.withPresentableText(presentableText).withTailText(tailText, true).withIcon(icon)
+        return lookupElementBuilder.withPresentableText(presentableText).withTypeText(tailText, true).withIcon(icon)
                 .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
     }
 
