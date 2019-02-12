@@ -2,7 +2,7 @@
     <id>lsp4intellij</id>
     <name>Lsp4IntelliJ</name>
     <version>0.1</version>
-    <vendor email="nipunaranasinghe93@gmail.com" >Nipuna Ranasinghe</vendor>
+    <vendor email="nipunaranasinghe93@gmail.com">Nipuna Ranasinghe</vendor>
 
     <description><![CDATA[
       <a href="Test plugin for lsp4intellij
@@ -32,6 +32,8 @@
                 implementation="com.github.lsp4intellij.preloading.LSPPreloadingActivity"
                 id="com.github.lsp4intellij.preloading.LSPPreloadingActivity"/>
 
+        <inspectionToolProvider implementation="com.github.lsp4intellij.contributors.inspection.LSPInspectionProvider"
+                                id="LSPInspectionProvider"/>
     </extensions>
 
     <application-components>

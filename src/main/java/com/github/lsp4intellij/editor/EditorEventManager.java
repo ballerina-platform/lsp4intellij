@@ -29,6 +29,7 @@ import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -52,7 +53,9 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -89,6 +92,7 @@ public class EditorEventManager {
     public LanguageServerWrapper wrapper;
     protected TextDocumentIdentifier identifier;
     protected DidChangeTextDocumentParams changesParams;
+    protected final Set<Diagnostic> diagnostics = new HashSet<>();
     protected TextDocumentSyncKind syncKind;
     protected List<String> completionTriggers;
     protected Project project;
@@ -130,6 +134,27 @@ public class EditorEventManager {
     public void characterTyped(char c) {
         if (completionTriggers.contains(c)) {
             completion(DocumentUtils.offsetToLSPPos(editor, editor.getCaretModel().getCurrentCaret().getOffset()));
+        }
+    }
+
+    /**
+     * @return The current diagnostics highlights
+     */
+    public Set<Diagnostic> getDiagnostics() {
+        return diagnostics;
+    }
+
+    /**
+     * Applies the diagnostics to the document
+     *
+     * @param diagnostics The diagnostics to apply from the server
+     */
+    public void diagnostics(List<Diagnostic> diagnostics) {
+        if (!editor.isDisposed()) {
+            synchronized (this.diagnostics) {
+                this.diagnostics.clear();
+                this.diagnostics.addAll(diagnostics);
+            }
         }
     }
 

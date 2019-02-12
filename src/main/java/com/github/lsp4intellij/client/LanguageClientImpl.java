@@ -1,7 +1,10 @@
 package com.github.lsp4intellij.client;
 
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import com.github.lsp4intellij.editor.EditorEventManager;
+import com.github.lsp4intellij.editor.EditorEventManagerBase;
 import com.github.lsp4intellij.utils.ApplicationUtils;
+import com.github.lsp4intellij.utils.FileUtils;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Messages;
@@ -9,6 +12,7 @@ import com.intellij.util.ui.UIUtil;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
 import org.eclipse.lsp4j.ConfigurationParams;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.MessageActionItem;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
@@ -66,9 +70,12 @@ public class LanguageClientImpl implements LanguageClient {
     }
 
     public void publishDiagnostics(PublishDiagnosticsParams publishDiagnosticsParams) {
-        //        String uri = FileUtils.sanitizeURI(publishDiagnosticsParams.getUri());
-        //        List<Diagnostic> diagnostics = publishDiagnosticsParams.getDiagnostics();
-        //        EditorEventManager.forUri(uri).foreach(e => e.diagnostics(diagnostics.asScala));
+        String uri = FileUtils.sanitizeURI(publishDiagnosticsParams.getUri());
+        List<Diagnostic> diagnostics = publishDiagnosticsParams.getDiagnostics();
+        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+        if (manager != null) {
+            manager.diagnostics(diagnostics);
+        }
     }
 
     public void showMessage(MessageParams messageParams) {
