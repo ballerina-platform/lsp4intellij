@@ -1,4 +1,4 @@
-# lsp4intellij
+# [lsp4intellij]() - Language Server Client Library for Jetbrains Plugins
 
 [![Build Status](https://travis-ci.com/NipunaRanasinghe/lsp4intellij.svg?branch=master)](https://travis-ci.com/NipunaRanasinghe/lsp4intellij)
 
