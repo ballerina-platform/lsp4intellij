@@ -92,7 +92,7 @@ public class WorkspaceEditHandler {
      * @param edit The edit
      * @return True if everything was applied, false otherwise
      */
-    public static boolean applyEdit(WorkspaceEdit edit, String name, List<VirtualFile> toClose) {
+    private static boolean applyEdit(WorkspaceEdit edit, String name, List<VirtualFile> toClose) {
         final String newName = (name == null) ? "LSP edits" : name;
         if (edit != null) {
             Map<String, List<TextEdit>> changes = edit.getChanges();
@@ -120,7 +120,6 @@ public class WorkspaceEditHandler {
                                 toApply.add(manageUnopenedEditor(textEdit.getEdits(), uri, version, openedEditors,
                                         curProject, newName));
                             }
-                            ;
                         } else if (tEdit.isRight()) {
                             ResourceOperation resourceOp = tEdit.getRight();
                             //TODO
@@ -143,14 +142,13 @@ public class WorkspaceEditHandler {
                                     manageUnopenedEditor(lChanges, uri, Integer.MAX_VALUE, openedEditors, curProject,
                                             newName));
                         }
-                        ;
                     });
                 }
                 if (toApply.contains(null)) {
                     LOG.warn("Didn't apply, null runnable");
                     didApply[0] = false;
                 } else {
-                    Runnable runnable = () -> toApply.forEach(r -> r.run());
+                    Runnable runnable = () -> toApply.forEach(Runnable::run);
                     ApplicationUtils.invokeLater(() -> ApplicationUtils.writeAction(() -> {
                         CommandProcessor.getInstance().executeCommand(curProject[0], runnable, name, "LSPPlugin",
                                 UndoConfirmationPolicy.DEFAULT, false);
@@ -182,8 +180,8 @@ public class WorkspaceEditHandler {
         //Infer the project from the uri
         Project project = Stream.of(projects)
                 .map(p -> new ImmutablePair<>(FileUtils.VFSToURI(ProjectUtil.guessProjectDir(p)), p))
-                .filter(p -> uri.startsWith(p.getLeft())).sorted((o1, o2) -> o1.getLeft().length())
-                .sorted(Collections.reverseOrder()).map(p -> p.getRight()).findFirst().orElse(projects[0]);
+                .filter(p -> uri.startsWith(p.getLeft())).sorted(Collections.reverseOrder())
+                .map(ImmutablePair::getRight).findFirst().orElse(projects[0]);
         VirtualFile file = null;
         try {
             file = LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(FileUtils.sanitizeURI(uri))));
