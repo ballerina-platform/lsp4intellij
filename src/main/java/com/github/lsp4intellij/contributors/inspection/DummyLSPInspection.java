@@ -7,8 +7,8 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.*;
 
 /*
- * This is used just to register a local inspection tool provider. LSPInspection
- * is used to handle inspections, after receiving diagnostics
+ * This is used just to register a local inspection tool provider. `LSPInspection` contains the actual implementation
+ * to handle inspections, after receiving diagnostics notification.
  */
 public class DummyLSPInspection extends LocalInspectionTool {
 

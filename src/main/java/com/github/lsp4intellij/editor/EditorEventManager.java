@@ -31,6 +31,7 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiDocumentManager;
@@ -180,20 +181,22 @@ public class EditorEventManager {
     private void runInspection(PsiFile psiFile) {
         Document document = PsiDocumentManager.getInstance(project).getDocument(psiFile);
         if (document != null) {
-            LocalInspectionsPass localInspectionsPass = new LocalInspectionsPass(psiFile, document, 0,
-                    document.getTextLength(), LocalInspectionsPass.EMPTY_PRIORITY_RANGE, true,
-                    HighlightInfoProcessor.getEmpty());
-            InspectionManagerEx inspectionManagerEx = (InspectionManagerEx) InspectionManager.getInstance(project);
-            invokeLater(() -> ProgressManager.getInstance().runProcess(() -> {
-                List<LocalInspectionToolWrapper> wrappers = new ArrayList<>();
-                wrappers.add(new LocalInspectionToolWrapper(new LSPInspection()));
-                localInspectionsPass
-                        .doInspectInBatch(inspectionManagerEx.createNewGlobalContext(false), inspectionManagerEx,
-                                wrappers);
-                UpdateHighlightersUtil
-                        .setHighlightersToEditor(psiFile.getProject(), document, 0, document.getTextLength(),
-                                localInspectionsPass.getInfos(), null, Pass.UPDATE_ALL);
-            }, new EmptyProgressIndicator()));
+            DumbService.getInstance(project).smartInvokeLater(() -> {
+                LocalInspectionsPass localInspectionsPass = new LocalInspectionsPass(psiFile, document, 0,
+                        document.getTextLength(), LocalInspectionsPass.EMPTY_PRIORITY_RANGE, true,
+                        HighlightInfoProcessor.getEmpty());
+                InspectionManagerEx inspectionManagerEx = (InspectionManagerEx) InspectionManager.getInstance(project);
+                ProgressManager.getInstance().runProcess(() -> {
+                    List<LocalInspectionToolWrapper> wrappers = new ArrayList<>();
+                    wrappers.add(new LocalInspectionToolWrapper(new LSPInspection()));
+                    localInspectionsPass
+                            .doInspectInBatch(inspectionManagerEx.createNewGlobalContext(false), inspectionManagerEx,
+                                    wrappers);
+                    UpdateHighlightersUtil
+                            .setHighlightersToEditor(psiFile.getProject(), document, 0, document.getTextLength(),
+                                    localInspectionsPass.getInfos(), null, Pass.UPDATE_ALL);
+                }, new EmptyProgressIndicator());
+            });
         }
     }
 

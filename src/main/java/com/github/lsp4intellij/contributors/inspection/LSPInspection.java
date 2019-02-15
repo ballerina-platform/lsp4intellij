@@ -27,6 +27,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.*;
 
+/**
+ * Triggered by {@link EditorEventManager#diagnostics} to run the local inspection tool manually.
+ */
 public class LSPInspection extends LocalInspectionTool implements DumbAware {
 
     @Nullable
