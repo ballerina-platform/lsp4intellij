@@ -5,12 +5,12 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * The provider for the LSP Inspection
- * Returns a single class, LSPInspection
+ * Returns a single class, DummyLSPInspection
  */
 public class LSPInspectionProvider implements InspectionToolProvider {
     @NotNull
     @Override
     public Class[] getInspectionClasses() {
-        return new Class[] { LSPInspection.class };
+        return new Class[] { DummyLSPInspection.class };
     }
 }

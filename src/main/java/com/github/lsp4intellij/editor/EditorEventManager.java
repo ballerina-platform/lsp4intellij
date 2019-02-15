@@ -4,15 +4,23 @@ import com.github.lsp4intellij.client.languageserver.ServerOptions;
 import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import com.github.lsp4intellij.contributors.icon.LSPIconProvider;
+import com.github.lsp4intellij.contributors.inspection.LSPInspection;
 import com.github.lsp4intellij.requests.Timeouts;
 import com.github.lsp4intellij.requests.WorkspaceEditHandler;
 import com.github.lsp4intellij.utils.DocumentUtils;
 import com.github.lsp4intellij.utils.FileUtils;
 import com.github.lsp4intellij.utils.GUIUtils;
+import com.intellij.codeHighlighting.Pass;
 import com.intellij.codeInsight.completion.InsertionContext;
+import com.intellij.codeInsight.daemon.impl.HighlightInfoProcessor;
+import com.intellij.codeInsight.daemon.impl.LocalInspectionsPass;
+import com.intellij.codeInsight.daemon.impl.UpdateHighlightersUtil;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.codeInspection.InspectionManager;
+import com.intellij.codeInspection.ex.InspectionManagerEx;
+import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
@@ -21,9 +29,12 @@ import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.progress.EmptyProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiFile;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
@@ -65,6 +76,7 @@ import javax.swing.*;
 import static com.github.lsp4intellij.requests.Timeout.COMPLETION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
+import static com.github.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static com.github.lsp4intellij.utils.ApplicationUtils.pool;
 import static com.github.lsp4intellij.utils.ApplicationUtils.writeAction;
@@ -155,6 +167,33 @@ public class EditorEventManager {
                 this.diagnostics.clear();
                 this.diagnostics.addAll(diagnostics);
             }
+            PsiFile psiFile = computableReadAction(
+                    () -> PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
+            // Forcefully triggers local inspection tool.
+            runInspection(psiFile);
+        }
+    }
+
+    /**
+     * Triggers local inspections for a given PSI file.
+     */
+    private void runInspection(PsiFile psiFile) {
+        Document document = PsiDocumentManager.getInstance(project).getDocument(psiFile);
+        if (document != null) {
+            LocalInspectionsPass localInspectionsPass = new LocalInspectionsPass(psiFile, document, 0,
+                    document.getTextLength(), LocalInspectionsPass.EMPTY_PRIORITY_RANGE, true,
+                    HighlightInfoProcessor.getEmpty());
+            InspectionManagerEx inspectionManagerEx = (InspectionManagerEx) InspectionManager.getInstance(project);
+            invokeLater(() -> ProgressManager.getInstance().runProcess(() -> {
+                List<LocalInspectionToolWrapper> wrappers = new ArrayList<>();
+                wrappers.add(new LocalInspectionToolWrapper(new LSPInspection()));
+                localInspectionsPass
+                        .doInspectInBatch(inspectionManagerEx.createNewGlobalContext(false), inspectionManagerEx,
+                                wrappers);
+                UpdateHighlightersUtil
+                        .setHighlightersToEditor(psiFile.getProject(), document, 0, document.getTextLength(),
+                                localInspectionsPass.getInfos(), null, Pass.UPDATE_ALL);
+            }, new EmptyProgressIndicator()));
         }
     }
 
