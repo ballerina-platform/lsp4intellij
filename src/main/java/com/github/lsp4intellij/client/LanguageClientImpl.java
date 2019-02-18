@@ -3,6 +3,7 @@ package com.github.lsp4intellij.client;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.editor.EditorEventManagerBase;
+import com.github.lsp4intellij.requests.WorkspaceEditHandler;
 import com.github.lsp4intellij.utils.ApplicationUtils;
 import com.github.lsp4intellij.utils.FileUtils;
 import com.intellij.openapi.application.ApplicationManager;
@@ -24,6 +25,7 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -43,32 +45,38 @@ public class LanguageClientImpl implements LanguageClient {
         this.wrapper = wrapper;
     }
 
+    @Override
     public CompletableFuture<ApplyWorkspaceEditResponse> applyEdit(ApplyWorkspaceEditParams params) {
-        //            return CompletableFuture.supplyAsync(new ApplyWorkspaceEditResponse(WorkspaceEditHandler.applyEdit(params
-        //            .getEdit(), "LSP edits", new LinkedList<>())));
-        return null;
+        boolean response = WorkspaceEditHandler.applyEdit(params.getEdit(), "LSP edits");
+        return CompletableFuture.supplyAsync(() -> new ApplyWorkspaceEditResponse(response));
     }
 
+    @Override
     public CompletableFuture<List<Object>> configuration(ConfigurationParams configurationParams) {
         return LanguageClient.super.configuration(configurationParams);
     }
 
+    @Override
     public CompletableFuture<List<WorkspaceFolder>> workspaceFolders() {
         return LanguageClient.super.workspaceFolders();
     }
 
+    @Override
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
         return wrapper.registerCapability(params);
     }
 
+    @Override
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
         return wrapper.unregisterCapability(params);
     }
 
+    @Override
     public void telemetryEvent(Object o) {
         //TODO
     }
 
+    @Override
     public void publishDiagnostics(PublishDiagnosticsParams publishDiagnosticsParams) {
         String uri = FileUtils.sanitizeURI(publishDiagnosticsParams.getUri());
         List<Diagnostic> diagnostics = publishDiagnosticsParams.getDiagnostics();
@@ -78,6 +86,7 @@ public class LanguageClientImpl implements LanguageClient {
         }
     }
 
+    @Override
     public void showMessage(MessageParams messageParams) {
         String title = "Language Server message";
         String message = messageParams.getMessage();
@@ -97,6 +106,7 @@ public class LanguageClientImpl implements LanguageClient {
         });
     }
 
+    @Override
     public CompletableFuture<MessageActionItem> showMessageRequest(ShowMessageRequestParams showMessageRequestParams) {
         List<MessageActionItem> actions = showMessageRequestParams.getActions();
         String title = "Language Server message";
@@ -134,6 +144,7 @@ public class LanguageClientImpl implements LanguageClient {
         return CompletableFuture.completedFuture(new MessageActionItem(actions.get(exitCode).getTitle()));
     }
 
+    @Override
     public void logMessage(MessageParams messageParams) {
         String message = messageParams.getMessage();
         MessageType msgType = messageParams.getType();
