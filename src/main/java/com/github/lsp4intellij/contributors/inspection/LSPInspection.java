@@ -1,6 +1,8 @@
 package com.github.lsp4intellij.contributors.inspection;
 
 import com.github.lsp4intellij.PluginMain;
+import com.github.lsp4intellij.contributors.fixes.LSPCodeActionFix;
+import com.github.lsp4intellij.contributors.fixes.LSPCommandFix;
 import com.github.lsp4intellij.contributors.psi.LSPPsiElement;
 import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.editor.EditorEventManagerBase;
@@ -8,23 +10,26 @@ import com.github.lsp4intellij.utils.DocumentUtils;
 import com.github.lsp4intellij.utils.FileUtils;
 import com.intellij.codeInspection.InspectionManager;
 import com.intellij.codeInspection.LocalInspectionTool;
+import com.intellij.codeInspection.LocalQuickFix;
 import com.intellij.codeInspection.ProblemDescriptor;
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.intellij.lang.annotations.Pattern;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.*;
 
 /**
@@ -42,7 +47,7 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
             String uri = FileUtils.VFSToURI(virtualFile);
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
             if (eventManager != null) {
-                return descriptorsForManager(eventManager, file, manager, isOnTheFly);
+                return descriptorsForManager(uri, eventManager, file, manager, isOnTheFly);
             } else {
                 if (isOnTheFly) {
                     return super.checkFile(file, manager, isOnTheFly);
@@ -60,11 +65,12 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
      * Gets all the ProblemDescriptor given an EditorEventManager
      * Looks at the diagnostics, creates dummy PsiElement for each, create descriptor using it
      */
-    private ProblemDescriptor[] descriptorsForManager(EditorEventManager m, PsiFile file, InspectionManager manager,
-            boolean isOnTheFly) {
+    private ProblemDescriptor[] descriptorsForManager(String uri, EditorEventManager m, PsiFile file,
+            InspectionManager manager, boolean isOnTheFly) {
         List<ProblemDescriptor> descriptors = new ArrayList<>();
-        AtomicReference<Set<Diagnostic>> diagnostics = new AtomicReference<>(m.getDiagnostics());
-        for (Diagnostic diagnostic : diagnostics.get()) {
+        Iterator<Diagnostic> diagnostics = m.getDiagnostics().iterator();
+        while (diagnostics.hasNext()) {
+            Diagnostic diagnostic = diagnostics.next();
             String code = diagnostic.getCode();
             String message = diagnostic.getMessage();
             String source = diagnostic.getSource();
@@ -88,8 +94,30 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
                     highlightType = null;
                 }
                 LSPPsiElement element = new LSPPsiElement(name, m.editor.getProject(), start, end, file);
-                descriptors.add(manager
-                        .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly));
+                List<Either<Command, CodeAction>> codeActionResults = m.codeAction(element);
+                if (codeActionResults != null) {
+                    List<LSPCommandFix> commands = new ArrayList<>();
+                    List<LSPCodeActionFix> codeActions = new ArrayList<>();
+                    for (Either<Command, CodeAction> item : codeActionResults) {
+                        if (item != null) {
+                            if (item.isLeft()) {
+                                commands.add(new LSPCommandFix(uri, item.getLeft()));
+                            } else if (item.isRight()) {
+                                codeActions.add(new LSPCodeActionFix(uri, item.getRight()));
+                            }
+                        }
+                    }
+                    List<LocalQuickFix> fixes = new ArrayList<>();
+                    fixes.addAll(commands);
+                    fixes.addAll(codeActions);
+
+                    descriptors.add(manager
+                            .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
+                                    fixes.toArray(new LocalQuickFix[fixes.size()])));
+                } else {
+                    descriptors.add(manager
+                            .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly));
+                }
             }
         }
 

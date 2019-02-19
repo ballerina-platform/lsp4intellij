@@ -6,6 +6,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
 import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionOptions;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensParams;
@@ -95,44 +96,54 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     //Client
+    @Override
     public void showMessage(MessageParams messageParams) {
         client.showMessage(messageParams);
     }
 
+    @Override
     public CompletableFuture<MessageActionItem> showMessageRequest(ShowMessageRequestParams showMessageRequestParams) {
         return client.showMessageRequest(showMessageRequestParams);
     }
 
+    @Override
     public void logMessage(MessageParams messageParams) {
         client.logMessage(messageParams);
     }
 
+    @Override
     public void telemetryEvent(Object o) {
         client.telemetryEvent(o);
     }
 
+    @Override
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
         return client.registerCapability(params);
     }
 
+    @Override
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
         return client.unregisterCapability(params);
     }
 
+    @Override
     public CompletableFuture<ApplyWorkspaceEditResponse> applyEdit(ApplyWorkspaceEditParams params) {
         return client.applyEdit(params);
     }
 
+    @Override
     public void publishDiagnostics(PublishDiagnosticsParams publishDiagnosticsParams) {
         client.publishDiagnostics(publishDiagnosticsParams);
     }
 
+    @Override
     public void semanticHighlighting(SemanticHighlightingParams params) {
         client.semanticHighlighting(params);
     }
 
     //Server
     //General
+    @Override
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         if (checkStatus()) {
             try {
@@ -146,6 +157,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public void initialized(InitializedParams params) {
         if (checkStatus()) {
             try {
@@ -156,6 +168,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<Object> shutdown() {
         if (checkStatus()) {
             try {
@@ -170,6 +183,7 @@ public class DefaultRequestManager implements RequestManager {
 
     }
 
+    @Override
     public void exit() {
         if (checkStatus()) {
             try {
@@ -180,11 +194,13 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public void cancelRequest(CancelParams params) {
 
     }
 
     //Workspace
+    @Override
     public void didChangeConfiguration(DidChangeConfigurationParams params) {
         if (checkStatus()) {
             try {
@@ -195,6 +211,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public void didChangeWatchedFiles(DidChangeWatchedFilesParams params) {
         if (checkStatus()) {
             try {
@@ -233,6 +250,7 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     //Document
+    @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         if (checkStatus()) {
             try {
@@ -245,6 +263,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public void didChange(DidChangeTextDocumentParams params) {
         if (checkStatus()) {
             try {
@@ -257,6 +276,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public void willSave(WillSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
@@ -269,6 +289,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<TextEdit>> willSaveWaitUntil(WillSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
@@ -284,6 +305,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public void didSave(DidSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
@@ -296,6 +318,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public void didClose(DidCloseTextDocumentParams params) {
         if (checkStatus()) {
             try {
@@ -308,6 +331,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
         if (checkStatus()) {
             try {
@@ -323,6 +347,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<CompletionItem> completionItemResolve(CompletionItem unresolved) {
         if (checkStatus()) {
             try {
@@ -337,6 +362,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<Hover> hover(TextDocumentPositionParams params) {
         if (checkStatus()) {
             try {
@@ -350,6 +376,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<SignatureHelp> signatureHelp(TextDocumentPositionParams params) {
         if (checkStatus())
             try {
@@ -365,6 +392,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         if (checkStatus()) {
             try {
@@ -378,6 +406,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<? extends DocumentHighlight>> documentHighlight(TextDocumentPositionParams params) {
         if (checkStatus()) {
             try {
@@ -393,6 +422,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
             DocumentSymbolParams params) {
         if (checkStatus()) {
@@ -409,6 +439,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
         if (checkStatus()) {
             try {
@@ -424,6 +455,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
         if (checkStatus()) {
             try {
@@ -439,6 +471,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<? extends TextEdit>> onTypeFormatting(DocumentOnTypeFormattingParams params) {
         if (checkStatus()) {
             try {
@@ -454,6 +487,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<? extends Location>> definition(TextDocumentPositionParams params) {
         if (checkStatus()) {
             try {
@@ -467,21 +501,23 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
-        //        if (checkStatus()) {
-        //            try {
-        //                return checkProvider((Either<Boolean, StaticRegistrationOptions>)serverCapabilities
-        //                        .getCodeActionProvider())? textDocumentService.codeAction(params) : null;
-        //            } catch (Exception e) {
-        //                crashed(e);
-        //                return null;
-        //            }
-        //        } else {
-        //            return null;
-        //        }
-        return null;
+        if (checkStatus()) {
+            try {
+                return checkCodeActionProvider(serverCapabilities.getCodeActionProvider()) ?
+                        textDocumentService.codeAction(params) :
+                        null;
+            } catch (Exception e) {
+                crashed(e);
+                return null;
+            }
+        } else {
+            return null;
+        }
     }
 
+    @Override
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
         if (checkStatus()) {
             try {
@@ -495,6 +531,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<CodeLens> resolveCodeLens(CodeLens unresolved) {
         if (checkStatus()) {
             try {
@@ -509,6 +546,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<List<DocumentLink>> documentLink(DocumentLinkParams params) {
         if (checkStatus()) {
             try {
@@ -524,6 +562,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<DocumentLink> documentLinkResolve(DocumentLink unresolved) {
         if (checkStatus()) {
             try {
@@ -556,22 +595,27 @@ public class DefaultRequestManager implements RequestManager {
         return null;
     }
 
+    @Override
     public CompletableFuture<List<? extends Location>> implementation(TextDocumentPositionParams params) {
         return null;
     }
 
+    @Override
     public CompletableFuture<List<? extends Location>> typeDefinition(TextDocumentPositionParams params) {
         return null;
     }
 
+    @Override
     public CompletableFuture<List<ColorInformation>> documentColor(DocumentColorParams params) {
         return null;
     }
 
+    @Override
     public CompletableFuture<List<ColorPresentation>> colorPresentation(ColorPresentationParams params) {
         return null;
     }
 
+    @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         return null;
     }
@@ -586,6 +630,11 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     private boolean checkProvider(Either<Boolean, StaticRegistrationOptions> provider) {
+        return provider != null && ((provider.isLeft() && provider.getLeft()) || (provider.isRight()
+                && provider.getRight() != null));
+    }
+
+    private boolean checkCodeActionProvider(Either<Boolean, CodeActionOptions> provider) {
         return provider != null && ((provider.isLeft() && provider.getLeft()) || (provider.isRight()
                 && provider.getRight() != null));
     }
