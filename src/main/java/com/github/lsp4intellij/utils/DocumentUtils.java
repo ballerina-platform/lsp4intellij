@@ -18,6 +18,8 @@ import static java.lang.Math.min;
 public class DocumentUtils {
 
     private static Logger LOG = Logger.getInstance(DocumentUtils.class);
+    private static final String WIN_SEPARATOR = "\r\n";
+    private static final String LINUX_SEPARATOR = "\n";
 
     /**
      * Gets the line at the given offset given an editor and bolds the text between the given offsets
@@ -97,5 +99,18 @@ public class DocumentUtils {
             }
             return min(Math.max(offset, 0), docLength);
         });
+    }
+
+    /**
+     * Fixes common text related issues (i.e. OS) of a given string.
+     *
+     * @param str text to be sanitized
+     * @return sanitized string
+     */
+    public static String sanitizeText(String str) {
+        // Todo - More filters?
+        return (str.contains(WIN_SEPARATOR)) ?
+                str.replace(WIN_SEPARATOR, System.lineSeparator()) :
+                str.replace(LINUX_SEPARATOR, System.lineSeparator());
     }
 }

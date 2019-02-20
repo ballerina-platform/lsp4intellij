@@ -83,6 +83,7 @@ import static com.github.lsp4intellij.utils.ApplicationUtils.computableReadActio
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static com.github.lsp4intellij.utils.ApplicationUtils.pool;
 import static com.github.lsp4intellij.utils.ApplicationUtils.writeAction;
+import static com.github.lsp4intellij.utils.DocumentUtils.sanitizeText;
 
 /**
  * Class handling events related to an Editor (a Document)
@@ -403,7 +404,7 @@ public class EditorEventManager {
             if (document.isWritable()) {
                 return () -> {
                     edits.forEach(edit -> {
-                        String text = edit.getNewText();
+                        String text = sanitizeText(edit.getNewText());
                         Range range = edit.getRange();
                         int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
                         int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
