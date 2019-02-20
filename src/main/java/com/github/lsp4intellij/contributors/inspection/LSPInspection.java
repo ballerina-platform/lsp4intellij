@@ -52,7 +52,6 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
                 if (isOnTheFly) {
                     return super.checkFile(file, manager, isOnTheFly);
                 } else {
-                    //TODO need dispatch thread
                     return super.checkFile(file, manager, isOnTheFly);
                 }
             }
@@ -110,13 +109,23 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
                     List<LocalQuickFix> fixes = new ArrayList<>();
                     fixes.addAll(commands);
                     fixes.addAll(codeActions);
-
-                    descriptors.add(manager
-                            .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
-                                    fixes.toArray(new LocalQuickFix[fixes.size()])));
+                    try {
+                        descriptors.add(manager
+                                .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
+                                        fixes.toArray(new LocalQuickFix[fixes.size()])));
+                    } catch (Exception ignored) {
+                        // Occurred only at plugin start, due to the dummy inspection tool.
+                        // Todo
+                    }
                 } else {
-                    descriptors.add(manager
-                            .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly));
+                    try {
+                        descriptors.add(manager
+                                .createProblemDescriptor(element, (TextRange) null, message, highlightType,
+                                        isOnTheFly));
+                    } catch (Exception ignored) {
+                        // Occurred only at plugin start, due to the dummy inspection tool.
+                        // Todo
+                    }
                 }
             }
         }

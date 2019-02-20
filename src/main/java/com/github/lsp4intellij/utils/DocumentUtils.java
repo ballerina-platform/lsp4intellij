@@ -10,6 +10,7 @@ import com.intellij.util.DocumentUtil;
 import org.eclipse.lsp4j.Position;
 
 import static com.github.lsp4intellij.utils.ApplicationUtils.computableReadAction;
+import static java.lang.Math.min;
 
 /**
  * Various methods to convert offsets / logical position / server position
@@ -78,10 +79,10 @@ public class DocumentUtils {
      */
     public static int LSPPosToOffset(Editor editor, Position pos) {
         return computableReadAction(() -> {
-            int line = pos.getLine();
+            int line = min(pos.getLine(), editor.getDocument().getLineCount() - 1);
             Document doc = editor.getDocument();
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
-            String lineTextForPosition = lineText.substring(0, Math.min(lineText.length(), pos.getCharacter()));
+            String lineTextForPosition = lineText.substring(0, min(lineText.length(), pos.getCharacter()));
             int tabs = StringUtil.countChars(lineTextForPosition, '\t');
             int tabSize = editor.getSettings().getTabSize(editor.getProject());
             int column = tabs * tabSize + lineTextForPosition.length() - tabs;
@@ -94,7 +95,7 @@ public class DocumentUtils {
             if (offset > docLength) {
                 LOG.warn("Offset greater than text length : " + offset + " > " + docLength);
             }
-            return Math.min(Math.max(offset, 0), docLength);
+            return min(Math.max(offset, 0), docLength);
         });
     }
 }

@@ -4,8 +4,6 @@ import com.intellij.codeInspection.LocalInspectionTool;
 import org.intellij.lang.annotations.Pattern;
 import org.jetbrains.annotations.NotNull;
 
-import javax.swing.*;
-
 /*
  * This is used just to register a local inspection tool provider. `LSPInspection` contains the actual implementation
  * to handle inspections, after receiving diagnostics notification.
@@ -16,11 +14,6 @@ public class DummyLSPInspection extends LocalInspectionTool {
     @Override
     public String getDisplayName() {
         return getShortName();
-    }
-
-    @Override
-    public JComponent createOptionsPanel() {
-        return new LSPInspectionPanel("LSP", this);
     }
 
     @NotNull
