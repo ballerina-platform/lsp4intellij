@@ -149,8 +149,7 @@ public class PluginMain implements ApplicationComponent {
                     if (wrapper == null) {
                         LOG.info("Instantiating wrapper for " + ext + " : " + rootUri);
                         if (extToExtManager.get(ext) != null) {
-                            wrapper = new LanguageServerWrapper(serverDefinition, project,
-                                    extToExtManager.get(ext));
+                            wrapper = new LanguageServerWrapper(serverDefinition, project, extToExtManager.get(ext));
                         } else {
                             wrapper = new LanguageServerWrapper(serverDefinition, project);
                         }

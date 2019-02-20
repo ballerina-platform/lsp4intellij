@@ -52,8 +52,8 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
     private PsiManager manager;
     private LSPPsiReference reference;
     private final Project project;
-    private final int start;
-    private final int end;
+    public final int start;
+    public final int end;
     private String name;
     private final PsiFile file;
 

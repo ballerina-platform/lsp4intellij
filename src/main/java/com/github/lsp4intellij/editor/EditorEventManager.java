@@ -4,15 +4,23 @@ import com.github.lsp4intellij.client.languageserver.ServerOptions;
 import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import com.github.lsp4intellij.contributors.icon.LSPIconProvider;
+import com.github.lsp4intellij.contributors.inspection.LSPInspection;
+import com.github.lsp4intellij.contributors.psi.LSPPsiElement;
 import com.github.lsp4intellij.requests.Timeouts;
-import com.github.lsp4intellij.requests.WorkspaceEditHandler;
 import com.github.lsp4intellij.utils.DocumentUtils;
 import com.github.lsp4intellij.utils.FileUtils;
 import com.github.lsp4intellij.utils.GUIUtils;
+import com.intellij.codeHighlighting.Pass;
 import com.intellij.codeInsight.completion.InsertionContext;
+import com.intellij.codeInsight.daemon.impl.HighlightInfoProcessor;
+import com.intellij.codeInsight.daemon.impl.LocalInspectionsPass;
+import com.intellij.codeInsight.daemon.impl.UpdateHighlightersUtil;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.codeInspection.InspectionManager;
+import com.intellij.codeInspection.ex.InspectionManagerEx;
+import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
@@ -21,14 +29,22 @@ import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.progress.EmptyProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiFile;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionContext;
+import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -46,25 +62,28 @@ import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WillSaveTextDocumentParams;
-import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.swing.*;
 
+import static com.github.lsp4intellij.requests.Timeout.CODEACTION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.COMPLETION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
+import static com.github.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static com.github.lsp4intellij.utils.ApplicationUtils.pool;
 import static com.github.lsp4intellij.utils.ApplicationUtils.writeAction;
+import static com.github.lsp4intellij.utils.DocumentUtils.sanitizeText;
 
 /**
  * Class handling events related to an Editor (a Document)
@@ -89,6 +108,7 @@ public class EditorEventManager {
     public LanguageServerWrapper wrapper;
     protected TextDocumentIdentifier identifier;
     protected DidChangeTextDocumentParams changesParams;
+    protected final List<Diagnostic> diagnostics = new ArrayList<>();
     protected TextDocumentSyncKind syncKind;
     protected List<String> completionTriggers;
     protected Project project;
@@ -131,6 +151,89 @@ public class EditorEventManager {
         if (completionTriggers.contains(c)) {
             completion(DocumentUtils.offsetToLSPPos(editor, editor.getCaretModel().getCurrentCaret().getOffset()));
         }
+    }
+
+    /**
+     * @return The current diagnostics highlights
+     */
+    public List<Diagnostic> getDiagnostics() {
+        return diagnostics;
+    }
+
+    /**
+     * Applies the diagnostics to the document
+     *
+     * @param diagnostics The diagnostics to apply from the server
+     */
+    public void diagnostics(List<Diagnostic> diagnostics) {
+        if (!editor.isDisposed()) {
+            synchronized (this.diagnostics) {
+                this.diagnostics.clear();
+                this.diagnostics.addAll(diagnostics);
+            }
+            PsiFile psiFile = computableReadAction(
+                    () -> PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
+            // Forcefully triggers local inspection tool.
+            runInspection(psiFile);
+        }
+    }
+
+    /**
+     * Triggers local inspections for a given PSI file.
+     */
+    private void runInspection(PsiFile psiFile) {
+        Document document = PsiDocumentManager.getInstance(project).getDocument(psiFile);
+        if (document != null) {
+            DumbService.getInstance(project).smartInvokeLater(() -> {
+                LocalInspectionsPass localInspectionsPass = new LocalInspectionsPass(psiFile, document, 0,
+                        document.getTextLength(), LocalInspectionsPass.EMPTY_PRIORITY_RANGE, true,
+                        HighlightInfoProcessor.getEmpty());
+                InspectionManagerEx inspectionManagerEx = (InspectionManagerEx) InspectionManager.getInstance(project);
+                ProgressManager.getInstance().runProcess(() -> {
+                    List<LocalInspectionToolWrapper> wrappers = new ArrayList<>();
+                    wrappers.add(new LocalInspectionToolWrapper(new LSPInspection()));
+                    localInspectionsPass
+                            .doInspectInBatch(inspectionManagerEx.createNewGlobalContext(false), inspectionManagerEx,
+                                    wrappers);
+                    UpdateHighlightersUtil
+                            .setHighlightersToEditor(psiFile.getProject(), document, 0, document.getTextLength(),
+                                    localInspectionsPass.getInfos(), null, Pass.UPDATE_ALL);
+                }, new EmptyProgressIndicator());
+            });
+        }
+    }
+
+    /**
+     * Retrieves the commands needed to apply a CodeAction
+     *
+     * @param element The element which needs the CodeAction
+     * @return The list of commands, or null if none are given / the request times out
+     */
+    public List<Either<Command, CodeAction>> codeAction(LSPPsiElement element) {
+        CodeActionParams params = new CodeActionParams();
+        params.setTextDocument(identifier);
+        Range range = new Range(DocumentUtils.offsetToLSPPos(editor, element.start),
+                DocumentUtils.offsetToLSPPos(editor, element.end));
+        params.setRange(range);
+        CodeActionContext context = new CodeActionContext(diagnostics);
+        params.setContext(context);
+        CompletableFuture<List<Either<Command, CodeAction>>> future = requestManager.codeAction(params);
+        if (future != null) {
+            try {
+                List<Either<Command, CodeAction>> res = future.get(CODEACTION_TIMEOUT, TimeUnit.MILLISECONDS);
+                wrapper.notifySuccess(Timeouts.CODEACTION);
+                return res;
+            } catch (TimeoutException e) {
+                LOG.warn(e);
+                wrapper.notifyFailure(Timeouts.CODEACTION);
+                return null;
+            } catch (InterruptedException | JsonRpcException | ExecutionException e) {
+                LOG.warn(e);
+                wrapper.crashed(e);
+                return null;
+            }
+        }
+        return null;
     }
 
     /**
@@ -296,12 +399,12 @@ public class EditorEventManager {
      * @return The runnable
      */
     public Runnable getEditsRunnable(int version, Iterable<TextEdit> edits, String name) {
-        if (version >= this.version) {
+        if (version == -1 || version >= this.version) {
             Document document = editor.getDocument();
             if (document.isWritable()) {
                 return () -> {
                     edits.forEach(edit -> {
-                        String text = edit.getNewText();
+                        String text = sanitizeText(edit.getNewText());
                         Range range = edit.getRange();
                         int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
                         int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
@@ -336,7 +439,7 @@ public class EditorEventManager {
      *
      * @param commands The commands to execute
      */
-    void executeCommands(List<Command> commands) {
+    public void executeCommands(List<Command> commands) {
         pool(() -> {
             if (!editor.isDisposed()) {
                 commands.stream().map(c -> {
@@ -344,21 +447,16 @@ public class EditorEventManager {
                     params.setArguments(c.getArguments());
                     params.setCommand(c.getCommand());
                     return requestManager.executeCommand(params);
-                }).forEach(f -> {
-                    if (f != null) {
-                        try {
-                            Object ret = f.get(EXECUTE_COMMAND_TIMEOUT, TimeUnit.MILLISECONDS);
-                            wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
-                            if (ret instanceof WorkspaceEdit) {
-                                WorkspaceEditHandler.applyEdit((WorkspaceEdit) ret, "Execute command");
-                            }
-                        } catch (TimeoutException te) {
-                            LOG.warn(te);
-                            wrapper.notifyFailure(Timeouts.EXECUTE_COMMAND);
-                        } catch (JsonRpcException | ExecutionException | InterruptedException e) {
-                            LOG.warn(e);
-                            wrapper.crashed(e);
-                        }
+                }).filter(Objects::nonNull).forEach(f -> {
+                    try {
+                        Object ret = f.get(EXECUTE_COMMAND_TIMEOUT, TimeUnit.MILLISECONDS);
+                        wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
+                    } catch (TimeoutException te) {
+                        LOG.warn(te);
+                        wrapper.notifyFailure(Timeouts.EXECUTE_COMMAND);
+                    } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+                        LOG.warn(e);
+                        wrapper.crashed(e);
                     }
                 });
             }
