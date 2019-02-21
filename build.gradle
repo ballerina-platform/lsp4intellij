@@ -9,6 +9,7 @@ repositories {
 apply plugin: 'org.jetbrains.intellij'
 intellij {
     version '2017.3'
+    updateSinceUntilBuild false
 }
 
 dependencies {
