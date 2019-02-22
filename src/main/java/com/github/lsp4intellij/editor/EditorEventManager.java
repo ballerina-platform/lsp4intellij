@@ -18,7 +18,6 @@ import com.intellij.codeInsight.daemon.impl.UpdateHighlightersUtil;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInspection.InspectionManager;
 import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
 import com.intellij.openapi.command.CommandProcessor;
@@ -108,13 +107,16 @@ public class EditorEventManager {
     public LanguageServerWrapper wrapper;
     protected TextDocumentIdentifier identifier;
     protected DidChangeTextDocumentParams changesParams;
-    protected final List<Diagnostic> diagnostics = new ArrayList<>();
     protected TextDocumentSyncKind syncKind;
     protected List<String> completionTriggers;
     protected Project project;
     volatile boolean needSave = false;
     private int version = -1;
     private boolean isOpen = false;
+
+    protected final List<Diagnostic> diagnostics = new ArrayList<>();
+    protected final InspectionManagerEx inspectionManagerEx;
+    protected final List<LocalInspectionToolWrapper> inspectionToolWrapper;
 
     //Todo - Revisit and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, RequestManager requestManager,
@@ -140,6 +142,10 @@ public class EditorEventManager {
         EditorEventManagerBase.uriToManager.put(FileUtils.editorToURIString(editor), this);
         EditorEventManagerBase.editorToManager.put(editor, this);
         changesParams.getTextDocument().setUri(identifier.getUri());
+
+        // Inspections
+        this.inspectionManagerEx = (InspectionManagerEx) InspectionManagerEx.getInstance(project);
+        this.inspectionToolWrapper = Collections.singletonList(new LocalInspectionToolWrapper(new LSPInspection()));
     }
 
     /**
@@ -148,9 +154,7 @@ public class EditorEventManager {
      * @param c The character just typed
      */
     public void characterTyped(char c) {
-        if (completionTriggers.contains(c)) {
-            completion(DocumentUtils.offsetToLSPPos(editor, editor.getCaretModel().getCurrentCaret().getOffset()));
-        }
+        // Todo - Implement
     }
 
     /**
@@ -188,13 +192,10 @@ public class EditorEventManager {
                 LocalInspectionsPass localInspectionsPass = new LocalInspectionsPass(psiFile, document, 0,
                         document.getTextLength(), LocalInspectionsPass.EMPTY_PRIORITY_RANGE, true,
                         HighlightInfoProcessor.getEmpty());
-                InspectionManagerEx inspectionManagerEx = (InspectionManagerEx) InspectionManager.getInstance(project);
                 ProgressManager.getInstance().runProcess(() -> {
-                    List<LocalInspectionToolWrapper> wrappers = new ArrayList<>();
-                    wrappers.add(new LocalInspectionToolWrapper(new LSPInspection()));
                     localInspectionsPass
                             .doInspectInBatch(inspectionManagerEx.createNewGlobalContext(false), inspectionManagerEx,
-                                    wrappers);
+                                    inspectionToolWrapper);
                     UpdateHighlightersUtil
                             .setHighlightersToEditor(psiFile.getProject(), document, 0, document.getTextLength(),
                                     localInspectionsPass.getInfos(), null, Pass.UPDATE_ALL);
@@ -298,61 +299,51 @@ public class EditorEventManager {
         Icon icon = iconProvider.getCompletionIcon(kind);
         LookupElementBuilder lookupElementBuilder;
 
+        if (insertText != null && !insertText.equals("")) {
+            lookupElementBuilder = LookupElementBuilder.create(insertText);
+        } else if (label != null && !label.equals("")) {
+            lookupElementBuilder = LookupElementBuilder.create(label);
+        } else {
+            return LookupElementBuilder.create((String) null);
+        }
+
         if (textEdit != null) {
             if (addTextEdits != null) {
                 addTextEdits.add(textEdit);
-                lookupElementBuilder = LookupElementBuilder
-                        .create((insertText != null && insertText != "") ? insertText : label)
-                        .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                            context.commitDocument();
-                            invokeLater(() -> {
-                                applyEdit(addTextEdits, "Completion : " + label);
-                                if (command != null) {
-                                    executeCommands(command);
-                                }
-                            });
-                        });
+                lookupElementBuilder = setInsertHandler(lookupElementBuilder, addTextEdits, command, label);
             } else {
-                lookupElementBuilder = LookupElementBuilder
-                        .create((insertText != null && insertText != "") ? insertText : label)
-                        .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                            context.commitDocument();
-                            invokeLater(() -> {
-                                applyEdit(textEdit, "Completion : " + label);
-                                if (command != null) {
-                                    executeCommands(command);
-                                }
-                            });
-                        });
+                lookupElementBuilder = setInsertHandler(lookupElementBuilder, Collections.singletonList(textEdit),
+                        command, label);
             }
         } else if (addTextEdits != null) {
-            lookupElementBuilder = LookupElementBuilder
-                    .create((insertText != null && insertText != "") ? insertText : label)
+            lookupElementBuilder = setInsertHandler(lookupElementBuilder, addTextEdits, command, label);
+        } else if (command != null) {
+            lookupElementBuilder = lookupElementBuilder
                     .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
                         context.commitDocument();
-                        invokeLater(() -> {
-                            applyEdit(addTextEdits, "Completion : " + label);
-                            if (command != null) {
-                                executeCommands(command);
-                            }
-                        });
+                        invokeLater(() -> executeCommands(command));
                     });
-        } else {
-            lookupElementBuilder = LookupElementBuilder
-                    .create((insertText != null && insertText != "") ? insertText : label);
-            if (command != null)
-                lookupElementBuilder = lookupElementBuilder
-                        .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                            context.commitDocument();
-                            invokeLater(() -> {
-                                executeCommands(command);
-                            });
-                        });
         }
-        if (kind == CompletionItemKind.Keyword)
+
+        if (kind == CompletionItemKind.Keyword) {
             lookupElementBuilder = lookupElementBuilder.withBoldness(true);
+        }
+
         return lookupElementBuilder.withPresentableText(presentableText).withTypeText(tailText, true).withIcon(icon)
                 .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
+    }
+
+    private LookupElementBuilder setInsertHandler(LookupElementBuilder builder, List<TextEdit> edits, Command command,
+            String label) {
+        return builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
+            context.commitDocument();
+            invokeLater(() -> {
+                applyEdit(edits, "Completion : " + label);
+                if (command != null) {
+                    executeCommands(command);
+                }
+            });
+        });
     }
 
     boolean applyEdit(TextEdit edit, String name) {
@@ -399,7 +390,7 @@ public class EditorEventManager {
      * @return The runnable
      */
     public Runnable getEditsRunnable(int version, Iterable<TextEdit> edits, String name) {
-        if (version == -1 || version >= this.version) {
+        if (version >= this.version) {
             Document document = editor.getDocument();
             if (document.isWritable()) {
                 return () -> {
@@ -428,7 +419,7 @@ public class EditorEventManager {
         }
     }
 
-    void executeCommands(Command command) {
+    private void executeCommands(Command command) {
         List<Command> commands = new ArrayList<>();
         commands.add(command);
         executeCommands(commands);
@@ -449,7 +440,7 @@ public class EditorEventManager {
                     return requestManager.executeCommand(params);
                 }).filter(Objects::nonNull).forEach(f -> {
                     try {
-                        Object ret = f.get(EXECUTE_COMMAND_TIMEOUT, TimeUnit.MILLISECONDS);
+                        f.get(EXECUTE_COMMAND_TIMEOUT, TimeUnit.MILLISECONDS);
                         wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
                     } catch (TimeoutException te) {
                         LOG.warn(te);
@@ -521,44 +512,45 @@ public class EditorEventManager {
     }
 
     public void documentChanged(DocumentEvent event) {
-        if (!editor.isDisposed()) {
-            if (event.getDocument() == editor.getDocument()) {
-                //Todo - restore when adding hover support
-                // long predTime = System.nanoTime(); //So that there are no hover events while typing
-                changesParams.getTextDocument().setVersion(version++);
+        if (editor.isDisposed()) {
+            return;
+        }
+        if (event.getDocument() == editor.getDocument()) {
+            //Todo - restore when adding hover support
+            // long predTime = System.nanoTime(); //So that there are no hover events while typing
+            changesParams.getTextDocument().setVersion(version++);
 
-                if (syncKind == TextDocumentSyncKind.Incremental) {
-                    TextDocumentContentChangeEvent changeEvent = changesParams.getContentChanges().get(0);
-                    CharSequence newText = event.getNewFragment();
-                    int offset = event.getOffset();
-                    int newTextLength = event.getNewLength();
-                    Position lspPosition = DocumentUtils.offsetToLSPPos(editor, offset);
-                    int startLine = lspPosition.getLine();
-                    int startColumn = lspPosition.getCharacter();
-                    CharSequence oldText = event.getOldFragment();
+            if (syncKind == TextDocumentSyncKind.Incremental) {
+                TextDocumentContentChangeEvent changeEvent = changesParams.getContentChanges().get(0);
+                CharSequence newText = event.getNewFragment();
+                int offset = event.getOffset();
+                int newTextLength = event.getNewLength();
+                Position lspPosition = DocumentUtils.offsetToLSPPos(editor, offset);
+                int startLine = lspPosition.getLine();
+                int startColumn = lspPosition.getCharacter();
+                CharSequence oldText = event.getOldFragment();
 
-                    //if text was deleted/replaced, calculate the end position of inserted/deleted text
-                    int endLine, endColumn = -1;
-                    if (oldText.length() > 0) {
-                        endLine = startLine + StringUtil.countNewLines(oldText);
-                        String[] oldLines = oldText.toString().split("\n");
-                        int oldTextLength = oldLines.length == 0 ? 0 : oldLines[oldLines.length - 1].length();
-                        endColumn = oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
-                    } else { //if insert or no text change, the end position is the same
-                        endLine = startLine;
-                        endColumn = startColumn;
-                    }
-                    Range range = new Range(new Position(startLine, startColumn), new Position(endLine, endColumn));
-                    changeEvent.setRange(range);
-                    changeEvent.setRangeLength(newTextLength);
-                    changeEvent.setText(newText.toString());
-                } else if (syncKind == TextDocumentSyncKind.Full) {
-                    changesParams.getContentChanges().get(0).setText(editor.getDocument().getText());
+                //if text was deleted/replaced, calculate the end position of inserted/deleted text
+                int endLine, endColumn;
+                if (oldText.length() > 0) {
+                    endLine = startLine + StringUtil.countNewLines(oldText);
+                    String[] oldLines = oldText.toString().split("\n");
+                    int oldTextLength = oldLines.length == 0 ? 0 : oldLines[oldLines.length - 1].length();
+                    endColumn = oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
+                } else { //if insert or no text change, the end position is the same
+                    endLine = startLine;
+                    endColumn = startColumn;
                 }
-                requestManager.didChange(changesParams);
-            } else {
-                LOG.error("Wrong document for the EditorEventManager");
+                Range range = new Range(new Position(startLine, startColumn), new Position(endLine, endColumn));
+                changeEvent.setRange(range);
+                changeEvent.setRangeLength(newTextLength);
+                changeEvent.setText(newText.toString());
+            } else if (syncKind == TextDocumentSyncKind.Full) {
+                changesParams.getContentChanges().get(0).setText(editor.getDocument().getText());
             }
+            requestManager.didChange(changesParams);
+        } else {
+            LOG.error("Wrong document for the EditorEventManager");
         }
     }
 

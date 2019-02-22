@@ -112,7 +112,7 @@ public class WorkspaceEditHandler {
                     if (tEdit.isLeft()) {
                         TextDocumentEdit textEdit = tEdit.getLeft();
                         VersionedTextDocumentIdentifier doc = textEdit.getTextDocument();
-                        int version = doc.getVersion() != null ? doc.getVersion() : -1;
+                        int version = doc.getVersion() != null ? doc.getVersion() : Integer.MAX_VALUE;
                         String uri = FileUtils.sanitizeURI(doc.getUri());
                         EditorEventManager manager = EditorEventManagerBase.forUri(uri);
                         if (manager != null) {

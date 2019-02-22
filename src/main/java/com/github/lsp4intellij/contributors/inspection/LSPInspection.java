@@ -28,7 +28,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import javax.swing.*;
 
@@ -67,65 +66,65 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
     private ProblemDescriptor[] descriptorsForManager(String uri, EditorEventManager m, PsiFile file,
             InspectionManager manager, boolean isOnTheFly) {
         List<ProblemDescriptor> descriptors = new ArrayList<>();
-        Iterator<Diagnostic> diagnostics = m.getDiagnostics().iterator();
-        while (diagnostics.hasNext()) {
-            Diagnostic diagnostic = diagnostics.next();
-            String code = diagnostic.getCode();
+        List<Diagnostic> diagnostics = m.getDiagnostics();
+        for (Diagnostic diagnostic : diagnostics) {
             String message = diagnostic.getMessage();
-            String source = diagnostic.getSource();
             Range range = diagnostic.getRange();
             DiagnosticSeverity severity = diagnostic.getSeverity();
             int start = DocumentUtils.LSPPosToOffset(m.editor, range.getStart());
             int end = DocumentUtils.LSPPosToOffset(m.editor, range.getEnd());
 
-            if (start < end) {
-                String name = m.editor.getDocument().getText(new TextRange(start, end));
-                ProblemHighlightType highlightType;
-                if (severity == DiagnosticSeverity.Error) {
-                    highlightType = ProblemHighlightType.GENERIC_ERROR;
-                } else if (severity == DiagnosticSeverity.Warning) {
-                    highlightType = ProblemHighlightType.GENERIC_ERROR_OR_WARNING;
-                } else if (severity == DiagnosticSeverity.Information) {
-                    highlightType = ProblemHighlightType.INFORMATION;
-                } else if (severity == DiagnosticSeverity.Hint) {
-                    highlightType = ProblemHighlightType.INFORMATION;
-                } else {
-                    highlightType = null;
+            if (start >= end) {
+                continue;
+            }
+
+            String name = m.editor.getDocument().getText(new TextRange(start, end));
+            ProblemHighlightType highlightType;
+            if (severity == DiagnosticSeverity.Error) {
+                highlightType = ProblemHighlightType.GENERIC_ERROR;
+            } else if (severity == DiagnosticSeverity.Warning) {
+                highlightType = ProblemHighlightType.GENERIC_ERROR_OR_WARNING;
+            } else if (severity == DiagnosticSeverity.Information) {
+                highlightType = ProblemHighlightType.INFORMATION;
+            } else if (severity == DiagnosticSeverity.Hint) {
+                highlightType = ProblemHighlightType.INFORMATION;
+            } else {
+                highlightType = null;
+            }
+
+            LSPPsiElement element = new LSPPsiElement(name, m.editor.getProject(), start, end, file);
+            List<Either<Command, CodeAction>> codeActionResults = m.codeAction(element);
+            if (codeActionResults != null) {
+                List<LSPCommandFix> commands = new ArrayList<>();
+                List<LSPCodeActionFix> codeActions = new ArrayList<>();
+                for (Either<Command, CodeAction> item : codeActionResults) {
+                    if (item == null) {
+                        continue;
+                    }
+                    if (item.isLeft()) {
+                        commands.add(new LSPCommandFix(uri, item.getLeft()));
+                    } else if (item.isRight()) {
+                        codeActions.add(new LSPCodeActionFix(uri, item.getRight()));
+                    }
                 }
-                LSPPsiElement element = new LSPPsiElement(name, m.editor.getProject(), start, end, file);
-                List<Either<Command, CodeAction>> codeActionResults = m.codeAction(element);
-                if (codeActionResults != null) {
-                    List<LSPCommandFix> commands = new ArrayList<>();
-                    List<LSPCodeActionFix> codeActions = new ArrayList<>();
-                    for (Either<Command, CodeAction> item : codeActionResults) {
-                        if (item != null) {
-                            if (item.isLeft()) {
-                                commands.add(new LSPCommandFix(uri, item.getLeft()));
-                            } else if (item.isRight()) {
-                                codeActions.add(new LSPCodeActionFix(uri, item.getRight()));
-                            }
-                        }
-                    }
-                    List<LocalQuickFix> fixes = new ArrayList<>();
-                    fixes.addAll(commands);
-                    fixes.addAll(codeActions);
-                    try {
-                        descriptors.add(manager
-                                .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
-                                        fixes.toArray(new LocalQuickFix[fixes.size()])));
-                    } catch (Exception ignored) {
-                        // Occurred only at plugin start, due to the dummy inspection tool.
-                        // Todo
-                    }
-                } else {
-                    try {
-                        descriptors.add(manager
-                                .createProblemDescriptor(element, (TextRange) null, message, highlightType,
-                                        isOnTheFly));
-                    } catch (Exception ignored) {
-                        // Occurred only at plugin start, due to the dummy inspection tool.
-                        // Todo
-                    }
+                List<LocalQuickFix> fixes = new ArrayList<>();
+                fixes.addAll(commands);
+                fixes.addAll(codeActions);
+                try {
+                    descriptors.add(manager
+                            .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
+                                    fixes.toArray(new LocalQuickFix[fixes.size()])));
+                } catch (Exception ignored) {
+                    // Occurred only at plugin start, due to the dummy inspection tool.
+                    // Todo
+                }
+            } else {
+                try {
+                    descriptors.add(manager
+                            .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly));
+                } catch (Exception ignored) {
+                    // Occurred only at plugin start, due to the dummy inspection tool.
+                    // Todo
                 }
             }
         }
