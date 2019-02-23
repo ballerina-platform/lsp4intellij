@@ -1,6 +1,6 @@
 package com.github.lsp4intellij.client.languageserver.wrapper;
 
-import com.github.lsp4intellij.PluginMain;
+import com.github.lsp4intellij.IntellijLanguageClient;
 import com.github.lsp4intellij.client.DynamicRegistrationMethods;
 import com.github.lsp4intellij.client.LanguageClientImpl;
 import com.github.lsp4intellij.client.languageserver.LSPServerStatusWidget;
@@ -590,7 +590,7 @@ public class LanguageServerWrapper {
     private void removeServerWrapper() {
         stop(false);
         removeWidget();
-        PluginMain.removeWrapper(this);
+        IntellijLanguageClient.removeWrapper(this);
     }
 
     private void connect(String uri) {

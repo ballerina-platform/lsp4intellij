@@ -1,6 +1,6 @@
 package com.github.lsp4intellij.editor.listeners;
 
-import com.github.lsp4intellij.PluginMain;
+import com.github.lsp4intellij.IntellijLanguageClient;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
 import com.intellij.openapi.editor.event.EditorFactoryListener;
@@ -11,10 +11,10 @@ public class EditorListener implements EditorFactoryListener{
     private Logger LOG = Logger.getInstance(EditorListener.class);
 
     public void editorReleased(@NotNull EditorFactoryEvent editorFactoryEvent) {
-        PluginMain.editorClosed(editorFactoryEvent.getEditor());
+        IntellijLanguageClient.editorClosed(editorFactoryEvent.getEditor());
     }
 
     public void editorCreated(@NotNull EditorFactoryEvent editorFactoryEvent) {
-        PluginMain.editorOpened(editorFactoryEvent.getEditor());
+        IntellijLanguageClient.editorOpened(editorFactoryEvent.getEditor());
     }
 }

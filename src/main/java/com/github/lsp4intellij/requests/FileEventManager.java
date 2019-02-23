@@ -1,6 +1,6 @@
 package com.github.lsp4intellij.requests;
 
-import com.github.lsp4intellij.PluginMain;
+import com.github.lsp4intellij.IntellijLanguageClient;
 import com.github.lsp4intellij.client.languageserver.ServerStatus;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import com.github.lsp4intellij.editor.EditorEventManager;
@@ -89,7 +89,7 @@ public class FileEventManager {
             List<FileEvent> event = new ArrayList<>();
             event.add(new FileEvent(uri, typ));
             DidChangeWatchedFilesParams params = new DidChangeWatchedFilesParams(event);
-            Set<LanguageServerWrapper> wrappers = PluginMain.getAllServerWrappers();
+            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers();
             if (wrappers != null) {
                 for (LanguageServerWrapper w : wrappers) {
                     if (w != wrapper && w.getRequestManager() != null && w.getStatus() == ServerStatus.STARTED) {
