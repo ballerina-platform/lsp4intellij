@@ -65,6 +65,7 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
      */
     private ProblemDescriptor[] descriptorsForManager(String uri, EditorEventManager m, PsiFile file,
             InspectionManager manager, boolean isOnTheFly) {
+
         List<ProblemDescriptor> descriptors = new ArrayList<>();
         List<Diagnostic> diagnostics = m.getDiagnostics();
         for (Diagnostic diagnostic : diagnostics) {

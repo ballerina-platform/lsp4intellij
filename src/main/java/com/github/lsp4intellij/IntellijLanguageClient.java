@@ -38,15 +38,15 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class IntellijLanguageClient implements ApplicationComponent {
-    private static Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
 
-    private static final String SPLIT_CHAR = ";";
     private static Set<LanguageServerDefinition> allDefinitions = new HashSet<>();
     private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new ConcurrentHashMap<>();
     private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
     private static Map<String, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
     private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
-    private static boolean loadedExtensions = false;
+    private static final String SPLIT_CHAR = ",";
+
+    private static Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
 
     @Override
     public void initComponent() {
@@ -83,7 +83,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @throws IllegalArgumentException if an language server extensions manager is already registered for the given
      *                                  file extension
      */
-    public static void addLSPExtension(String ext, LSPExtensionManager manager) throws IllegalArgumentException {
+    public static void addExtensionManager(String ext, LSPExtensionManager manager) throws IllegalArgumentException {
         if (extToExtManager.get(ext) == null) {
             extToExtManager.put(ext, manager);
         } else {
@@ -161,28 +161,29 @@ public class IntellijLanguageClient implements ApplicationComponent {
      */
     public static void editorClosed(Editor editor) {
         VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
-        ApplicationUtils.pool(() -> {
-            String ext = file.getExtension();
-            LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
-            if (serverWrapper != null) {
-                LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
-                serverWrapper.disconnect(editor);
-                extToLanguageWrapper.remove(ext);
-            }
-        });
+        if (file != null) {
+            ApplicationUtils.pool(() -> {
+                String ext = file.getExtension();
+                LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
+                if (serverWrapper != null) {
+                    LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
+                    serverWrapper.disconnect(editor);
+                    String rootPath = FileUtils.editorToProjectFolderPath(editor);
+                    String rootUri = FileUtils.pathToUri(rootPath);
+                    extToLanguageWrapper.remove(new ImmutablePair<>(ext, rootUri));
+                }
+            });
+        } else {
+            LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
+        }
     }
 
     private static void addExtensions() {
-        if (!loadedExtensions) {
-            List<LanguageServerDefinition> extensions = allDefinitions.stream()
-                    .filter(s -> !extToServerDefinition.keySet().contains(s.ext)).collect(Collectors.toList());
-            LOG.info("Added serverDefinitions " + extensions + " from plugins");
-            for (LanguageServerDefinition s : extensions) {
-                extToServerDefinition.put(s.ext, s);
-            }
-            //Todo - Add this after fixing
-            //   flattenExt();
-            loadedExtensions = true;
+        List<LanguageServerDefinition> extensions = allDefinitions.stream()
+                .filter(s -> !extToServerDefinition.keySet().contains(s.ext)).collect(Collectors.toList());
+        LOG.info("Added serverDefinitions " + extensions + " from plugins");
+        for (LanguageServerDefinition s : extensions) {
+            extToServerDefinition.put(s.ext, s);
         }
     }
 

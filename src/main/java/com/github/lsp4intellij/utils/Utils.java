@@ -3,15 +3,11 @@ package com.github.lsp4intellij.utils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.ResourceBundle;
 
 /**
  * Object containing some useful methods for the plugin
  */
 public class Utils {
-
-    ResourceBundle bundle = ResourceBundle.getBundle("com.github.lsp4intellij.LSPBundle");
-    String lineSeparator = System.getProperty("line.separator");
 
     /**
      * Transforms an array into a string (using mkString, useful for Java)
@@ -37,7 +33,7 @@ public class Utils {
     }
 
     public List<String> stringToList(String str, String sep) {
-        sep = (sep != null) ? sep : lineSeparator;
+        sep = (sep != null) ? sep : System.lineSeparator();
         return new ArrayList<>(Arrays.asList(str.split(sep)));
     }
 
