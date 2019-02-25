@@ -11,7 +11,6 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
     private static final RawCommandServerDefinition INSTANCE = new RawCommandServerDefinition();
 
     private RawCommandServerDefinition() {
-
     }
 
     public static RawCommandServerDefinition getInstance() {
@@ -26,6 +25,7 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
      */
     public RawCommandServerDefinition(String ext, String[] command) {
         this.ext = ext;
+        this.id = ext;
         this.command = command;
         this.typ = "rawCommand";
         this.presentableTyp = "Raw command";

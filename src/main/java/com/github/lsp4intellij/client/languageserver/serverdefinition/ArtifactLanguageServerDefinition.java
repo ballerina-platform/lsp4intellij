@@ -1,6 +1,5 @@
 package com.github.lsp4intellij.client.languageserver.serverdefinition;
 
-
 import com.github.lsp4intellij.client.connection.ProcessStreamConnectionProvider;
 import com.github.lsp4intellij.client.connection.StreamConnectionProvider;
 import com.github.lsp4intellij.utils.Utils;
@@ -40,6 +39,7 @@ public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefi
      */
     public ArtifactLanguageServerDefinition(String ext, String packge, String mainClass, String[] args) {
         this.ext = ext;
+        this.id = ext;
         this.packge = packge;
         this.mainClass = mainClass;
         this.args = args;
@@ -54,8 +54,9 @@ public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefi
                 LOG.warn("Not enough elements to translate into a ServerDefinition : " + String.join(" ; ", arr));
                 return null;
             } else {
-                String[] args = (arrTail.length > 3) ? Utils.parseArgs(tail(tail(tail(arrTail)))) : new String[]{};
-                return new ArtifactLanguageServerDefinition(arrTail[0], head(tail(arrTail)), head(tail(tail(arrTail))), args);
+                String[] args = (arrTail.length > 3) ? Utils.parseArgs(tail(tail(tail(arrTail)))) : new String[] {};
+                return new ArtifactLanguageServerDefinition(arrTail[0], head(tail(arrTail)), head(tail(tail(arrTail))),
+                        args);
             }
         } else {
             return null;
@@ -63,26 +64,25 @@ public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefi
     }
 
     public StreamConnectionProvider createConnectionProvider(String workingDir) {
-        //TODO: Re-Check CoursierImpl resolveClasspath
-//        val cp = CoursierImpl.resolveClasspath(packge);
+        // TODO: Re-Check CoursierImpl resolveClasspath
+        // val cp = CoursierImpl.resolveClasspath(packge);
         String cp = packge;
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-cp");
-        command.add( cp);
-        command.add( mainClass);
+        command.add(cp);
+        command.add(mainClass);
         Collections.addAll(command, this.args);
-        return new ProcessStreamConnectionProvider( command, workingDir);
+        return new ProcessStreamConnectionProvider(command, workingDir);
     }
 
     public String toString() {
-        return super.toString() + " " + getTyp() + " : " + packge + " mainClass : " + mainClass + " args : " +
-                String.join(
-                " ", args);
+        return super.toString() + " " + getTyp() + " : " + packge + " mainClass : " + mainClass + " args : " + String
+                .join(" ", args);
     }
 
     public String[] toArray() {
-        String[] strings = new String[]{getTyp(), ext, packge, mainClass};
+        String[] strings = new String[] { getTyp(), ext, packge, mainClass };
         String[] merged = Arrays.copyOf(strings, strings.length + args.length);
         System.arraycopy(args, 0, merged, strings.length, args.length);
         return merged;
@@ -91,8 +91,8 @@ public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefi
     public boolean equals(Object obj) {
         if (obj instanceof ArtifactLanguageServerDefinition) {
             ArtifactLanguageServerDefinition definition = (ArtifactLanguageServerDefinition) obj;
-            return ext.equals(definition.ext) && mainClass.equals(definition.mainClass) && Arrays.equals(args,
-                                                                                                         definition.args);
+            return ext.equals(definition.ext) && mainClass.equals(definition.mainClass) && Arrays
+                    .equals(args, definition.args);
         }
         return false;
     }

@@ -37,16 +37,16 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-public class PluginMain implements ApplicationComponent {
-    private static Logger LOG = Logger.getInstance(PluginMain.class);
+public class IntellijLanguageClient implements ApplicationComponent {
 
-    private static final String SPLIT_CHAR = ";";
-
+    private static Set<LanguageServerDefinition> allDefinitions = new HashSet<>();
     private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new ConcurrentHashMap<>();
     private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
     private static Map<String, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
     private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
-    private static boolean loadedExtensions = false;
+    private static final String SPLIT_CHAR = ",";
+
+    private static Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
 
     @Override
     public void initComponent() {
@@ -55,10 +55,42 @@ public class PluginMain implements ApplicationComponent {
         VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
         ApplicationManager.getApplication().getMessageBus().connect()
                 .subscribe(AppTopics.FILE_DOCUMENT_SYNC, new FileDocumentManagerListenerImpl());
-        LOG.info("PluginMain init finished");
+        LOG.info("Language Client init finished");
     }
 
-    public static void addLSPExtension(String ext, LSPExtensionManager manager) {
+    /**
+     * Adds a new server definition, attached to the given file extension.
+     * Plugin developers should register their language server definitions using this API.
+     *
+     * @param definition The server definition
+     * @throws IllegalArgumentException If the language server definition is null.
+     */
+    public static void addServerDefinition(LanguageServerDefinition definition) throws IllegalArgumentException {
+        if (definition != null) {
+            allDefinitions.add(definition);
+            LOG.info("Added definition for " + definition);
+        } else {
+            LOG.warn("Trying to add a null definition");
+            throw new IllegalArgumentException("Trying to add a null definition");
+        }
+    }
+
+    /**
+     * Adds a new LSP extension manager, attached to the given file extension.
+     * Plugin developers should register their custom language server extensions using this API.
+     *
+     * @param manager LSP extension manager (Should be implemented by the developer)
+     * @throws IllegalArgumentException if an language server extensions manager is already registered for the given
+     *                                  file extension
+     */
+    public static void addExtensionManager(String ext, LSPExtensionManager manager) throws IllegalArgumentException {
+        if (extToExtManager.get(ext) == null) {
+            extToExtManager.put(ext, manager);
+        } else {
+            LOG.warn("An extension manager is already registered for \"" + ext + "\" extension");
+            throw new IllegalArgumentException(
+                    "An extension manager has been already registered for \"" + ext + "\" extension");
+        }
         extToExtManager.put(ext, manager);
     }
 
@@ -79,6 +111,80 @@ public class PluginMain implements ApplicationComponent {
      */
     public static boolean isExtensionSupported(String ext) {
         return extToServerDefinition.keySet().contains(ext);
+    }
+
+    /**
+     * Called when an editor is opened. Instantiates a LanguageServerWrapper if necessary, and adds the Editor to the Wrapper
+     *
+     * @param editor the editor
+     */
+    public static void editorOpened(Editor editor) {
+        addExtensions();
+        VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
+        Project project = editor.getProject();
+        String rootPath = FileUtils.editorToProjectFolderPath(editor);
+        String rootUri = FileUtils.pathToUri(rootPath);
+        if (file != null) {
+            ApplicationUtils.pool(() -> {
+                String ext = file.getExtension();
+                LOG.info("Opened " + file.getName());
+                LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
+                if (serverDefinition != null) {
+                    LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, rootUri));
+                    if (wrapper == null) {
+                        LOG.info("Instantiating wrapper for " + ext + " : " + rootUri);
+                        if (extToExtManager.get(ext) != null) {
+                            wrapper = new LanguageServerWrapper(serverDefinition, project, extToExtManager.get(ext));
+                        } else {
+                            wrapper = new LanguageServerWrapper(serverDefinition, project);
+                        }
+                        String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
+                        for (String exension : exts) {
+                            extToLanguageWrapper.put(new ImmutablePair<>(exension, rootUri), wrapper);
+                        }
+                    } else {
+                        LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
+                    }
+                    LOG.info("Adding file " + file.getName());
+                    wrapper.connect(editor);
+                }
+            });
+        } else {
+            LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
+        }
+    }
+
+    /**
+     * Called when an editor is closed. Notifies the LanguageServerWrapper if needed
+     *
+     * @param editor the editor.
+     */
+    public static void editorClosed(Editor editor) {
+        VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
+        if (file != null) {
+            ApplicationUtils.pool(() -> {
+                String ext = file.getExtension();
+                LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
+                if (serverWrapper != null) {
+                    LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
+                    serverWrapper.disconnect(editor);
+                    String rootPath = FileUtils.editorToProjectFolderPath(editor);
+                    String rootUri = FileUtils.pathToUri(rootPath);
+                    extToLanguageWrapper.remove(new ImmutablePair<>(ext, rootUri));
+                }
+            });
+        } else {
+            LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
+        }
+    }
+
+    private static void addExtensions() {
+        List<LanguageServerDefinition> extensions = allDefinitions.stream()
+                .filter(s -> !extToServerDefinition.keySet().contains(s.ext)).collect(Collectors.toList());
+        LOG.info("Added serverDefinitions " + extensions + " from plugins");
+        for (LanguageServerDefinition s : extensions) {
+            extToServerDefinition.put(s.ext, s);
+        }
     }
 
     /**
@@ -128,61 +234,6 @@ public class PluginMain implements ApplicationComponent {
         });
     }
 
-    /**
-     * Called when an editor is opened. Instantiates a LanguageServerWrapper if necessary, and adds the Editor to the Wrapper
-     *
-     * @param editor the editor
-     */
-    public static void editorOpened(Editor editor) {
-        addExtensions();
-        VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
-        Project project = editor.getProject();
-        String rootPath = FileUtils.editorToProjectFolderPath(editor);
-        String rootUri = FileUtils.pathToUri(rootPath);
-        if (file != null) {
-            ApplicationUtils.pool(() -> {
-                String ext = file.getExtension();
-                LOG.info("Opened " + file.getName());
-                LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
-                if (serverDefinition != null) {
-                    LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, rootUri));
-                    if (wrapper == null) {
-                        LOG.info("Instantiating wrapper for " + ext + " : " + rootUri);
-                        if (extToExtManager.get(ext) != null) {
-                            wrapper = new LanguageServerWrapper(serverDefinition, project, extToExtManager.get(ext));
-                        } else {
-                            wrapper = new LanguageServerWrapper(serverDefinition, project);
-                        }
-                        String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
-                        for (String exension : exts) {
-                            extToLanguageWrapper.put(new ImmutablePair<>(exension, rootUri), wrapper);
-                        }
-                    } else {
-                        LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
-                    }
-                    LOG.info("Adding file " + file.getName());
-                    wrapper.connect(editor);
-                }
-            });
-        } else {
-            LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
-        }
-    }
-
-    private static void addExtensions() {
-        if (!loadedExtensions) {
-            List<LanguageServerDefinition> extensions = LanguageServerDefinition.getInstance().getAllDefinitions()
-                    .stream().filter(s -> !extToServerDefinition.keySet().contains(s.ext)).collect(Collectors.toList());
-            LOG.info("Added serverDefinitions " + extensions + " from plugins");
-            for (LanguageServerDefinition s : extensions) {
-                extToServerDefinition.put(s.ext, s);
-            }
-            //Todo - Add this after fixing
-            //   flattenExt();
-            loadedExtensions = true;
-        }
-    }
-
     private static void flattenExt() {
         extToServerDefinition = extToServerDefinition.entrySet().stream().flatMap(p -> {
             String ext = p.getKey();
@@ -192,24 +243,6 @@ public class PluginMain implements ApplicationComponent {
                     .map(s -> new AbstractMap.SimpleEntry<>(s, sDef));
             return Stream.concat(stream, Stream.of(new AbstractMap.SimpleEntry<>(ext, sDef)));
         }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    /**
-     * Called when an editor is closed. Notifies the LanguageServerWrapper if needed
-     *
-     * @param editor the editor.
-     */
-    public static void editorClosed(Editor editor) {
-        VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
-        ApplicationUtils.pool(() -> {
-            String ext = file.getExtension();
-            LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
-            if (serverWrapper != null) {
-                LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
-                serverWrapper.disconnect(editor);
-                extToLanguageWrapper.remove(ext);
-            }
-        });
     }
 
     public static void removeWrapper(LanguageServerWrapper wrapper) {

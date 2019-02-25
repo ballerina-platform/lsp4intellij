@@ -28,14 +28,13 @@ public class ExeLanguageServerDefinition extends CommandServerDefinition {
      */
     public ExeLanguageServerDefinition(String ext, String path, String[] args) {
         this.ext = ext;
+        this.id = ext;
         this.path = path;
         this.args = args;
     }
 
-//  import ExeLanguageServerDefinition.typ
-
     public String[] toArray() {
-        String[] strings = {typ, ext, path};
+        String[] strings = { typ, ext, path };
         String[] merged = Arrays.copyOf(strings, strings.length + args.length);
         System.arraycopy(args, 0, merged, strings.length, args.length);
         return merged;
@@ -46,7 +45,7 @@ public class ExeLanguageServerDefinition extends CommandServerDefinition {
     }
 
     public String[] command() {
-        String[] strings = {path};
+        String[] strings = { path };
         String[] merged = Arrays.copyOf(strings, strings.length + args.length);
         System.arraycopy(args, 0, merged, strings.length, args.length);
         return merged;
@@ -55,8 +54,8 @@ public class ExeLanguageServerDefinition extends CommandServerDefinition {
     public boolean equals(Object obj) {
         if (obj instanceof ExeLanguageServerDefinition) {
             ExeLanguageServerDefinition commandsDef = (ExeLanguageServerDefinition) obj;
-            return ext.equals(commandsDef.ext) && path.equals(commandsDef.path)
-                    && Arrays.equals(args, commandsDef.args);
+            return ext.equals(commandsDef.ext) && path.equals(commandsDef.path) && Arrays
+                    .equals(args, commandsDef.args);
         }
         return false;
     }

@@ -1,6 +1,6 @@
 package com.github.lsp4intellij.contributors.inspection;
 
-import com.github.lsp4intellij.PluginMain;
+import com.github.lsp4intellij.IntellijLanguageClient;
 import com.github.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 import com.github.lsp4intellij.contributors.fixes.LSPCommandFix;
 import com.github.lsp4intellij.contributors.psi.LSPPsiElement;
@@ -42,7 +42,7 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
             boolean isOnTheFly) {
 
         VirtualFile virtualFile = file.getVirtualFile();
-        if (PluginMain.isExtensionSupported(virtualFile.getExtension())) {
+        if (IntellijLanguageClient.isExtensionSupported(virtualFile.getExtension())) {
             String uri = FileUtils.VFSToURI(virtualFile);
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
             if (eventManager != null) {
@@ -65,6 +65,7 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
      */
     private ProblemDescriptor[] descriptorsForManager(String uri, EditorEventManager m, PsiFile file,
             InspectionManager manager, boolean isOnTheFly) {
+
         List<ProblemDescriptor> descriptors = new ArrayList<>();
         List<Diagnostic> diagnostics = m.getDiagnostics();
         for (Diagnostic diagnostic : diagnostics) {

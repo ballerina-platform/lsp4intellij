@@ -29,42 +29,16 @@ public class LanguageServerDefinition {
     /**
      * @return The id of the language server (same as extension)
      */
-    public String id = ext;
-    private Set<LanguageServerDefinition> allDefinitions = new HashSet<>();
-    private Set<String> mappedExtensions = new HashSet<>();
+    public String id;
+
     private Map<String, StreamConnectionProvider> streamConnectionProviders = new ConcurrentHashMap<>();
 
-    protected LanguageServerDefinition() {
+    LanguageServerDefinition() {
     }
 
     public static LanguageServerDefinition getInstance() {
         return INSTANCE;
     }
-
-    /**
-     * @return All registered server definitions
-     */
-    public Set<LanguageServerDefinition> getAllDefinitions() {
-        return new HashSet<>(allDefinitions);
-    }
-
-    //TODO: Verify logic here in scala
-
-    /**
-     * Register a server definition
-     *
-     * @param definition The server definition
-     */
-    public void register(LanguageServerDefinition definition) {
-        if (definition != null) {
-            allDefinitions.add(definition);
-            LOG.info("Added definition for " + definition);
-        } else {
-            LOG.warn("Trying to add a null definition");
-        }
-    }
-
-    //TODO: Verify logic here in scala
 
     public LanguageServerDefinition fromArray(String[] arr) {
         return new UserConfigurableServerDefinition().fromArray(arr);
@@ -103,31 +77,6 @@ public class LanguageServerDefinition {
         } else {
             LOG.warn("No connection for workingDir " + workingDir + " and ext " + ext);
         }
-    }
-
-    /**
-     * Adds a file extension for this LanguageServer
-     *
-     * @param ext the extension
-     */
-    public void addMappedExtension(String ext) {
-        mappedExtensions.add(ext);
-    }
-
-    /**
-     * Removes a file extension for this LanguageServer
-     *
-     * @param ext the extension
-     */
-    public void removeMappedExtension(String ext) {
-        mappedExtensions.remove(ext);
-    }
-
-    /**
-     * @return the extensions linked to this LanguageServer
-     */
-    public Set<String> getMappedExtensions() {
-        return new HashSet<>(mappedExtensions);
     }
 
     /**
