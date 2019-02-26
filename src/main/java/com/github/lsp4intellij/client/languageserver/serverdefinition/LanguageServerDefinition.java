@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * A trait representing a ServerDefinition
  */
 public class LanguageServerDefinition {
-    public static final String SPLIT_CHAR = ";";
+    public static final String SPLIT_CHAR = ",";
     private static final Logger LOG = Logger.getInstance(LanguageServerDefinition.class);
     private static final LanguageServerDefinition INSTANCE = new LanguageServerDefinition();
     /**

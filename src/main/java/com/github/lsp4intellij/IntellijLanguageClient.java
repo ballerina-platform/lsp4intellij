@@ -37,14 +37,14 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition.SPLIT_CHAR;
+
 public class IntellijLanguageClient implements ApplicationComponent {
 
-    private static Set<LanguageServerDefinition> allDefinitions = new HashSet<>();
     private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new ConcurrentHashMap<>();
     private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
     private static Map<String, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
     private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
-    private static final String SPLIT_CHAR = ",";
 
     private static Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
 
@@ -67,7 +67,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      */
     public static void addServerDefinition(LanguageServerDefinition definition) throws IllegalArgumentException {
         if (definition != null) {
-            allDefinitions.add(definition);
+            processDefinition(definition);
             LOG.info("Added definition for " + definition);
         } else {
             LOG.warn("Trying to add a null definition");
@@ -119,7 +119,6 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @param editor the editor
      */
     public static void editorOpened(Editor editor) {
-        addExtensions();
         VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
         Project project = editor.getProject();
         String rootPath = FileUtils.editorToProjectFolderPath(editor);
@@ -138,7 +137,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
                         } else {
                             wrapper = new LanguageServerWrapper(serverDefinition, project);
                         }
-                        String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
+                        String[] exts = serverDefinition.ext.split(SPLIT_CHAR);
                         for (String exension : exts) {
                             extToLanguageWrapper.put(new ImmutablePair<>(exension, rootUri), wrapper);
                         }
@@ -178,12 +177,16 @@ public class IntellijLanguageClient implements ApplicationComponent {
         }
     }
 
-    private static void addExtensions() {
-        List<LanguageServerDefinition> extensions = allDefinitions.stream()
-                .filter(s -> !extToServerDefinition.keySet().contains(s.ext)).collect(Collectors.toList());
-        LOG.info("Added serverDefinitions " + extensions + " from plugins");
-        for (LanguageServerDefinition s : extensions) {
-            extToServerDefinition.put(s.ext, s);
+    private static void processDefinition(LanguageServerDefinition definition) {
+        String[] extensions = definition.ext.split(SPLIT_CHAR);
+        for (String ext : extensions) {
+            if (extToServerDefinition.get(ext) == null) {
+                extToServerDefinition.put(ext, definition);
+                LOG.info("Added server definition for " + ext);
+            } else {
+                extToServerDefinition.replace(ext, definition);
+                LOG.info("Updated server definition for " + ext);
+            }
         }
     }
 
@@ -201,7 +204,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
                         .map(ext -> new AbstractMap.SimpleEntry<>(ext, t.getValue())))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         extToServerDefinition = flattened;
-        flattenExt();
+        flattenExtensions();
         nullDef.forEach(ext -> LOG.error("Definition for " + ext + " is null"));
 
         ApplicationUtils.pool(() -> {
@@ -234,14 +237,12 @@ public class IntellijLanguageClient implements ApplicationComponent {
         });
     }
 
-    private static void flattenExt() {
+    private static void flattenExtensions() {
         extToServerDefinition = extToServerDefinition.entrySet().stream().flatMap(p -> {
             String ext = p.getKey();
             LanguageServerDefinition sDef = p.getValue();
-            String[] split = ext.split(SPLIT_CHAR);
-            Stream<AbstractMap.SimpleEntry<String, LanguageServerDefinition>> stream = Stream.of(split)
-                    .map(s -> new AbstractMap.SimpleEntry<>(s, sDef));
-            return Stream.concat(stream, Stream.of(new AbstractMap.SimpleEntry<>(ext, sDef)));
+            List<String> split = Arrays.asList(ext.split(SPLIT_CHAR));
+            return split.stream().map(s -> new AbstractMap.SimpleEntry<>(s, sDef));
         }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
