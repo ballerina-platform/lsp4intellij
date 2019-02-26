@@ -381,7 +381,11 @@ public class LanguageServerWrapper {
                 disconnect(ed.getKey());
             }
             languageServer = null;
-            setStatus(STOPPED);
+            if (exit) {
+                removeWidget();
+            } else {
+                setStatus(STOPPED);
+            }
         }
     }
 
