@@ -1,6 +1,5 @@
 package com.github.lsp4intellij.client;
 
-import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.editor.EditorEventManagerBase;
 import com.github.lsp4intellij.requests.WorkspaceEditHandler;
@@ -20,29 +19,24 @@ import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
+import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import javax.swing.*;
 
 public class LanguageClientImpl implements LanguageClient {
     private Logger LOG = Logger.getInstance(LanguageClientImpl.class);
-    private LanguageServerWrapper wrapper;
-
-    /**
-     * Connects the LanguageClient to the server
-     *
-     * @param wrapper The Language Server Wrapper
-     */
-    public void connect(LanguageServerWrapper wrapper) {
-        this.wrapper = wrapper;
-    }
+    private Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
 
     @Override
     public CompletableFuture<ApplyWorkspaceEditResponse> applyEdit(ApplyWorkspaceEditParams params) {
@@ -62,12 +56,31 @@ public class LanguageClientImpl implements LanguageClient {
 
     @Override
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
-        return wrapper.registerCapability(params);
+        return CompletableFuture.runAsync(() -> params.getRegistrations().forEach(r -> {
+            String id = r.getId();
+            DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
+            Object options = r.getRegisterOptions();
+            registrations.put(id, method);
+        }));
     }
 
     @Override
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
-        return wrapper.unregisterCapability(params);
+        return CompletableFuture.runAsync(() -> params.getUnregisterations().forEach((Unregistration r) -> {
+            String id = r.getId();
+            DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
+            if (registrations.containsKey(id)) {
+                registrations.remove(id);
+            } else {
+                Map<DynamicRegistrationMethods, String> inverted = new HashMap<>();
+                for (Map.Entry<String, DynamicRegistrationMethods> entry : registrations.entrySet()) {
+                    inverted.put(entry.getValue(), entry.getKey());
+                }
+                if (inverted.containsKey(method)) {
+                    registrations.remove(inverted.get(method));
+                }
+            }
+        }));
     }
 
     @Override

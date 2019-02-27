@@ -1,7 +1,6 @@
 package com.github.lsp4intellij.client.languageserver.wrapper;
 
 import com.github.lsp4intellij.IntellijLanguageClient;
-import com.github.lsp4intellij.client.DynamicRegistrationMethods;
 import com.github.lsp4intellij.client.LanguageClientImpl;
 import com.github.lsp4intellij.client.languageserver.LSPServerStatusWidget;
 import com.github.lsp4intellij.client.languageserver.ServerOptions;
@@ -42,7 +41,6 @@ import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.OnTypeFormattingCapabilities;
 import org.eclipse.lsp4j.RangeFormattingCapabilities;
 import org.eclipse.lsp4j.ReferencesCapabilities;
-import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.RenameCapabilities;
 import org.eclipse.lsp4j.SemanticHighlightingCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -52,8 +50,6 @@ import org.eclipse.lsp4j.SynchronizationCapabilities;
 import org.eclipse.lsp4j.TextDocumentClientCapabilities;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextDocumentSyncOptions;
-import org.eclipse.lsp4j.Unregistration;
-import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceEditCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
@@ -71,7 +67,6 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -102,7 +97,6 @@ public class LanguageServerWrapper {
     private String rootPath;
     private final Map<String, EditorEventManager> connectedEditors = new ConcurrentHashMap<>();
     private LSPServerStatusWidget statusWidget;
-    private Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
     private int crashCount = 0;
     volatile private boolean alreadyShownTimeout = false;
     volatile private boolean alreadyShownCrash = false;
@@ -432,7 +426,6 @@ public class LanguageServerWrapper {
                     languageServer = launcher.getRemoteProxy();
                     launcherFuture = launcher.startListening();
                 }
-                client.connect(this);
 
                 initializeFuture = languageServer.initialize(initParams).thenApply(res -> {
                     initializeResult = res;
@@ -500,33 +493,6 @@ public class LanguageServerWrapper {
                 LOG.error(new ResponseErrorException(responseMessage.getError()));
             }
         }
-    }
-
-    public CompletableFuture<Void> registerCapability(RegistrationParams params) {
-        return CompletableFuture.runAsync(() -> params.getRegistrations().forEach(r -> {
-            String id = r.getId();
-            DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
-            Object options = r.getRegisterOptions();
-            registrations.put(id, method);
-        }));
-    }
-
-    public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
-        return CompletableFuture.runAsync(() -> params.getUnregisterations().forEach((Unregistration r) -> {
-            String id = r.getId();
-            DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
-            if (registrations.containsKey(id)) {
-                registrations.remove(id);
-            } else {
-                Map<DynamicRegistrationMethods, String> inverted = new HashMap<>();
-                for (Map.Entry<String, DynamicRegistrationMethods> entry : registrations.entrySet()) {
-                    inverted.put(entry.getValue(), entry.getKey());
-                }
-                if (inverted.containsKey(method)) {
-                    registrations.remove(inverted.get(method));
-                }
-            }
-        }));
     }
 
     public Project getProject() {
