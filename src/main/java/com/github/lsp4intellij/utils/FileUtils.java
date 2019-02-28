@@ -102,8 +102,7 @@ public class FileUtils {
      */
     public static String VFSToURI(VirtualFile file) {
         try {
-            String uri = sanitizeURI(new URL(file.getUrl().replace(" ", SPACE_ENCODED)).toURI().toString());
-            return uri;
+            return sanitizeURI(new URL(file.getUrl().replace(" ", SPACE_ENCODED)).toURI().toString());
         } catch (MalformedURLException | URISyntaxException e) {
             LOG.warn(e);
             return null;
@@ -119,7 +118,7 @@ public class FileUtils {
     public static String sanitizeURI(String uri) {
         if (uri != null) {
             StringBuilder reconstructed = new StringBuilder();
-            String uriCp = new String(uri).replaceAll(" ", SPACE_ENCODED); //Don't trust servers
+            String uriCp = uri.replaceAll(" ", SPACE_ENCODED); //Don't trust servers
             if (!uri.startsWith(URI_FILE_BEGIN)) {
                 LOG.warn("Malformed uri : " + uri);
                 return uri; //Probably not an uri
@@ -143,7 +142,7 @@ public class FileUtils {
                     if (!reconstructed.toString().endsWith(":")) {
                         reconstructed.append(":");
                     }
-                    return reconstructed.append(uriCp.substring(0, uriCp.indexOf(URI_PATH_SEP))).toString();
+                    return reconstructed.append(uriCp.substring(uriCp.indexOf(URI_PATH_SEP))).toString();
                 }
             }
         } else {
