@@ -143,7 +143,7 @@ public class FileUtils {
                     if (!reconstructed.toString().endsWith(":")) {
                         reconstructed.append(":");
                     }
-                    return reconstructed.append(uriCp.substring(0, uriCp.indexOf(URI_PATH_SEP))).toString();
+                    return reconstructed.append(uriCp.substring(uriCp.indexOf(URI_PATH_SEP))).toString();
                 }
             }
         } else {
