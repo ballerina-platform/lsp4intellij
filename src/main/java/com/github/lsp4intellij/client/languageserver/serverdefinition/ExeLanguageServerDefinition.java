@@ -31,6 +31,7 @@ public class ExeLanguageServerDefinition extends CommandServerDefinition {
         this.id = ext;
         this.path = path;
         this.args = args;
+        this.command = getCommand();
     }
 
     public String[] toArray() {
@@ -44,7 +45,7 @@ public class ExeLanguageServerDefinition extends CommandServerDefinition {
         return typ + " : path " + path + " args : " + String.join(" ", args);
     }
 
-    public String[] command() {
+    public String[] getCommand() {
         String[] strings = { path };
         String[] merged = Arrays.copyOf(strings, strings.length + args.length);
         System.arraycopy(args, 0, merged, strings.length, args.length);
