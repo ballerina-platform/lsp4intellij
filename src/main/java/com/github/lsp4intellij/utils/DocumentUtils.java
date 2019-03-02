@@ -50,6 +50,17 @@ public class DocumentUtils {
      * @param editor   The editor
      * @return the Position
      */
+    public static Position logicalToLSPPos(LogicalPosition position, Editor editor) {
+       return offsetToLSPPos(editor, editor.logicalPositionToOffset(position));
+    }
+
+    /**
+     * Transforms a LogicalPosition (IntelliJ) to an LSP Position
+     *
+     * @param position the LogicalPosition
+     * @param editor   The editor
+     * @return the Position
+     */
     public static Position offsetToLSPPos(LogicalPosition position, Editor editor) {
         return offsetToLSPPos(editor, editor.logicalPositionToOffset(position));
     }
