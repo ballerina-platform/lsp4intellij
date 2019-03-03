@@ -21,7 +21,7 @@ public class LSPListener {
      *
      * @return true or false depending on if the manager is set
      */
-    protected boolean checkManager() {
+    boolean checkManager() {
         if (manager == null) {
             LOG.error("Manager is null");
             return false;

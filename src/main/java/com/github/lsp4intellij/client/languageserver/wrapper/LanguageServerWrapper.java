@@ -10,6 +10,7 @@ import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManag
 import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.editor.listeners.DocumentListenerImpl;
+import com.github.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
 import com.github.lsp4intellij.extensions.LSPExtensionManager;
 import com.github.lsp4intellij.requests.Timeout;
 import com.github.lsp4intellij.requests.Timeouts;
@@ -98,9 +99,9 @@ public class LanguageServerWrapper {
     private final Map<String, EditorEventManager> connectedEditors = new ConcurrentHashMap<>();
     private LSPServerStatusWidget statusWidget;
     private int crashCount = 0;
-    volatile private boolean alreadyShownTimeout = false;
-    volatile private boolean alreadyShownCrash = false;
-    volatile private ServerStatus status = STOPPED;
+    private volatile boolean alreadyShownTimeout = false;
+    private volatile boolean alreadyShownCrash = false;
+    private volatile ServerStatus status = STOPPED;
     private LanguageServer languageServer;
     private LanguageClientImpl client;
     private RequestManager requestManager;
@@ -269,11 +270,11 @@ public class LanguageServerWrapper {
                                     }
 
                                     //Todo - Implement
-                                    //  EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
                                     //  EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
                                     //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
 
                                     DocumentListenerImpl documentListener = new DocumentListenerImpl();
+                                    EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
 
                                     ServerOptions serverOptions = new ServerOptions(syncKind,
                                             capabilities.getCompletionProvider(),
@@ -285,15 +286,15 @@ public class LanguageServerWrapper {
                                     EditorEventManager manager;
                                     if (extManager != null) {
                                         manager = extManager.getExtendedEditorEventManagerFor(editor, documentListener,
-                                                requestManager, serverOptions, this);
+                                                mouseListener, requestManager, serverOptions, this);
                                     } else {
-                                        manager = new EditorEventManager(editor, documentListener, requestManager,
-                                                serverOptions, this);
+                                        manager = new EditorEventManager(editor, documentListener, mouseListener,
+                                                requestManager, serverOptions, this);
                                     }
-                                    //                                        mouseListener.setManager(manager);
-                                    //                                        mouseMotionListener.setManager(manager);
-                                    //                                        selectionListener.setManager(manager);
+                                    // mouseMotionListener.setManager(manager);
+                                    // selectionListener.setManager(manager);
                                     documentListener.setManager(manager);
+                                    mouseListener.setManager(manager);
                                     manager.registerListeners();
                                     connectedEditors.put(uri, manager);
                                     manager.documentOpened();
