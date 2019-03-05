@@ -58,7 +58,7 @@ public class EditorEventManagerBase {
         return isKeyPressed;
     }
 
-    static synchronized void setIsKeyPressed(boolean isCtrlDown) {
+    static synchronized void setIsKeyPressed(boolean isKeyPressed) {
         EditorEventManagerBase.isKeyPressed = isKeyPressed;
     }
 

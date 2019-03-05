@@ -293,22 +293,24 @@ public class EditorEventManager {
     private Location requestDefinition(Position position) {
         TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, position);
         CompletableFuture<List<? extends Location>> request = requestManager.definition(params);
-        if (request != null) {
-            try {
-                List<? extends Location> definition = request.get(DEFINITION_TIMEOUT, TimeUnit.MILLISECONDS);
-                wrapper.notifySuccess(Timeouts.DEFINITION);
-                if (definition != null && !definition.isEmpty()) {
-                    return definition.get(0);
-                }
-            } catch (TimeoutException e) {
-                LOG.warn(e);
-                wrapper.notifyFailure(Timeouts.DEFINITION);
-                return null;
-            } catch (InterruptedException | JsonRpcException | ExecutionException e) {
-                LOG.warn(e);
-                wrapper.crashed(e);
-                return null;
+
+        if (request == null) {
+            return null;
+        }
+        try {
+            List<? extends Location> definition = request.get(DEFINITION_TIMEOUT, TimeUnit.MILLISECONDS);
+            wrapper.notifySuccess(Timeouts.DEFINITION);
+            if (definition != null && !definition.isEmpty()) {
+                return definition.get(0);
             }
+        } catch (TimeoutException e) {
+            LOG.warn(e);
+            wrapper.notifyFailure(Timeouts.DEFINITION);
+            return null;
+        } catch (InterruptedException | JsonRpcException | ExecutionException e) {
+            LOG.warn(e);
+            wrapper.crashed(e);
+            return null;
         }
         return null;
     }
@@ -403,29 +405,30 @@ public class EditorEventManager {
         List<LookupElement> lookupItems = new ArrayList<>();
         CompletableFuture<Either<List<CompletionItem>, CompletionList>> request = requestManager
                 .completion(new CompletionParams(identifier, pos));
-        if (request != null) {
-            try {
-                Either<List<CompletionItem>, CompletionList> res = request
-                        .get(COMPLETION_TIMEOUT, TimeUnit.MILLISECONDS);
-                wrapper.notifySuccess(Timeouts.COMPLETION);
-                if (res != null) {
-                    if (res.getLeft() != null) {
-                        for (CompletionItem item : res.getLeft()) {
-                            lookupItems.add(createLookupItem(item));
-                        }
-                    } else if (res.getRight() != null) {
-                        for (CompletionItem item : res.getRight().getItems()) {
-                            lookupItems.add(createLookupItem(item));
-                        }
+
+        if (request == null) {
+            return lookupItems;
+        }
+        try {
+            Either<List<CompletionItem>, CompletionList> res = request.get(COMPLETION_TIMEOUT, TimeUnit.MILLISECONDS);
+            wrapper.notifySuccess(Timeouts.COMPLETION);
+            if (res != null) {
+                if (res.getLeft() != null) {
+                    for (CompletionItem item : res.getLeft()) {
+                        lookupItems.add(createLookupItem(item));
+                    }
+                } else if (res.getRight() != null) {
+                    for (CompletionItem item : res.getRight().getItems()) {
+                        lookupItems.add(createLookupItem(item));
                     }
                 }
-            } catch (TimeoutException e) {
-                LOG.warn(e);
-                wrapper.notifyFailure(Timeouts.COMPLETION);
-            } catch (JsonRpcException | ExecutionException | InterruptedException e) {
-                LOG.warn(e);
-                wrapper.crashed(e);
             }
+        } catch (TimeoutException e) {
+            LOG.warn(e);
+            wrapper.notifyFailure(Timeouts.COMPLETION);
+        } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+            LOG.warn(e);
+            wrapper.crashed(e);
         }
         return lookupItems;
     }
