@@ -11,6 +11,6 @@ public class LSPInspectionProvider implements InspectionToolProvider {
     @NotNull
     @Override
     public Class[] getInspectionClasses() {
-        return new Class[] { DummyLSPInspection.class };
+        return new Class[] { LSPInspection.class };
     }
 }

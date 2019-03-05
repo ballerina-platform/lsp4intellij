@@ -78,7 +78,6 @@ import static com.github.lsp4intellij.requests.Timeout.CODEACTION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.COMPLETION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
-import static com.github.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static com.github.lsp4intellij.utils.ApplicationUtils.pool;
 import static com.github.lsp4intellij.utils.ApplicationUtils.writeAction;
@@ -176,10 +175,10 @@ public class EditorEventManager {
                 this.diagnostics.clear();
                 this.diagnostics.addAll(diagnostics);
             }
-            PsiFile psiFile = computableReadAction(
-                    () -> PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
-            // Forcefully triggers local inspection tool.
-            runInspection(psiFile);
+            // PsiFile psiFile = computableReadAction(
+            // () -> PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
+            // // Forcefully triggers local inspection tool.
+            // runInspection(psiFile);
         }
     }
 
