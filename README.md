@@ -1,4 +1,4 @@
-# [Lsp4Intellij](#sp4intellij) - Language Server Client Library for Jetbrains Plugins
+# [Lsp4IntelliJ](#sp4intellij) - Language Server Client Library for Jetbrains Plugins
 
 [![Build Status](https://travis-ci.com/NipunaRanasinghe/lsp4intellij.svg?branch=master)](https://travis-ci.com/NipunaRanasinghe/lsp4intellij)
 [![](https://jitpack.io/v/NipunaRanasinghe/lsp4intellij.svg)](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)
@@ -10,13 +10,19 @@ language server based features.
 It also allows the plugin developers to use language specific language server protocol extensions via [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) 
 protocol.
 
+## Table of Contents
+- [How To Use](#how-to-use)
+- [Features](#features)
+- [License](#license)
+- [Inspiration](#inspiration)
+- [Useful Links](#useful-links)
 ## How To Use
 
 Please follow the below steps to use `Lsp4IntelliJ`  in your custom language plugin.
 
 ### 1. Add `lsp4intellij` dependency in project build file
   
-Refer [jitpack/lsp4intellij](https://jitpack.io/#NipunaRanasinghe/lsp4intellij) to learn how you can add 
+Refer **[jitpack/lsp4intellij](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)** to learn how you can add 
   **Lsp4IntelliJ** as a dependency with different build tools, which are listed below.
   - gradle
   - maven
@@ -32,14 +38,16 @@ register it using a PreloadingActivity in your plugin implementation.
 
 The following concrete class is currently implemented (more options will be added later):
 
-- **RawCommandServerDefinition(string fileExtension,string[] command):** This definition simply runs the command 
-given.You can specify multiple extensions for one server by separating them with a comma. (e.g: "ts,js")
+- **RawCommandServerDefinition(string fileExtension, string[] command)** 
+    
+    This definition simply runs the command 
+    given.You can specify multiple extensions for one server by separating them with a comma. (e.g: "ts,js")
 
     Examples: 
     
     Ballerina Language Server 
     ```java
-     new RawCommandServerDefinition("bal", new String[]{"<path/to/launcher-script.sh>"});
+     new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
     ```
     
     BSL Language Server
@@ -54,7 +62,7 @@ To register any of the aforementioned concrete methods, implement a preloading a
     
 ```java
 public class BallerinaPreloadingActivity extends PreloadingActivity {
-    IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"<path/to/launcher-script.sh>"}));
+    IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
 }
 ```
 
@@ -110,6 +118,7 @@ You can also click on the icon to see the connected files and the timeouts.
    
 
 ## Features 
+
 - Code Completion 
 - Diagnostics 
 - Code Actions
@@ -125,7 +134,19 @@ You can also click on the icon to see the connected files and the timeouts.
 [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server). Need 
 to be tested with other language servers and other Jetbrains IDEs as well.
 
+
+## License
+
+lsp4intellij code is distributed under [Apache license 2.0](LICENSE).
+
+ 
 ## Inspiration
 
-`Lsp4IntelliJ` is heavily inspired by [intellij-lsp](https://github.com/gtache/intellij-lsp) community. 
+`Lsp4IntelliJ` is heavily inspired by [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community. 
 Credits should go to the original author for his awesome work.
+
+
+# Useful Links
+
+- [langserver.org](https://langserver.org/)
+- [Language Server Protocol Specification](https://microsoft.github.io/language-server-protocol/specification)
