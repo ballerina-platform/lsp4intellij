@@ -9,26 +9,28 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorEventManagerBase {
 
-    private static final EditorEventManagerBase INSTANCE = new EditorEventManagerBase();
     public static Map<String, EditorEventManager> uriToManager = new ConcurrentHashMap<>();
     public static Map<Editor, EditorEventManager> editorToManager = new ConcurrentHashMap<>();
 
-    volatile private boolean isKeyPressed = false;
-    volatile private boolean isCtrlDown = false;
+    private volatile static boolean isKeyPressed = false;
+    private volatile static boolean isCtrlDown = false;
+    private volatile static CtrlRangeMarker ctrlRange;
 
-    private EditorEventManagerBase() {
+    static {
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher((KeyEvent e) -> {
-            synchronized (this) {
-                int eventId = e.getID();
-                if (eventId == KeyEvent.KEY_PRESSED) {
-                    isKeyPressed = true;
-                    if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
-                        isCtrlDown = true;
-                    }
-                } else if (eventId == KeyEvent.KEY_RELEASED) {
-                    isKeyPressed = false;
-                    if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
-                        isCtrlDown = false;
+            int eventId = e.getID();
+            if (eventId == KeyEvent.KEY_PRESSED) {
+                setIsKeyPressed(true);
+                if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
+                    setIsCtrlDown(true);
+                }
+            } else if (eventId == KeyEvent.KEY_RELEASED) {
+                setIsKeyPressed(false);
+                if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
+                    setIsCtrlDown(false);
+                    if (getCtrlRange() != null) {
+                        getCtrlRange().dispose();
+                        setCtrlRange(null);
                     }
                 }
             }
@@ -36,8 +38,28 @@ public class EditorEventManagerBase {
         });
     }
 
-    public static EditorEventManagerBase getInstance() {
-        return INSTANCE;
+    static synchronized CtrlRangeMarker getCtrlRange() {
+        return ctrlRange;
+    }
+
+    static synchronized void setCtrlRange(CtrlRangeMarker ctrlRange) {
+        EditorEventManagerBase.ctrlRange = ctrlRange;
+    }
+
+    static synchronized boolean getIsCtrlDown() {
+        return isCtrlDown;
+    }
+
+    static synchronized void setIsCtrlDown(boolean isCtrlDown) {
+        EditorEventManagerBase.isCtrlDown = isCtrlDown;
+    }
+
+    static synchronized boolean getIsKeyPressed() {
+        return isKeyPressed;
+    }
+
+    static synchronized void setIsKeyPressed(boolean isKeyPressed) {
+        EditorEventManagerBase.isKeyPressed = isKeyPressed;
     }
 
     /**

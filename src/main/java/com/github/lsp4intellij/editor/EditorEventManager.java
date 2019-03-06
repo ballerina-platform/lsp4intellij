@@ -24,15 +24,23 @@ import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.colors.EditorColors;
 import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
+import com.intellij.openapi.editor.event.EditorMouseEvent;
+import com.intellij.openapi.editor.event.EditorMouseListener;
+import com.intellij.openapi.editor.markup.HighlighterLayer;
+import com.intellij.openapi.editor.markup.HighlighterTargetArea;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import org.eclipse.lsp4j.CodeAction;
@@ -50,12 +58,14 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.InsertTextFormat;
+import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
+import org.eclipse.lsp4j.TextDocumentPositionParams;
 import org.eclipse.lsp4j.TextDocumentSaveReason;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
@@ -64,6 +74,9 @@ import org.eclipse.lsp4j.WillSaveTextDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
+import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -74,8 +87,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.swing.*;
 
+import static com.github.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
+import static com.github.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
+import static com.github.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
 import static com.github.lsp4intellij.requests.Timeout.CODEACTION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.COMPLETION_TIMEOUT;
+import static com.github.lsp4intellij.requests.Timeout.DEFINITION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
@@ -101,28 +118,34 @@ public class EditorEventManager {
     protected Logger LOG = Logger.getInstance(EditorEventManager.class);
 
     public Editor editor;
-    protected DocumentListener documentListener;
-    protected RequestManager requestManager;
-    protected ServerOptions serverOptions;
     public LanguageServerWrapper wrapper;
-    protected TextDocumentIdentifier identifier;
-    protected DidChangeTextDocumentParams changesParams;
-    protected TextDocumentSyncKind syncKind;
-    protected List<String> completionTriggers;
     protected Project project;
-    volatile boolean needSave = false;
+    private RequestManager requestManager;
+    private ServerOptions serverOptions;
+    private TextDocumentIdentifier identifier;
+    private DocumentListener documentListener;
+    private EditorMouseListener mouseListener;
+
+    private DidChangeTextDocumentParams changesParams;
+    private TextDocumentSyncKind syncKind;
+    private List<String> completionTriggers;
+    private volatile boolean needSave = false;
     private int version = -1;
     private boolean isOpen = false;
 
-    protected final List<Diagnostic> diagnostics = new ArrayList<>();
-    protected final InspectionManagerEx inspectionManagerEx;
-    protected final List<LocalInspectionToolWrapper> inspectionToolWrapper;
+    private boolean mouseInEditor = true;
 
-    //Todo - Revisit and add remaining listeners
-    public EditorEventManager(Editor editor, DocumentListener documentListener, RequestManager requestManager,
-            ServerOptions serverOptions, LanguageServerWrapper wrapper) {
+    protected final List<Diagnostic> diagnostics = new ArrayList<>();
+    private final InspectionManagerEx inspectionManagerEx;
+    private final List<LocalInspectionToolWrapper> inspectionToolWrapper;
+
+    //Todo - Revisit arguments order and add remaining listeners
+    public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
+            RequestManager requestManager, ServerOptions serverOptions, LanguageServerWrapper wrapper) {
+
         this.editor = editor;
         this.documentListener = documentListener;
+        this.mouseListener = mouseListener;
         this.requestManager = requestManager;
         this.serverOptions = serverOptions;
         this.wrapper = wrapper;
@@ -155,6 +178,140 @@ public class EditorEventManager {
      */
     public void characterTyped(char c) {
         // Todo - Implement
+    }
+
+    /**
+     * Tells the manager that the mouse is in the editor
+     */
+    public void mouseEntered() {
+        mouseInEditor = true;
+
+    }
+
+    /**
+     * Tells the manager that the mouse is not in the editor
+     */
+    public void mouseExited() {
+        mouseInEditor = false;
+    }
+
+    /**
+     * Called when the mouse is clicked
+     * At the moment, is used by CTRL+click to see references / goto definition
+     *
+     * @param e The mouse event
+     */
+    public void mouseClicked(EditorMouseEvent e) {
+        if (!getIsCtrlDown()) {
+            return;
+        }
+        createCtrlRange(DocumentUtils.logicalToLSPPos(editor.xyToLogicalPosition(e.getMouseEvent().getPoint()), editor),
+                null);
+        final CtrlRangeMarker ctrlRange = getCtrlRange();
+        if (ctrlRange == null) {
+            return;
+        }
+        Location loc = ctrlRange.location;
+        invokeLater(() -> {
+            if (editor.isDisposed()) {
+                return;
+            }
+            int offset = editor.logicalPositionToOffset(editor.xyToLogicalPosition(e.getMouseEvent().getPoint()));
+            String locUri = FileUtils.sanitizeURI(loc.getUri());
+            if (identifier.getUri().equals(locUri)
+                    && DocumentUtils.LSPPosToOffset(editor, loc.getRange().getStart()) <= offset
+                    && offset <= DocumentUtils.LSPPosToOffset(editor, loc.getRange().getEnd())) {
+                // Todo - Add when implementing show references action
+                // ActionManager manager = ActionManager.getInstance().getAction("LSPFindUsages").forManagerAndOffset
+                // (this, offset);
+            } else {
+                VirtualFile file = null;
+                try {
+                    file = LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(locUri)));
+                } catch (URISyntaxException e1) {
+                    LOG.warn("Syntax Exception occurred for uri: " + locUri);
+                }
+                if (file != null) {
+                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+                    writeAction(() -> {
+                        Editor newEditor = FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
+                        int startOffset = DocumentUtils.LSPPosToOffset(newEditor, loc.getRange().getStart());
+                        if (newEditor != null) {
+                            newEditor.getCaretModel().getCurrentCaret().moveToOffset(startOffset);
+                            newEditor.getSelectionModel().setSelection(startOffset,
+                                    DocumentUtils.LSPPosToOffset(newEditor, loc.getRange().getEnd()));
+                        } else {
+                            LOG.warn("editor is null");
+                        }
+                    });
+                } else {
+                    LOG.warn("Empty file for " + locUri);
+                }
+            }
+            ctrlRange.dispose();
+            setCtrlRange(null);
+        });
+    }
+
+    private void createCtrlRange(Position logicalPos, Range range) {
+        Location location = requestDefinition(logicalPos);
+        if (location == null || editor.isDisposed()) {
+            return;
+        }
+        Range corRange;
+        if (range == null) {
+            corRange = new Range(logicalPos, logicalPos);
+        } else {
+            corRange = range;
+        }
+        int startOffset = DocumentUtils.LSPPosToOffset(editor, corRange.getStart());
+        int endOffset = DocumentUtils.LSPPosToOffset(editor, corRange.getEnd());
+        boolean isDefinition = DocumentUtils.LSPPosToOffset(editor, location.getRange().getStart()) == startOffset;
+
+        invokeLater(() -> {
+            CtrlRangeMarker ctrlRange = getCtrlRange();
+            if (!editor.isDisposed()) {
+                if (ctrlRange != null) {
+                    ctrlRange.dispose();
+                }
+                setCtrlRange(new CtrlRangeMarker(location, editor, !isDefinition ?
+                        (editor.getMarkupModel().addRangeHighlighter(startOffset, endOffset, HighlighterLayer.HYPERLINK,
+                                editor.getColorsScheme().getAttributes(EditorColors.REFERENCE_HYPERLINK_COLOR),
+                                HighlighterTargetArea.EXACT_RANGE)) :
+                        null));
+            }
+        });
+    }
+
+    /**
+     * Returns the position of the definition given a position in the editor
+     *
+     * @param position The position
+     * @return The location of the definition
+     */
+    private Location requestDefinition(Position position) {
+        TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, position);
+        CompletableFuture<List<? extends Location>> request = requestManager.definition(params);
+
+        if (request == null) {
+            return null;
+        }
+        try {
+            List<? extends Location> definition = request.get(DEFINITION_TIMEOUT, TimeUnit.MILLISECONDS);
+            wrapper.notifySuccess(Timeouts.DEFINITION);
+            if (definition != null && !definition.isEmpty()) {
+                return definition.get(0);
+            }
+        } catch (TimeoutException e) {
+            LOG.warn(e);
+            wrapper.notifyFailure(Timeouts.DEFINITION);
+            return null;
+        } catch (InterruptedException | JsonRpcException | ExecutionException e) {
+            LOG.warn(e);
+            wrapper.crashed(e);
+            return null;
+        }
+        return null;
     }
 
     /**
@@ -247,29 +404,30 @@ public class EditorEventManager {
         List<LookupElement> lookupItems = new ArrayList<>();
         CompletableFuture<Either<List<CompletionItem>, CompletionList>> request = requestManager
                 .completion(new CompletionParams(identifier, pos));
-        if (request != null) {
-            try {
-                Either<List<CompletionItem>, CompletionList> res = request
-                        .get(COMPLETION_TIMEOUT, TimeUnit.MILLISECONDS);
-                wrapper.notifySuccess(Timeouts.COMPLETION);
-                if (res != null) {
-                    if (res.getLeft() != null) {
-                        for (CompletionItem item : res.getLeft()) {
-                            lookupItems.add(createLookupItem(item));
-                        }
-                    } else if (res.getRight() != null) {
-                        for (CompletionItem item : res.getRight().getItems()) {
-                            lookupItems.add(createLookupItem(item));
-                        }
+
+        if (request == null) {
+            return lookupItems;
+        }
+        try {
+            Either<List<CompletionItem>, CompletionList> res = request.get(COMPLETION_TIMEOUT, TimeUnit.MILLISECONDS);
+            wrapper.notifySuccess(Timeouts.COMPLETION);
+            if (res != null) {
+                if (res.getLeft() != null) {
+                    for (CompletionItem item : res.getLeft()) {
+                        lookupItems.add(createLookupItem(item));
+                    }
+                } else if (res.getRight() != null) {
+                    for (CompletionItem item : res.getRight().getItems()) {
+                        lookupItems.add(createLookupItem(item));
                     }
                 }
-            } catch (TimeoutException e) {
-                LOG.warn(e);
-                wrapper.notifyFailure(Timeouts.COMPLETION);
-            } catch (JsonRpcException | ExecutionException | InterruptedException e) {
-                LOG.warn(e);
-                wrapper.crashed(e);
             }
+        } catch (TimeoutException e) {
+            LOG.warn(e);
+            wrapper.notifyFailure(Timeouts.COMPLETION);
+        } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+            LOG.warn(e);
+            wrapper.crashed(e);
         }
         return lookupItems;
     }
@@ -463,8 +621,8 @@ public class EditorEventManager {
      */
     public void registerListeners() {
         editor.getDocument().addDocumentListener(documentListener);
+        editor.addEditorMouseListener(mouseListener);
         // Todo - Implement
-        // editor.addEditorMouseListener(mouseListener)
         // editor.addEditorMouseMotionListener(mouseMotionListener)
         // editor.getSelectionModel.addSelectionListener(selectionListener)
     }
@@ -474,9 +632,9 @@ public class EditorEventManager {
      */
     public void removeListeners() {
         editor.getDocument().removeDocumentListener(documentListener);
+        editor.removeEditorMouseListener(mouseListener);
         // Todo - Implement
         // editor.removeEditorMouseMotionListener(mouseMotionListener)
-        // editor.removeEditorMouseListener(mouseListener)
         // editor.getSelectionModel.removeSelectionListener(selectionListener)
     }
 

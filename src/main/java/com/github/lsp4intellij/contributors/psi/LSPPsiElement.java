@@ -19,7 +19,6 @@ import com.intellij.psi.FileViewProvider;
 import com.intellij.psi.NavigatablePsiElement;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementFactory;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiInvalidElementAccessException;
@@ -76,7 +75,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
     /**
      * Concurrent writes to this field are via CASes only, using the {@link #updater}
      */
-    volatile private KeyFMap myUserMap = KeyFMap.EMPTY_MAP;
+    private volatile KeyFMap myUserMap = KeyFMap.EMPTY_MAP;
 
     /**
      * Returns the language of the PSI element.
