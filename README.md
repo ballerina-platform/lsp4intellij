@@ -13,6 +13,10 @@ protocol.
 ## Table of Contents
 - [How To Use](#how-to-use)
 - [Features](#features)
+    - [Code Completion](#code-completion)
+    - [Diagnostics](#diagnostics)
+    - [Code Actions](#code-actions)
+    - [Goto Definition](#go-to-definition)
 - [License](#license)
 - [Inspiration](#inspiration)
 - [Useful Links](#useful-links)
@@ -119,10 +123,30 @@ You can also click on the icon to see the connected files and the timeouts.
 
 ## Features 
 
-- Code Completion 
-- Diagnostics 
-- Code Actions
-- Go to Definition
+#### Code Completion 
+Press `CTRL+SPACE` to see the completion items list,which depends on your cursor position. (Code completion items 
+will also auto pop-up based on your language server specific trigger characters.)
+
+![](resources/images/lsp4intellij-completion.gif)
+
+
+#### Diagnostics 
+To see diagnostics (errors, warnings, etc), hover over them to see the message.
+
+![](resources/images/lsp4intellij-dignostics.gif)
+
+#### Code Actions
+Hover to any diagnostic highlight and then you can view and apply related code actions using light bulb popup, as 
+shown below.
+![](resources/images/lsp4intellij-codeactions.gif)  
+
+
+#### Go to Definition
+You can use `CTRL+CLICK` on a symbol to navigate to its definition. (may need to try more than once at some contexts,
+ to get it work.)
+ 
+![](resources/images/lsp4intellij-gotodef.gif)
+
 
  **WIP** 
  - Code Formatting
