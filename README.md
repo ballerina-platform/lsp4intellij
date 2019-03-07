@@ -1,4 +1,4 @@
-# [Lsp4IntelliJ](#sp4intellij) - Language Server Client Library for Jetbrains Plugins
+# [Lsp4IntelliJ](#sp4intellij) - Language Server Protocol Support for Jetbrains Plugins
 
 [![Build Status](https://travis-ci.com/NipunaRanasinghe/lsp4intellij.svg?branch=master)](https://travis-ci.com/NipunaRanasinghe/lsp4intellij)
 [![](https://jitpack.io/v/NipunaRanasinghe/lsp4intellij.svg)](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)
@@ -10,21 +10,24 @@ language server based features.
 It also allows the plugin developers to use language specific language server protocol extensions via [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) 
 protocol.
 
+
 ## Table of Contents
-- [How To Use](#how-to-use)
-- [Features](#features)
+- [**How To Use**](#how-to-use)
+- [**Features**](#features)
     - [Code Completion](#code-completion)
     - [Diagnostics](#diagnostics)
     - [Code Actions](#code-actions)
     - [Goto Definition](#go-to-definition)
-- [License](#license)
-- [Inspiration](#inspiration)
-- [Useful Links](#useful-links)
+- [**License**](#license)
+- [**Inspiration**](#inspiration)
+- [**Useful Links**](#useful-links)
+
+
 ## How To Use
 
-Please follow the below steps to use `Lsp4IntelliJ`  in your custom language plugin.
+Lets follow the below steps to use `Lsp4IntelliJ`  in your custom language plugin.
 
-### 1. Add `lsp4intellij` dependency in project build file
+### 1. Adding `lsp4intellij` dependency in project build file
   
 Refer **[jitpack/lsp4intellij](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)** to learn how you can add 
   **Lsp4IntelliJ** as a dependency with different build tools, which are listed below.
@@ -35,52 +38,56 @@ Refer **[jitpack/lsp4intellij](https://jitpack.io/#NipunaRanasinghe/lsp4intellij
   
   **Note** - Will be available soon in maven central as maven publishing process is WIP.
 
-### 2. Add server definition
+### 2. Adding language server definition
 
-To add a language server, you can instantiate a concrete subclass of `LanguageServerDefinition` and 
-register it using a PreloadingActivity in your plugin implementation.
+1. To add a language server, first you need to instantiate a concrete subclass of 
+[LanguageServerDefinition](src/main/java/com/github/lsp4intellij/client/languageserver/serverdefinition/LanguageServerDefinition.java).
 
-The following concrete class is currently implemented (more options will be added later):
-
-- **RawCommandServerDefinition(string fileExtension, string[] command)** 
+    You can use the following concrete class (more options will be added later):
     
-    This definition simply runs the command 
-    given.You can specify multiple extensions for one server by separating them with a comma. (e.g: "ts,js")
-
-    Examples: 
+    - **RawCommandServerDefinition(string fileExtension, string[] command)** 
+        
+        This definition simply runs the command 
+        given.You can specify multiple extensions for one server by separating them with a comma. (e.g: "ts,js")
     
-    Ballerina Language Server 
+        Examples: 
+        
+        Ballerina Language Server 
+        ```java
+         new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
+        ```
+        
+        BSL Language Server
+        ```java
+         String[] command = new String[]{"java","-jar","path/to/language-server.jar","--diagnosticLanguage"};
+         new RawCommandServerDefinition("bsl,os",command);
+        ```
+        
+    > Note that all these implementations will use server stdin/stdout to communicate.
+
+2. Then to register any of the aforementioned options, you can implement a preloading activity in your plugin, as shown 
+below.
+(Refer [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/) 
+to see other options you can use instead of implementing a preloading activity.)
+
+    Example:
+    
     ```java
-     new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
+    public class BallerinaPreloadingActivity extends PreloadingActivity {
+        IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
+    }
     ```
+
+    With plugin.xml containing;
     
-    BSL Language Server
-    ```java
-     String[] command = new String[]{"java","-jar","path/to/language-server.jar","--diagnosticLanguage"};
-     new RawCommandServerDefinition("bsl,os",command);
     ```
-    
-> Note that all these implementations will use server stdin/stdout to communicate.
+    <extensions defaultExtensionNs="com.intellij">
+          <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
+      </extensions>
+    ```
 
-To register any of the aforementioned concrete methods, implement a preloading activity as shown below;
-    
-```java
-public class BallerinaPreloadingActivity extends PreloadingActivity {
-    IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
-}
-```
 
-With plugin.xml containing;
-
-```
-<extensions defaultExtensionNs="com.intellij">
-      <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
-  </extensions>
-```
-
-Refer [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/) to see other various options you can use instead of implementing a preloading activity.
-
-### 3. Add configurations to plugin.xml 
+### 3. Adding configurations to plugin.xml 
    
   - `IntellijLanguageClient` must be added as an application component. 
        ```
@@ -124,7 +131,7 @@ You can also click on the icon to see the connected files and the timeouts.
 ## Features 
 
 #### Code Completion 
-Press `CTRL+SPACE` to see the completion items list,which depends on your cursor position. (Code completion items 
+Press `CTRL+SPACE` to see the completion items list, which depends on your cursor position.(Code completion items 
 will also auto pop-up based on your language server specific trigger characters.)
 
 ![](resources/images/lsp4intellij-completion.gif)
