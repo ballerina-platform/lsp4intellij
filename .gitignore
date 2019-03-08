@@ -6,3 +6,4 @@ build/
 *.zip
 *.ps1
 target/
+gradle.properties
