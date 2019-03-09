@@ -31,11 +31,11 @@ public class UserConfigurableServerDefinition extends LanguageServerDefinition
     private static final Logger LOG = Logger.getInstance(UserConfigurableServerDefinition.class);
 
     /**
-     * @return the type of the server definition
+     * The type of the server definition.
      */
     protected String typ = "userConfigurable";
     /**
-     * @return the type of the server definition in a nicer way
+     * The type of the server definition in a nicer way.
      */
     protected String presentableTyp = "Configurable";
 
@@ -61,7 +61,7 @@ public class UserConfigurableServerDefinition extends LanguageServerDefinition
     }
 
     /**
-     * Transforms a Map<String, ServerDefinitionExtensionPointArtifact> to a Map<String, String[]>
+     * Transforms a map of (String, ServerDefinitionExtensionPointArtifact) to a map of (String, String[]).
      *
      * @param map A map
      * @return the transformed map
@@ -73,7 +73,7 @@ public class UserConfigurableServerDefinition extends LanguageServerDefinition
     }
 
     /**
-     * Transforms a (java) Map<String, String[]> to a Map<String, ServerDefinitionExtensionPointArtifact>
+     * Transforms a map of (String, String[]) to a map of (String, ServerDefinitionExtensionPointArtifact)
      *
      * @param map A java map
      * @return the transformed java map

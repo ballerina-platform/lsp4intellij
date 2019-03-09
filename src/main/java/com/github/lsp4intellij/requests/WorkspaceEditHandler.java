@@ -107,7 +107,9 @@ public class WorkspaceEditHandler {
     /**
      * Applies a WorkspaceEdit
      *
-     * @param edit The edit
+     * @param edit    The edit
+     * @param name    edit name
+     * @param toClose files to be closed
      * @return True if everything was applied, false otherwise
      */
     public static boolean applyEdit(WorkspaceEdit edit, String name, List<VirtualFile> toClose) {

@@ -17,6 +17,7 @@ package com.github.lsp4intellij.contributors.psi;
 
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiPolyVariantReference;
 import com.intellij.psi.PsiReference;
 
 /**
@@ -119,7 +120,7 @@ public class LSPPsiReference implements PsiReference {
      * @return the array of available identifiers.
      */
     public Object[] getVariants() {
-        return new Object[]{};
+        return new Object[] {};
     }
 
     /**

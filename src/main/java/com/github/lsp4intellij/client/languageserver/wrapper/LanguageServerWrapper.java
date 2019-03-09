@@ -144,7 +144,8 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * @param uri A file uri
+     * @param uri     A file uri
+     * @param project The related project
      * @return The wrapper for the given uri, or None
      */
     public static LanguageServerWrapper forUri(String uri, Project project) {
@@ -400,7 +401,10 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Checks if the wrapper is already connected to the document at the given path
+     * Checks if the wrapper is already connected to the document at the given path.
+     *
+     * @param location file location
+     * @return True if the given file is connected.
      */
     public boolean isConnectedTo(String location) {
         return connectedEditors.containsKey(location);

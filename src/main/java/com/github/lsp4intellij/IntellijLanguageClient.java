@@ -94,6 +94,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * Adds a new LSP extension manager, attached to the given file extension.
      * Plugin developers should register their custom language server extensions using this API.
      *
+     * @param ext File extension type
      * @param manager LSP extension manager (Should be implemented by the developer)
      * @throws IllegalArgumentException if an language server extensions manager is already registered for the given
      *                                  file extension
@@ -206,7 +207,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
     }
 
     /**
-     * Sets the extensions->languageServer mapping
+     * Sets the extensions to languageServer mapping.
      *
      * @param newExt a Java Map
      */
