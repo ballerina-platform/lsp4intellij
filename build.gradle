@@ -121,11 +121,9 @@ publishing {
             // create the signed artifacts
             project.tasks.signArchives.signatureFiles.each {
                 artifact(it) {
-                    println(it.file)
                     def matcher = it.file =~ /-(sources|javadoc)\.jar\.asc$/
                     assert matcher instanceof Matcher
                     if (matcher) {
-                        println(it.file)
                         classifier = matcher.group(1)
                         extension = 'jar.asc'
                     }
