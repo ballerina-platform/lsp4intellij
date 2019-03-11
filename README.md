@@ -54,13 +54,13 @@ Refer **[jitpack/lsp4intellij](https://jitpack.io/#NipunaRanasinghe/lsp4intellij
         
         Ballerina Language Server 
         ```java
-         new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
+        new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
         ```
         
         BSL Language Server
         ```java
-         String[] command = new String[]{"java","-jar","path/to/language-server.jar","--diagnosticLanguage"};
-         new RawCommandServerDefinition("bsl,os",command);
+        String[] command = new String[]{"java","-jar","path/to/language-server.jar"};
+        new RawCommandServerDefinition("bsl,os",command);
         ```
         
     > Note that all these implementations will use server stdin/stdout to communicate.
@@ -80,40 +80,41 @@ to see other options you can use instead of implementing a preloading activity.)
 
     With plugin.xml containing;
     
-    ```
+    ```xml
     <extensions defaultExtensionNs="com.intellij">
-          <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
-      </extensions>
+        <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" 
+                            id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
+    </extensions>
     ```
 
 
 ### 3. Adding configurations to plugin.xml 
    
   - `IntellijLanguageClient` must be added as an application component. 
-       ```
-        <application-components>
-               <component>
-                   <implementation-class>com.github.lsp4intellij.IntellijLanguageClient</implementation-class>
-               </component>
-           </application-components>
+       ```xml
+       <application-components>
+           <component>
+               <implementation-class>com.github.lsp4intellij.IntellijLanguageClient</implementation-class>
+           </component>
+       </application-components>
        ```
        
   - Add the following extensions to get the relevant features, as listed below.
   
     - Code completion
-        ```
+        ```xml
         <extensions defaultExtensionNs="com.intellij">
-               <completion.contributor implementationClass="com.github.lsp4intellij.contributors.LSPCompletionContributor"
-                                       id="LSPCompletionContributor" language="any"/>
-           </extensions>
+            <completion.contributor implementationClass="com.github.lsp4intellij.contributors.LSPCompletionContributor"
+                                    id="LSPCompletionContributor" language="any"/>
+        </extensions>
         ```
         
     - Diagnostics and code actions
-        ```
-         <extensions defaultExtensionNs="com.intellij">
-                <inspectionToolProvider implementation="com.github.lsp4intellij.contributors.inspection.LSPInspectionProvider"
-                                        id="LSPInspectionProvider"/>
-            </extensions>
+        ```xml
+        <extensions defaultExtensionNs="com.intellij">
+            <inspectionToolProvider implementation="com.github.lsp4intellij.contributors.inspection.LSPInspectionProvider"
+                                    id="LSPInspectionProvider"/>
+        </extensions>
         ```
         
   - **Note** You won't need any additional configurations for the other features.
