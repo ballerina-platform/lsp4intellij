@@ -25,9 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -38,11 +36,11 @@ public class LanguageServerDefinition {
     private static final Logger LOG = Logger.getInstance(LanguageServerDefinition.class);
     private static final LanguageServerDefinition INSTANCE = new LanguageServerDefinition();
     /**
-     * @return The extension that the language server manages
+     * The extension that the language server manages.
      */
     public String ext;
     /**
-     * @return The id of the language server (same as extension)
+     * The id of the language server (same as extension).
      */
     public String id;
 
@@ -64,6 +62,7 @@ public class LanguageServerDefinition {
      *
      * @param workingDir The root directory
      * @return The input and output streams of the server
+     * @throws IOException if the stream connection provider is crashed
      */
     public Pair<InputStream, OutputStream> start(String workingDir) throws IOException {
         StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);

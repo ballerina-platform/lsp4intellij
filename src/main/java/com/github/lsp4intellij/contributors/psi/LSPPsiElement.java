@@ -495,7 +495,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * for example, the element is a string literal containing multiple sub-strings which are valid full-qualified class
      * names. If an element contains only one text fragment which acts as a reference but the reference has multiple
      * possible targets, {@link PsiPolyVariantReference} should be used instead of returning multiple references.
-     * <p/>
+     *
      * Actually, it's preferable to call {@link PsiReferenceService#getReferences} instead as it allows adding
      * references by plugins when the element implements {@link ContributedReferenceHost}.
      *
