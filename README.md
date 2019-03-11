@@ -1,6 +1,7 @@
 # [Lsp4IntelliJ](#sp4intellij) - Language Server Protocol Support for Jetbrains Plugins
 
 [![Build Status](https://travis-ci.com/NipunaRanasinghe/lsp4intellij.svg?branch=master)](https://travis-ci.com/NipunaRanasinghe/lsp4intellij)
+[![](https://img.shields.io/maven-central/v/com.github.nipunaranasinghe/lsp4intellij.svg?color=blue)](https://repo.maven.apache.org/maven2/com/github/nipunaranasinghe/lsp4intellij/)
 [![](https://jitpack.io/v/NipunaRanasinghe/lsp4intellij.svg)](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)
 
 **Lsp4IntelliJ** provides language server support for IntelliJ IDEA and other Jetbrains IDEs.
@@ -28,16 +29,26 @@ protocol.
 Lets follow the below steps to use `Lsp4IntelliJ`  in your custom language plugin.
 
 ### 1. Adding `lsp4intellij` dependency in project build file
-  
-Refer **[jitpack/lsp4intellij](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)** to learn how you can add 
-  **Lsp4IntelliJ** as a dependency with different build tools, which are listed below.
-  - gradle
-  - maven
-  - sbt
-  - leiningen
-  
-  **Note** - Will be available soon in maven central as maven publishing process is WIP.
 
+#### Gradle
+```
+dependencies {
+    compile group: 'com.github.nipunaranasinghe', name: 'lsp4intellij', version: '0.1.1'
+}
+```
+
+#### Maven
+```xml
+    <dependency>
+        <groupId>com.github.nipunaranasinghe</groupId>
+        <artifactId>lsp4intellij</artifactId>
+        <version>0.1.1</version>
+    </dependency>
+```
+
+>If you want to try out with the latest changes on the master branch , refer **[jitpack/lsp4intellij](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)** to learn how you can add 
+  **Lsp4IntelliJ** as a dependency with different build tools.
+  
 ### 2. Adding language server definition
 
 1. To add a language server, first you need to instantiate a concrete subclass of 
@@ -90,7 +101,7 @@ to see other options you can use instead of implementing a preloading activity.)
 
 ### 3. Adding configurations to plugin.xml 
    
-  - `IntellijLanguageClient` must be added as an application component. 
+  1. `IntellijLanguageClient` must be added as an application component. 
        ```xml
        <application-components>
            <component>
@@ -99,25 +110,25 @@ to see other options you can use instead of implementing a preloading activity.)
        </application-components>
        ```
        
-  - Add the following extensions to get the relevant features, as listed below.
+  2. Add the following extensions to get the relevant features, as listed below.
   
-    - Code completion
-        ```xml
-        <extensions defaultExtensionNs="com.intellij">
-            <completion.contributor implementationClass="com.github.lsp4intellij.contributors.LSPCompletionContributor"
-                                    id="LSPCompletionContributor" language="any"/>
-        </extensions>
-        ```
+        - Code completion
+            ```xml
+            <extensions defaultExtensionNs="com.intellij">
+                <completion.contributor implementationClass="com.github.lsp4intellij.contributors.LSPCompletionContributor"
+                                        id="LSPCompletionContributor" language="any"/>
+            </extensions>
+            ```
         
-    - Diagnostics and code actions
-        ```xml
-        <extensions defaultExtensionNs="com.intellij">
-            <inspectionToolProvider implementation="com.github.lsp4intellij.contributors.inspection.LSPInspectionProvider"
-                                    id="LSPInspectionProvider"/>
-        </extensions>
-        ```
+        - Diagnostics and code actions
+            ```xml
+            <extensions defaultExtensionNs="com.intellij">
+                <inspectionToolProvider implementation="com.github.lsp4intellij.contributors.inspection.LSPInspectionProvider"
+                                        id="LSPInspectionProvider"/>
+            </extensions>
+            ```
         
-  - **Note** You won't need any additional configurations for the other features.
+   > **Note:** You won't need any additional configurations for the other features.
       
 If you've connected to your language server successfully, you'll see a green icon at the bottom-right side of your 
 IDE when opening a file which has a registered file extension, as shown below.
@@ -156,16 +167,16 @@ You can use `CTRL+CLICK` on a symbol to navigate to its definition. (may need to
 ![](resources/images/lsp4intellij-gotodef.gif)
 
 
- **WIP** 
+> **Note** - Above features are currently tested with IntelliJ IDEA and
+[Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server)
+. Need to be tested with other language servers and other Jetbrains IDEs as well.
+
+ **WIP Features** 
  - Code Formatting
  - Go to References / Find Usages
  - Hover Support
  - Signature Help
  
-> **Note** - Currently tested with IntelliJ IDEA and
-[Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server). Need 
-to be tested with other language servers and other Jetbrains IDEs as well.
-
 
 ## License
 

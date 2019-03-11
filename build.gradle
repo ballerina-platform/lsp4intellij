@@ -104,9 +104,9 @@ release {
 //            customizePom(pom)
 //            groupId 'com.github.nipunaranasinghe'
 //            artifactId 'lsp4intellij'
-//            version '0.1.0'
+//            version '0.1.1'
 //
-////            from components.java
+//            from components.java
 //
 //            // create the sign pom artifact
 //            pom.withXml {
