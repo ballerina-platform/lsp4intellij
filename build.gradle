@@ -18,6 +18,12 @@ intellij {
     version '2017.3'
     updateSinceUntilBuild false
 }
+buildPlugin.enabled = false
+patchPluginXml.enabled = false
+prepareSandbox.enabled = false
+prepareTestingSandbox.enabled = false
+publishPlugin.enabled = false
+runIde.enabled = false
 
 dependencies {
     compile group: 'org.eclipse.lsp4j', name: 'org.eclipse.lsp4j', version: '0.6.0'
@@ -58,6 +64,7 @@ release {
     newVersionCommitMessage = '[Gradle Release Plugin] - new version commit: '
     tagTemplate = '${version}'
     versionPropertyFile = 'gradle.properties'
+    buildTasks = ['jar']
 
     git {
         requireBranch = 'master'
@@ -84,6 +91,9 @@ release {
 //}
 //
 //signing {
+//    configurations.archives.artifacts.removeIf { art ->
+//        art.type.contains('zip')
+//    }
 //    sign configurations.archives
 //}
 //
@@ -96,7 +106,7 @@ release {
 //            artifactId 'lsp4intellij'
 //            version '0.1.0'
 //
-//            from components.java
+////            from components.java
 //
 //            // create the sign pom artifact
 //            pom.withXml {
@@ -120,12 +130,12 @@ release {
 //            project.tasks.signArchives.signatureFiles.each {
 //                artifact(it) {
 //                    def matcher = it.file =~ /-(sources|javadoc)\.jar\.asc$/
-//                    assert matcher instanceof Matcher
-//                    if (matcher) {
+//                    if (matcher.find()) {
 //                        classifier = matcher.group(1)
-//                        extension = 'jar.asc'
+//                    } else {
+//                        classifier = null
 //                    }
-//
+//                    extension = 'jar.asc'
 //                }
 //            }
 //        }
