@@ -283,19 +283,17 @@ public class EditorEventManager {
         int endOffset = DocumentUtils.LSPPosToOffset(editor, corRange.getEnd());
         boolean isDefinition = DocumentUtils.LSPPosToOffset(editor, location.getRange().getStart()) == startOffset;
 
-        invokeLater(() -> {
-            CtrlRangeMarker ctrlRange = getCtrlRange();
-            if (!editor.isDisposed()) {
-                if (ctrlRange != null) {
-                    ctrlRange.dispose();
-                }
-                setCtrlRange(new CtrlRangeMarker(location, editor, !isDefinition ?
-                        (editor.getMarkupModel().addRangeHighlighter(startOffset, endOffset, HighlighterLayer.HYPERLINK,
-                                editor.getColorsScheme().getAttributes(EditorColors.REFERENCE_HYPERLINK_COLOR),
-                                HighlighterTargetArea.EXACT_RANGE)) :
-                        null));
+        CtrlRangeMarker ctrlRange = getCtrlRange();
+        if (!editor.isDisposed()) {
+            if (ctrlRange != null) {
+                ctrlRange.dispose();
             }
-        });
+            setCtrlRange(new CtrlRangeMarker(location, editor, !isDefinition ?
+                    (editor.getMarkupModel().addRangeHighlighter(startOffset, endOffset, HighlighterLayer.HYPERLINK,
+                            editor.getColorsScheme().getAttributes(EditorColors.REFERENCE_HYPERLINK_COLOR),
+                            HighlighterTargetArea.EXACT_RANGE)) :
+                    null));
+        }
     }
 
     /**
