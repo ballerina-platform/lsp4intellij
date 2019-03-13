@@ -340,7 +340,7 @@ public class EditorEventManager {
     }
 
     public Pair<List<PsiElement>, List<VirtualFile>> references(int offset) {
-        return references(offset, true, false);
+        return references(offset, false, false);
     }
 
     /**
@@ -350,7 +350,7 @@ public class EditorEventManager {
      * @param offset The offset in the editor
      * @return An array of PsiElement
      */
-    public Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement, boolean close) {
+    private Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement, boolean close) {
         Position lspPos = DocumentUtils.offsetToLSPPos(editor, offset);
         ReferenceParams params = new ReferenceParams(new ReferenceContext(getOriginalElement));
         params.setPosition(lspPos);

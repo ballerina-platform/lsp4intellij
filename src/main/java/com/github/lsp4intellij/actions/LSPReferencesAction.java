@@ -12,6 +12,7 @@ import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.project.DumbAwareAction;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -23,8 +24,8 @@ import com.intellij.usageView.UsageViewUtil;
 import com.intellij.usages.Usage;
 import com.intellij.usages.UsageInfo2UsageAdapter;
 import com.intellij.usages.UsageTarget;
+import com.intellij.usages.UsageViewManager;
 import com.intellij.usages.UsageViewPresentation;
-import com.intellij.usages.impl.UsageViewManagerImpl;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -81,10 +82,16 @@ public class LSPReferencesAction extends DumbAwareAction {
                 usages.add(new UsageInfo2UsageAdapter(new UsageInfo(elem, -1, -1, false)));
             });
 
+            if (editor == null) {
+                return;
+            }
+            Project project = editor.getProject();
+            if (project == null) {
+                return;
+            }
             UsageViewPresentation presentation = createPresentation(targets.get(0).getElement(),
                     new FindUsagesOptions(editor.getProject()), false);
-
-            new UsageViewManagerImpl(editor.getProject())
+            UsageViewManager.getInstance(project)
                     .showUsages(new UsageTarget[] { targets.get(0) }, usages.toArray(new Usage[usages.size()]),
                             presentation);
         }
