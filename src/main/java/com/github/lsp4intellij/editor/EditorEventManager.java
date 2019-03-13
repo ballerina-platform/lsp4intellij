@@ -15,6 +15,7 @@
  */
 package com.github.lsp4intellij.editor;
 
+import com.github.lsp4intellij.actions.LSPReferencesAction;
 import com.github.lsp4intellij.client.languageserver.ServerOptions;
 import com.github.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
@@ -35,6 +36,7 @@ import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
+import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
@@ -53,10 +55,13 @@ import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Pair;
+import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
@@ -77,6 +82,8 @@ import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.ReferenceContext;
+import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
@@ -109,7 +116,9 @@ import static com.github.lsp4intellij.requests.Timeout.CODEACTION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.COMPLETION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.DEFINITION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
+import static com.github.lsp4intellij.requests.Timeout.REFERENCES_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
+import static com.github.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static com.github.lsp4intellij.utils.ApplicationUtils.pool;
 import static com.github.lsp4intellij.utils.ApplicationUtils.writeAction;
@@ -237,8 +246,11 @@ public class EditorEventManager {
                     && DocumentUtils.LSPPosToOffset(editor, loc.getRange().getStart()) <= offset
                     && offset <= DocumentUtils.LSPPosToOffset(editor, loc.getRange().getEnd())) {
                 // Todo - Add when implementing show references action
-                // ActionManager manager = ActionManager.getInstance().getAction("LSPFindUsages").forManagerAndOffset
-                // (this, offset);
+                LSPReferencesAction referencesAction = (LSPReferencesAction) ActionManager.getInstance()
+                        .getAction("LSPFindUsages");
+                if (referencesAction != null) {
+                    referencesAction.forManagerAndOffset(this, offset);
+                }
             } else {
                 VirtualFile file = null;
                 try {
@@ -283,19 +295,17 @@ public class EditorEventManager {
         int endOffset = DocumentUtils.LSPPosToOffset(editor, corRange.getEnd());
         boolean isDefinition = DocumentUtils.LSPPosToOffset(editor, location.getRange().getStart()) == startOffset;
 
-        invokeLater(() -> {
-            CtrlRangeMarker ctrlRange = getCtrlRange();
-            if (!editor.isDisposed()) {
-                if (ctrlRange != null) {
-                    ctrlRange.dispose();
-                }
-                setCtrlRange(new CtrlRangeMarker(location, editor, !isDefinition ?
-                        (editor.getMarkupModel().addRangeHighlighter(startOffset, endOffset, HighlighterLayer.HYPERLINK,
-                                editor.getColorsScheme().getAttributes(EditorColors.REFERENCE_HYPERLINK_COLOR),
-                                HighlighterTargetArea.EXACT_RANGE)) :
-                        null));
+        CtrlRangeMarker ctrlRange = getCtrlRange();
+        if (!editor.isDisposed()) {
+            if (ctrlRange != null) {
+                ctrlRange.dispose();
             }
-        });
+            setCtrlRange(new CtrlRangeMarker(location, editor, !isDefinition ?
+                    (editor.getMarkupModel().addRangeHighlighter(startOffset, endOffset, HighlighterLayer.HYPERLINK,
+                            editor.getColorsScheme().getAttributes(EditorColors.REFERENCE_HYPERLINK_COLOR),
+                            HighlighterTargetArea.EXACT_RANGE)) :
+                    null));
+        }
     }
 
     /**
@@ -327,6 +337,70 @@ public class EditorEventManager {
             return null;
         }
         return null;
+    }
+
+    public Pair<List<PsiElement>, List<VirtualFile>> references(int offset) {
+        return references(offset, false, false);
+    }
+
+    /**
+     * Returns the references given the position of the word to search for
+     * Must be called from main thread
+     *
+     * @param offset The offset in the editor
+     * @return An array of PsiElement
+     */
+    private Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement, boolean close) {
+        Position lspPos = DocumentUtils.offsetToLSPPos(editor, offset);
+        ReferenceParams params = new ReferenceParams(new ReferenceContext(getOriginalElement));
+        params.setPosition(lspPos);
+        params.setTextDocument(identifier);
+        CompletableFuture<List<? extends Location>> request = requestManager.references(params);
+        if (request != null) {
+            try {
+                List<? extends Location> res = request.get(REFERENCES_TIMEOUT, TimeUnit.MILLISECONDS);
+                wrapper.notifySuccess(Timeouts.REFERENCES);
+                if (res != null && res.size() > 0) {
+                    List<VirtualFile> openedEditors = new ArrayList<>();
+                    List<PsiElement> elements = new ArrayList<>();
+                    res.forEach(l -> {
+                        Position start = l.getRange().getStart();
+                        Position end = l.getRange().getEnd();
+                        String uri = FileUtils.sanitizeURI(l.getUri());
+                        VirtualFile file = FileUtils.virtualFileFromURI(uri);
+                        Editor curEditor = FileUtils.editorFromUri(uri, project);
+                        if (curEditor == null) {
+                            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+                            curEditor = computableWriteAction(
+                                    () -> FileEditorManager.getInstance(project).openTextEditor(descriptor, false));
+                            openedEditors.add(file);
+                        }
+                        int logicalStart = DocumentUtils.LSPPosToOffset(curEditor, start);
+                        int logicalEnd = DocumentUtils.LSPPosToOffset(curEditor, end);
+                        String name = curEditor.getDocument().getText(new TextRange(logicalStart, logicalEnd));
+                        elements.add(new LSPPsiElement(name, project, logicalStart, logicalEnd,
+                                PsiDocumentManager.getInstance(project).getPsiFile(curEditor.getDocument())));
+                    });
+                    if (close) {
+                        writeAction(
+                                () -> openedEditors.forEach(f -> FileEditorManager.getInstance(project).closeFile(f)));
+                        openedEditors.clear();
+                    }
+                    return new Pair<>(elements, openedEditors);
+                } else {
+                    return new Pair<>(null, null);
+                }
+            } catch (TimeoutException e) {
+                LOG.warn(e);
+                wrapper.notifyFailure(Timeouts.REFERENCES);
+                return new Pair<>(null, null);
+            } catch (InterruptedException | JsonRpcException | ExecutionException e) {
+                LOG.warn(e);
+                wrapper.crashed(e);
+                return new Pair<>(null, null);
+            }
+        }
+        return new Pair<>(null, null);
     }
 
     /**

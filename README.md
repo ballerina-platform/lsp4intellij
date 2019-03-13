@@ -19,6 +19,7 @@ protocol.
     - [Diagnostics](#diagnostics)
     - [Code Actions](#code-actions)
     - [Goto Definition](#go-to-definition)
+    - [Go to References / Find Usages](#goto-references-/-find-usages)
 - [**License**](#license)
 - [**Inspiration**](#inspiration)
 - [**Useful Links**](#useful-links)
@@ -161,10 +162,14 @@ shown below.
 
 
 #### Go to Definition
-You can use `CTRL+CLICK` on a symbol to navigate to its definition. (may need to try more than once at some contexts,
- to get it work.)
+You can use `CTRL+CLICK` on a symbol to navigate to its definition. 
  
 ![](resources/images/lsp4intellij-gotodef.gif)
+
+#### Goto References / Find Usages
+You can use `CTRL+CLICK` or `SHIFT+ALT+F7` on a symbol to see the list of its references/usages.
+ 
+![](resources/images/lsp4intellij-gotoref.gif)
 
 
 > **Note** - Above features are currently tested with IntelliJ IDEA and
@@ -173,7 +178,6 @@ You can use `CTRL+CLICK` on a symbol to navigate to its definition. (may need to
 
  **WIP Features** 
  - Code Formatting
- - Go to References / Find Usages
  - Hover Support
  - Signature Help
  
