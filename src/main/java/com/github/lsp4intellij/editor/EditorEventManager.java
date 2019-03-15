@@ -41,6 +41,7 @@ import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.editor.colors.EditorColors;
 import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
@@ -76,7 +77,10 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.MarkupContent;
@@ -118,6 +122,7 @@ import static com.github.lsp4intellij.requests.Timeout.DEFINITION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.REFERENCES_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
+import static com.github.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static com.github.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static com.github.lsp4intellij.utils.ApplicationUtils.pool;
@@ -350,7 +355,8 @@ public class EditorEventManager {
      * @param offset The offset in the editor
      * @return An array of PsiElement
      */
-    private Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement, boolean close) {
+    private Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement,
+            boolean close) {
         Position lspPos = DocumentUtils.offsetToLSPPos(editor, offset);
         ReferenceParams params = new ReferenceParams(new ReferenceContext(getOriginalElement));
         params.setPosition(lspPos);
@@ -481,6 +487,68 @@ public class EditorEventManager {
             }
         }
         return null;
+    }
+
+    /**
+     * Reformat the whole document
+     */
+    public void reformat() {
+        pool(() -> {
+            if (editor.isDisposed()) {
+                return;
+            }
+            DocumentFormattingParams params = new DocumentFormattingParams();
+            params.setTextDocument(identifier);
+            FormattingOptions options = new FormattingOptions();
+            params.setOptions(options);
+
+            CompletableFuture<List<? extends TextEdit>> request = requestManager.formatting(params);
+            if (request == null) {
+                return;
+            }
+            request.thenAccept(formatting -> {
+                if (formatting != null) {
+                    invokeLater(() -> applyEdit((List<TextEdit>) formatting, "Reformat document"));
+                }
+            });
+        });
+    }
+
+    /**
+     * Reformat the text currently selected in the editor
+     */
+    public void reformatSelection() {
+        pool(() -> {
+            if (editor.isDisposed()) {
+                return;
+            }
+            DocumentRangeFormattingParams params = new DocumentRangeFormattingParams();
+            params.setTextDocument(identifier);
+            SelectionModel selectionModel = editor.getSelectionModel();
+            int start = computableReadAction(selectionModel::getSelectionStart);
+            int end = computableReadAction(selectionModel::getSelectionEnd);
+            Position startingPos = DocumentUtils.offsetToLSPPos(editor, start);
+            Position endPos = DocumentUtils.offsetToLSPPos(editor, end);
+            params.setRange(new Range(startingPos, endPos));
+            // Todo - Make Formatting Options configurable
+            FormattingOptions options = new FormattingOptions();
+            params.setOptions(options);
+
+            CompletableFuture<List<? extends TextEdit>> request = requestManager.rangeFormatting(params);
+            if (request == null) {
+                return;
+            }
+            request.thenAccept(formatting -> {
+                if (formatting == null) {
+                    return;
+                }
+                invokeLater(() -> {
+                    if (!editor.isDisposed()) {
+                        applyEdit((List<TextEdit>) formatting, "Reformat selection");
+                    }
+                });
+            });
+        });
     }
 
     /**
