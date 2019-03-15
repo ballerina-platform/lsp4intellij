@@ -66,7 +66,7 @@ public class DocumentUtils {
      * @return the Position
      */
     public static Position logicalToLSPPos(LogicalPosition position, Editor editor) {
-       return offsetToLSPPos(editor, editor.logicalPositionToOffset(position));
+        return offsetToLSPPos(editor, editor.logicalPositionToOffset(position));
     }
 
     /**
@@ -107,10 +107,11 @@ public class DocumentUtils {
      */
     public static int LSPPosToOffset(Editor editor, Position pos) {
         return computableReadAction(() -> {
-            int line = min(pos.getLine(), editor.getDocument().getLineCount() - 1);
             Document doc = editor.getDocument();
+            int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()));
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
-            String lineTextForPosition = lineText.substring(0, min(lineText.length(), pos.getCharacter()));
+            String lineTextForPosition = !lineText.isEmpty() ?
+                    lineText.substring(0, min(lineText.length(), pos.getCharacter())) : "";
             int tabs = StringUtil.countChars(lineTextForPosition, '\t');
             int tabSize = editor.getSettings().getTabSize(editor.getProject());
             int column = tabs * tabSize + lineTextForPosition.length() - tabs;
@@ -123,7 +124,7 @@ public class DocumentUtils {
             if (offset > docLength) {
                 LOG.warn("Offset greater than text length : " + offset + " > " + docLength);
             }
-            return min(Math.max(offset, 0), docLength);
+            return Math.min(Math.max(offset, 0), docLength);
         });
     }
 }
