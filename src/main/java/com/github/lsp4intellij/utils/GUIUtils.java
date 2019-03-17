@@ -18,8 +18,43 @@ package com.github.lsp4intellij.utils;
 import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.github.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
 import com.github.lsp4intellij.contributors.icon.LSPIconProvider;
+import com.intellij.codeInsight.hint.HintManager;
+import com.intellij.codeInsight.hint.HintManagerImpl;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.ui.Hint;
+import com.intellij.ui.LightweightHint;
+
+import java.awt.*;
+import javax.swing.*;
 
 public class GUIUtils {
+
+    public static Hint createAndShowEditorHint(Editor editor, String string, Point point) {
+        return createAndShowEditorHint(editor, string, point, HintManager.ABOVE,
+                HintManager.HIDE_BY_ANY_KEY | HintManager.HIDE_BY_TEXT_CHANGE | HintManager.HIDE_BY_SCROLLING);
+    }
+
+    public static Hint createAndShowEditorHint(Editor editor, String string, Point point, int flags) {
+        return createAndShowEditorHint(editor, string, point, HintManager.ABOVE, flags);
+    }
+
+    /**
+     * Shows a hint in the editor
+     *
+     * @param editor     The editor
+     * @param string     The message / text of the hint
+     * @param point      The position of the hint
+     * @param constraint The constraint (under/above)
+     * @param flags      The flags (when the hint will disappear)
+     * @return The hint
+     */
+    public static Hint createAndShowEditorHint(Editor editor, String string, Point point, short constraint, int flags) {
+        LightweightHint hint = new LightweightHint(new JLabel(string));
+        Point p = HintManagerImpl.getHintPosition(hint, editor, editor.xyToLogicalPosition(point), constraint);
+        HintManagerImpl.getInstanceImpl().showEditorHint(hint, editor, p, flags, 0, false,
+                HintManagerImpl.createHintHint(editor, p, hint, constraint).setContentActive(false));
+        return hint;
+    }
 
     /**
      * Returns a suitable LSPIconProvider given a ServerDefinition

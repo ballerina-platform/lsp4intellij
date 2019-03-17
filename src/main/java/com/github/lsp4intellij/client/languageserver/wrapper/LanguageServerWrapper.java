@@ -26,6 +26,7 @@ import com.github.lsp4intellij.client.languageserver.serverdefinition.LanguageSe
 import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.editor.listeners.DocumentListenerImpl;
 import com.github.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
+import com.github.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import com.github.lsp4intellij.extensions.LSPExtensionManager;
 import com.github.lsp4intellij.requests.Timeout;
 import com.github.lsp4intellij.requests.Timeouts;
@@ -267,73 +268,73 @@ public class LanguageServerWrapper {
         }
         String uri = FileUtils.editorToURIString(editor);
         uriToLanguageServerWrapper.put(new MutablePair<>(uri, FileUtils.editorToProjectFolderUri(editor)), this);
-        if (!connectedEditors.containsKey(uri)) {
-            start();
-            if (initializeFuture != null) {
-                ServerCapabilities capabilities = getServerCapabilities();
-                if (capabilities != null) {
-                    initializeFuture.thenRun(() -> {
-                        if (!connectedEditors.containsKey(uri)) {
-                            try {
-                                Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities
-                                        .getTextDocumentSync();
-                                TextDocumentSyncKind syncKind = null;
-                                if (syncOptions != null) {
-                                    if (syncOptions.isRight()) {
-                                        syncKind = syncOptions.getRight().getChange();
-                                    } else if (syncOptions.isLeft()) {
-                                        syncKind = syncOptions.getLeft();
-                                    }
-
-                                    //Todo - Implement
-                                    //  EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
-                                    //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
-
-                                    DocumentListenerImpl documentListener = new DocumentListenerImpl();
-                                    EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
-
-                                    ServerOptions serverOptions = new ServerOptions(syncKind,
-                                            capabilities.getCompletionProvider(),
-                                            capabilities.getSignatureHelpProvider(), capabilities.getCodeLensProvider(),
-                                            capabilities.getDocumentOnTypeFormattingProvider(),
-                                            capabilities.getDocumentLinkProvider(),
-                                            capabilities.getExecuteCommandProvider(),
-                                            capabilities.getSemanticHighlighting());
-                                    EditorEventManager manager;
-                                    if (extManager != null) {
-                                        manager = extManager.getExtendedEditorEventManagerFor(editor, documentListener,
-                                                mouseListener, requestManager, serverOptions, this);
-                                    } else {
-                                        manager = new EditorEventManager(editor, documentListener, mouseListener,
-                                                requestManager, serverOptions, this);
-                                    }
-                                    // mouseMotionListener.setManager(manager);
-                                    // selectionListener.setManager(manager);
-                                    documentListener.setManager(manager);
-                                    mouseListener.setManager(manager);
-                                    manager.registerListeners();
-                                    connectedEditors.put(uri, manager);
-                                    manager.documentOpened();
-                                    LOG.info("Created a manager for " + uri);
-                                    synchronized (toConnect) {
-                                        toConnect.remove(editor);
-                                    }
-                                    for (Editor ed : toConnect) {
-                                        connect(ed);
-                                    }
+        if (connectedEditors.containsKey(uri)) {
+            return;
+        }
+        start();
+        if (initializeFuture != null) {
+            ServerCapabilities capabilities = getServerCapabilities();
+            if (capabilities != null) {
+                initializeFuture.thenRun(() -> {
+                    if (!connectedEditors.containsKey(uri)) {
+                        try {
+                            Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities
+                                    .getTextDocumentSync();
+                            TextDocumentSyncKind syncKind = null;
+                            if (syncOptions != null) {
+                                if (syncOptions.isRight()) {
+                                    syncKind = syncOptions.getRight().getChange();
+                                } else if (syncOptions.isLeft()) {
+                                    syncKind = syncOptions.getLeft();
                                 }
-                            } catch (Exception e) {
-                                LOG.error(e);
+                                //Todo - Implement
+                                //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
+                                DocumentListenerImpl documentListener = new DocumentListenerImpl();
+                                EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
+                                EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
+
+                                ServerOptions serverOptions = new ServerOptions(syncKind,
+                                        capabilities.getCompletionProvider(), capabilities.getSignatureHelpProvider(),
+                                        capabilities.getCodeLensProvider(),
+                                        capabilities.getDocumentOnTypeFormattingProvider(),
+                                        capabilities.getDocumentLinkProvider(),
+                                        capabilities.getExecuteCommandProvider(),
+                                        capabilities.getSemanticHighlighting());
+                                EditorEventManager manager;
+                                if (extManager != null) {
+                                    manager = extManager
+                                            .getExtendedEditorEventManagerFor(editor, documentListener, mouseListener,
+                                                    mouseMotionListener, requestManager, serverOptions, this);
+                                } else {
+                                    manager = new EditorEventManager(editor, documentListener, mouseListener,
+                                            mouseMotionListener, requestManager, serverOptions, this);
+                                }
+                                // selectionListener.setManager(manager);
+                                documentListener.setManager(manager);
+                                mouseListener.setManager(manager);
+                                mouseMotionListener.setManager(manager);
+                                manager.registerListeners();
+                                connectedEditors.put(uri, manager);
+                                manager.documentOpened();
+                                LOG.info("Created a manager for " + uri);
+                                synchronized (toConnect) {
+                                    toConnect.remove(editor);
+                                }
+                                for (Editor ed : toConnect) {
+                                    connect(ed);
+                                }
                             }
+                        } catch (Exception e) {
+                            LOG.error(e);
                         }
-                    });
-                } else {
-                    LOG.warn("Capabilities are null for " + serverDefinition);
-                }
+                    }
+                });
             } else {
-                synchronized (toConnect) {
-                    toConnect.add(editor);
-                }
+                LOG.warn("Capabilities are null for " + serverDefinition);
+            }
+        } else {
+            synchronized (toConnect) {
+                toConnect.add(editor);
             }
         }
     }

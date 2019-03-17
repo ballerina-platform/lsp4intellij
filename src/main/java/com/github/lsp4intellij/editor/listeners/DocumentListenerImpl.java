@@ -36,7 +36,7 @@ public class DocumentListenerImpl extends LSPListener implements DocumentListene
      */
     @Override
     public void documentChanged(DocumentEvent event) {
-        if (checkManager()) {
+        if (checkEnabled()) {
             manager.documentChanged(event);
         }
     }
