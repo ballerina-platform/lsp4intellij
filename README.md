@@ -16,10 +16,13 @@ protocol.
 - [**How To Use**](#how-to-use)
 - [**Features**](#features)
     - [Code Completion](#code-completion)
+    - [Code Formatting](#code-formatting) 
     - [Diagnostics](#diagnostics)
     - [Code Actions](#code-actions)
     - [Goto Definition](#go-to-definition)
     - [Go to References / Find Usages](#goto-references-/-find-usages)
+    - [Hover Support](#hover-support)
+    
 - [**License**](#license)
 - [**Inspiration**](#inspiration)
 - [**Useful Links**](#useful-links)
@@ -120,13 +123,30 @@ to see other options you can use instead of implementing a preloading activity.)
                                         id="LSPCompletionContributor" language="any"/>
             </extensions>
             ```
-        
+        - Code Formatting
+            ```xml
+               <actions>
+                   <action class="com.github.lsp4intellij.actions.LSPShowReformatDialogAction" id="ReformatCode" use-shortcut-of="ReformatCode"
+                           overrides="true" text="Reformat Code"/>
+                   <action class="com.github.lsp4intellij.actions.LSPShowReformatDialogAction" id="ShowReformatFileDialog"
+                           use-shortcut-of="ShowReformatFileDialog" overrides="true" text="Show Reformat File Dialog"/>
+               </actions>
+            ```
         - Diagnostics and code actions
             ```xml
             <extensions defaultExtensionNs="com.intellij">
                 <inspectionToolProvider implementation="com.github.lsp4intellij.contributors.inspection.LSPInspectionProvider"
                                         id="LSPInspectionProvider"/>
             </extensions>
+            ```
+        - Find Usages 
+            ```xml
+              <actions>
+                <action class="com.github.lsp4intellij.actions.LSPReferencesAction"
+                        id="LSPFindUsages">
+                    <keyboard-shortcut first-keystroke="shift alt F7" keymap="$default"/>
+                </action>
+              </actions>
             ```
         
    > **Note:** You won't need any additional configurations for the other features.
@@ -149,6 +169,11 @@ will also auto pop-up based on your language server specific trigger characters.
 
 ![](resources/images/lsp4intellij-completion.gif)
 
+#### Code Formatting 
+Navigate to **Code->Reformat Code** and you will get a dialog to choose whether to format the whole file or the 
+selected range.
+
+![](resources/images/lsp4intellij-formatting.gif)
 
 #### Diagnostics 
 To see diagnostics (errors, warnings, etc), hover over them to see the message.
@@ -160,7 +185,6 @@ Hover to any diagnostic highlight and then you can view and apply related code a
 shown below.
 ![](resources/images/lsp4intellij-codeactions.gif)  
 
-
 #### Go to Definition
 You can use `CTRL+CLICK` on a symbol to navigate to its definition. 
  
@@ -171,14 +195,17 @@ You can use `CTRL+CLICK` or `SHIFT+ALT+F7` on a symbol to see the list of its re
  
 ![](resources/images/lsp4intellij-gotoref.gif)
 
+#### Hover Support
+You can hover to an element while pressing the `CTRL` key to view its documentation, if available.
+
+![](resources/images/lsp4intellij-hover.gif)
+
 
 > **Note** - Above features are currently tested with IntelliJ IDEA and
 [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server)
 . Need to be tested with other language servers and other Jetbrains IDEs as well.
 
  **WIP Features** 
- - Code Formatting
- - Hover Support
  - Signature Help
  
 
