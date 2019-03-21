@@ -29,7 +29,7 @@ public class EditorMouseListenerImpl extends LSPListener implements EditorMouseL
 
     @Override
     public void mouseClicked(EditorMouseEvent editorMouseEvent) {
-        if (checkManager()) {
+        if (checkEnabled()) {
             manager.mouseClicked(editorMouseEvent);
         }
 
@@ -42,14 +42,14 @@ public class EditorMouseListenerImpl extends LSPListener implements EditorMouseL
 
     @Override
     public void mouseEntered(EditorMouseEvent editorMouseEvent) {
-        if (checkManager()) {
+        if (checkEnabled()) {
             manager.mouseEntered();
         }
     }
 
     @Override
     public void mouseExited(EditorMouseEvent editorMouseEvent) {
-        if (checkManager()) {
+        if (checkEnabled()) {
             manager.mouseExited();
         }
     }

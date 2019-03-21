@@ -15,29 +15,23 @@
  */
 package com.github.lsp4intellij.editor.listeners;
 
-import com.intellij.openapi.editor.event.DocumentEvent;
-import com.intellij.openapi.editor.event.DocumentListener;
+import com.intellij.openapi.editor.event.EditorMouseEvent;
+import com.intellij.openapi.editor.event.EditorMouseMotionListener;
 
-public class DocumentListenerImpl extends LSPListener implements DocumentListener  {
+/**
+ * Class listening for mouse movement in an editor (used for hover)
+ */
+public class EditorMouseMotionListenerImpl extends LSPListener implements EditorMouseMotionListener {
 
-    /**
-     * Called before the text of the document is changed.
-     *
-     * @param event the event containing the information about the change.
-     */
     @Override
-    public void beforeDocumentChange( DocumentEvent event) {
+    public void mouseMoved(EditorMouseEvent e) {
+        if (checkEnabled()) {
+            manager.mouseMoved(e);
+        }
     }
 
-    /**
-     * Called after the text of the document has been changed.
-     *
-     * @param event the event containing the information about the change.
-     */
     @Override
-    public void documentChanged(DocumentEvent event) {
-        if (checkEnabled()) {
-            manager.documentChanged(event);
-        }
+    public void mouseDragged(EditorMouseEvent editorMouseEvent) {
+
     }
 }

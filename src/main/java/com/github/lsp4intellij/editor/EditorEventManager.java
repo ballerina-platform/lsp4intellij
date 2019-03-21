@@ -22,6 +22,7 @@ import com.github.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapp
 import com.github.lsp4intellij.contributors.icon.LSPIconProvider;
 import com.github.lsp4intellij.contributors.inspection.LSPInspection;
 import com.github.lsp4intellij.contributors.psi.LSPPsiElement;
+import com.github.lsp4intellij.requests.HoverHandler;
 import com.github.lsp4intellij.requests.Timeouts;
 import com.github.lsp4intellij.utils.DocumentUtils;
 import com.github.lsp4intellij.utils.FileUtils;
@@ -31,26 +32,34 @@ import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.impl.HighlightInfoProcessor;
 import com.intellij.codeInsight.daemon.impl.LocalInspectionsPass;
 import com.intellij.codeInsight.daemon.impl.UpdateHighlightersUtil;
+import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
+import com.intellij.lang.Language;
+import com.intellij.lang.LanguageDocumentation;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.LogicalPosition;
+import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.editor.colors.EditorColors;
 import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.editor.event.EditorMouseEvent;
 import com.intellij.openapi.editor.event.EditorMouseListener;
+import com.intellij.openapi.editor.event.EditorMouseMotionListener;
+import com.intellij.openapi.editor.ex.EditorSettingsExternalizable;
 import com.intellij.openapi.editor.markup.HighlighterLayer;
 import com.intellij.openapi.editor.markup.HighlighterTargetArea;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
+import com.intellij.openapi.fileTypes.PlainTextLanguage;
 import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.DumbService;
@@ -63,6 +72,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.ui.Hint;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -76,7 +86,11 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.FormattingOptions;
+import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.MarkupContent;
@@ -96,6 +110,7 @@ import org.eclipse.lsp4j.WillSaveTextDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
+import java.awt.*;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -103,27 +118,36 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.swing.*;
 
+import static com.github.lsp4intellij.editor.EditorEventManagerBase.HOVER_TIME_THRES;
+import static com.github.lsp4intellij.editor.EditorEventManagerBase.POPUP_THRES;
+import static com.github.lsp4intellij.editor.EditorEventManagerBase.SCHEDULE_THRES;
 import static com.github.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static com.github.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
+import static com.github.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
 import static com.github.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
 import static com.github.lsp4intellij.requests.Timeout.CODEACTION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.COMPLETION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.DEFINITION_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
+import static com.github.lsp4intellij.requests.Timeout.HOVER_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.REFERENCES_TIMEOUT;
 import static com.github.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
+import static com.github.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static com.github.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
 import static com.github.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static com.github.lsp4intellij.utils.ApplicationUtils.pool;
 import static com.github.lsp4intellij.utils.ApplicationUtils.writeAction;
 import static com.github.lsp4intellij.utils.DocumentUtils.LINUX_SEPARATOR;
 import static com.github.lsp4intellij.utils.DocumentUtils.WIN_SEPARATOR;
+import static com.github.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
 
 /**
  * Class handling events related to an Editor (a Document)
@@ -149,15 +173,20 @@ public class EditorEventManager {
     private TextDocumentIdentifier identifier;
     private DocumentListener documentListener;
     private EditorMouseListener mouseListener;
+    private EditorMouseMotionListener mouseMotionListener;
 
     private DidChangeTextDocumentParams changesParams;
     private TextDocumentSyncKind syncKind;
     private List<String> completionTriggers;
     private volatile boolean needSave = false;
+    private Timer hoverThread = new Timer("Hover", true);
     private int version = -1;
+    private long predTime = -1L;
+    private long ctrlTime = -1L;
     private boolean isOpen = false;
 
     private boolean mouseInEditor = true;
+    private Hint currentHint;
 
     protected final List<Diagnostic> diagnostics = new ArrayList<>();
     private final InspectionManagerEx inspectionManagerEx;
@@ -165,11 +194,14 @@ public class EditorEventManager {
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
-            RequestManager requestManager, ServerOptions serverOptions, LanguageServerWrapper wrapper) {
+            EditorMouseMotionListener mouseMotionListener, RequestManager requestManager, ServerOptions serverOptions,
+            LanguageServerWrapper wrapper) {
 
         this.editor = editor;
         this.documentListener = documentListener;
         this.mouseListener = mouseListener;
+        this.mouseListener = mouseListener;
+        this.mouseMotionListener = mouseMotionListener;
         this.requestManager = requestManager;
         this.serverOptions = serverOptions;
         this.wrapper = wrapper;
@@ -193,6 +225,8 @@ public class EditorEventManager {
         // Inspections
         this.inspectionManagerEx = (InspectionManagerEx) InspectionManagerEx.getInstance(project);
         this.inspectionToolWrapper = Collections.singletonList(new LocalInspectionToolWrapper(new LSPInspection()));
+
+        this.currentHint = null;
     }
 
     /**
@@ -217,6 +251,58 @@ public class EditorEventManager {
      */
     public void mouseExited() {
         mouseInEditor = false;
+    }
+
+    /**
+     * Will show documentation if the mouse doesn't move for a given time (Hover)
+     *
+     * @param e the event
+     */
+    public void mouseMoved(EditorMouseEvent e) {
+        if (e.getEditor() == editor) {
+            Language language = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()).getLanguage();
+            if ((LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() || language
+                    .equals(PlainTextLanguage.INSTANCE)) && (getIsCtrlDown() || EditorSettingsExternalizable
+                    .getInstance().isShowQuickDocOnMouseOverElement())) {
+                long curTime = System.nanoTime();
+                if (predTime == (-1L) || ctrlTime == (-1L)) {
+                    predTime = curTime;
+                    ctrlTime = curTime;
+                } else {
+                    LogicalPosition lPos = getPos(e);
+                    if (lPos != null) {
+                        if (!getIsKeyPressed() || getIsCtrlDown()) {
+                            int offset = editor.logicalPositionToOffset(lPos);
+                            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRES) {
+                                if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
+                                    if (currentHint != null) {
+                                        currentHint.hide();
+                                    }
+                                    currentHint = null;
+                                    if (getCtrlRange() != null) {
+                                        getCtrlRange().dispose();
+                                    }
+                                    setCtrlRange(null);
+                                    pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
+                                } else if (getCtrlRange().definitionContainsOffset(offset)) {
+                                    createAndShowEditorHint(editor, "Click to show usages", editor.offsetToXY(offset));
+                                } else {
+                                    editor.getContentComponent()
+                                            .setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                                }
+                                ctrlTime = curTime;
+                            } else {
+                                scheduleDocumentation(curTime, lPos, e.getMouseEvent().getPoint());
+                            }
+
+                        }
+                    }
+                    predTime = curTime;
+                }
+            }
+        } else {
+            LOG.error("Wrong editor for EditorEventManager");
+        }
     }
 
     /**
@@ -350,7 +436,8 @@ public class EditorEventManager {
      * @param offset The offset in the editor
      * @return An array of PsiElement
      */
-    private Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement, boolean close) {
+    private Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement,
+            boolean close) {
         Position lspPos = DocumentUtils.offsetToLSPPos(editor, offset);
         ReferenceParams params = new ReferenceParams(new ReferenceContext(getOriginalElement));
         params.setPosition(lspPos);
@@ -484,6 +571,136 @@ public class EditorEventManager {
     }
 
     /**
+     * Reformat the whole document
+     */
+    public void reformat() {
+        pool(() -> {
+            if (editor.isDisposed()) {
+                return;
+            }
+            DocumentFormattingParams params = new DocumentFormattingParams();
+            params.setTextDocument(identifier);
+            FormattingOptions options = new FormattingOptions();
+            params.setOptions(options);
+
+            CompletableFuture<List<? extends TextEdit>> request = requestManager.formatting(params);
+            if (request == null) {
+                return;
+            }
+            request.thenAccept(formatting -> {
+                if (formatting != null) {
+                    invokeLater(() -> applyEdit((List<TextEdit>) formatting, "Reformat document"));
+                }
+            });
+        });
+    }
+
+    /**
+     * Reformat the text currently selected in the editor
+     */
+    public void reformatSelection() {
+        pool(() -> {
+            if (editor.isDisposed()) {
+                return;
+            }
+            DocumentRangeFormattingParams params = new DocumentRangeFormattingParams();
+            params.setTextDocument(identifier);
+            SelectionModel selectionModel = editor.getSelectionModel();
+            int start = computableReadAction(selectionModel::getSelectionStart);
+            int end = computableReadAction(selectionModel::getSelectionEnd);
+            Position startingPos = DocumentUtils.offsetToLSPPos(editor, start);
+            Position endPos = DocumentUtils.offsetToLSPPos(editor, end);
+            params.setRange(new Range(startingPos, endPos));
+            // Todo - Make Formatting Options configurable
+            FormattingOptions options = new FormattingOptions();
+            params.setOptions(options);
+
+            CompletableFuture<List<? extends TextEdit>> request = requestManager.rangeFormatting(params);
+            if (request == null) {
+                return;
+            }
+            request.thenAccept(formatting -> {
+                if (formatting == null) {
+                    return;
+                }
+                invokeLater(() -> {
+                    if (!editor.isDisposed()) {
+                        applyEdit((List<TextEdit>) formatting, "Reformat selection");
+                    }
+                });
+            });
+        });
+    }
+
+    /**
+     * Immediately requests the server for documentation at the current editor position
+     *
+     * @param editor The editor
+     */
+    public void quickDoc(Editor editor) {
+        if (editor == this.editor) {
+            LogicalPosition caretPos = editor.getCaretModel().getLogicalPosition();
+            Point pointPos = editor.logicalPositionToXY(caretPos);
+            long currentTime = System.nanoTime();
+            pool(() -> requestAndShowDoc(currentTime, caretPos, pointPos));
+            predTime = currentTime;
+        } else {
+            LOG.warn("Not same editor!");
+        }
+    }
+
+    /**
+     * Gets the hover request and shows it
+     *
+     * @param curTime   The current time
+     * @param editorPos The editor position
+     * @param point     The point at which to show the hint
+     */
+    private void requestAndShowDoc(long curTime, LogicalPosition editorPos, Point point) {
+        Position serverPos = computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
+        CompletableFuture<Hover> request = requestManager.hover(new TextDocumentPositionParams(identifier, serverPos));
+        if (request == null) {
+            return;
+        }
+        try {
+            Hover hover = request.get(HOVER_TIMEOUT, TimeUnit.MILLISECONDS);
+            wrapper.notifySuccess(Timeouts.HOVER);
+            if (hover != null) {
+                String string = HoverHandler.getHoverString(hover);
+                if (string != null && !string.equals("")) {
+                    if (getIsCtrlDown()) {
+                        invokeLater(() -> {
+                            if (!editor.isDisposed()) {
+                                currentHint = createAndShowEditorHint(editor, string, point,
+                                        HintManager.HIDE_BY_OTHER_HINT);
+                            }
+                        });
+                        // createCtrlRange(serverPos, hover.getRange());
+                    } else {
+                        invokeLater(() -> {
+                            if (!editor.isDisposed()) {
+                                currentHint = createAndShowEditorHint(editor, string, point);
+                            }
+                        });
+                    }
+                } else {
+                    LOG.warn("Hover string returned is null for file " + identifier.getUri() + " and pos (" + serverPos
+                            .getLine() + ";" + serverPos.getCharacter() + ")");
+                }
+            } else {
+                LOG.warn("Hover is null for file " + identifier.getUri() + " and pos (" + serverPos.getLine() + ";"
+                        + serverPos.getCharacter() + ")");
+            }
+        } catch (TimeoutException e) {
+            LOG.warn(e);
+            wrapper.notifyFailure(Timeouts.HOVER);
+        } catch (InterruptedException | JsonRpcException | ExecutionException e) {
+            LOG.warn(e);
+            wrapper.crashed(e);
+        }
+    }
+
+    /**
      * Returns the completion suggestions given a position
      *
      * @param pos The LSP position
@@ -578,6 +795,59 @@ public class EditorEventManager {
 
         return lookupElementBuilder.withPresentableText(presentableText).withTypeText(tailText, true).withIcon(icon)
                 .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
+    }
+
+    /**
+     * Schedule the documentation using the Timer
+     *
+     * @param time      The current time
+     * @param editorPos The position in the editor
+     * @param point     The point where to show the doc
+     */
+    private void scheduleDocumentation(Long time, LogicalPosition editorPos, Point point) {
+        if (editorPos == null || (time - predTime <= SCHEDULE_THRES)) {
+            return;
+        }
+        try {
+            hoverThread.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    long curTime = System.nanoTime();
+                    if (!editor.isDisposed() && (System.nanoTime() - predTime > HOVER_TIME_THRES) && mouseInEditor
+                            && editor.getContentComponent().hasFocus() && (!getIsKeyPressed() || getIsCtrlDown())) {
+                        requestAndShowDoc(curTime, editorPos, point);
+                    }
+                }
+            }, POPUP_THRES);
+        } catch (Exception e) {
+            hoverThread = new Timer("Hover", true); //Restart Timer if it crashes
+            LOG.warn(e);
+            LOG.warn("Hover timer reset");
+        }
+    }
+
+    /**
+     * Returns the logical position given a mouse event
+     *
+     * @param e The event
+     * @return The position (or null if out of bounds)
+     */
+    private LogicalPosition getPos(EditorMouseEvent e) {
+        Point mousePos = e.getMouseEvent().getPoint();
+        LogicalPosition editorPos = editor.xyToLogicalPosition(mousePos);
+        Document doc = e.getEditor().getDocument();
+        int maxLines = doc.getLineCount();
+        if (editorPos.line >= maxLines) {
+            return null;
+        } else {
+            int minY = doc.getLineStartOffset(editorPos.line) - (editorPos.line > 0 ?
+                    doc.getLineEndOffset(editorPos.line - 1) :
+                    0);
+            int maxY = doc.getLineEndOffset(editorPos.line) - (editorPos.line > 0 ?
+                    doc.getLineEndOffset(editorPos.line - 1) :
+                    0);
+            return (editorPos.column > minY && editorPos.column < maxY) ? editorPos : null;
+        }
     }
 
     private LookupElementBuilder setInsertHandler(LookupElementBuilder builder, List<TextEdit> edits, Command command,
@@ -711,8 +981,8 @@ public class EditorEventManager {
     public void registerListeners() {
         editor.getDocument().addDocumentListener(documentListener);
         editor.addEditorMouseListener(mouseListener);
+        editor.addEditorMouseMotionListener(mouseMotionListener);
         // Todo - Implement
-        // editor.addEditorMouseMotionListener(mouseMotionListener)
         // editor.getSelectionModel.addSelectionListener(selectionListener)
     }
 
@@ -722,8 +992,8 @@ public class EditorEventManager {
     public void removeListeners() {
         editor.getDocument().removeDocumentListener(documentListener);
         editor.removeEditorMouseListener(mouseListener);
+        editor.removeEditorMouseMotionListener(mouseMotionListener);
         // Todo - Implement
-        // editor.removeEditorMouseMotionListener(mouseMotionListener)
         // editor.getSelectionModel.removeSelectionListener(selectionListener)
     }
 

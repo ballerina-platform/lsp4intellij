@@ -474,7 +474,7 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentRangeFormattingProvider()) ?
+                return (serverCapabilities.getDocumentRangeFormattingProvider() != null) ?
                         textDocumentService.rangeFormatting(params) :
                         null;
             } catch (Exception e) {

@@ -21,6 +21,7 @@ import com.intellij.openapi.diagnostic.Logger;
 public class LSPListener {
     private Logger LOG = Logger.getInstance(LSPListener.class);
     protected EditorEventManager manager = null;
+    protected boolean enabled = true;
 
     /**
      * Sets the manager for this listener
@@ -36,11 +37,19 @@ public class LSPListener {
      *
      * @return true or false depending on if the manager is set
      */
-    boolean checkManager() {
+    protected boolean checkEnabled() {
         if (manager == null) {
             LOG.error("Manager is null");
             return false;
         }
-        return true;
+        return enabled;
+    }
+
+    public void disable() {
+        enabled = false;
+    }
+
+    public void enable() {
+        enabled = true;
     }
 }
