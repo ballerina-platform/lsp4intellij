@@ -18,12 +18,6 @@ intellij {
     version '2017.3'
     updateSinceUntilBuild false
 }
-buildPlugin.enabled = false
-patchPluginXml.enabled = false
-prepareSandbox.enabled = false
-prepareTestingSandbox.enabled = false
-publishPlugin.enabled = false
-runIde.enabled = false
 
 dependencies {
     compile group: 'org.eclipse.lsp4j', name: 'org.eclipse.lsp4j', version: '0.6.0'
@@ -74,6 +68,13 @@ release {
     }
 }
 
+//buildPlugin.enabled = false
+//patchPluginXml.enabled = false
+//prepareSandbox.enabled = false
+//prepareTestingSandbox.enabled = false
+//publishPlugin.enabled = false
+//runIde.enabled = false
+//
 //task sourceJar(type: Jar) {
 //    classifier "sources"
 //    from sourceSets.main.allJava
