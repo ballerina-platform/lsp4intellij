@@ -94,7 +94,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * Adds a new LSP extension manager, attached to the given file extension.
      * Plugin developers should register their custom language server extensions using this API.
      *
-     * @param ext File extension type
+     * @param ext     File extension type
      * @param manager LSP extension manager (Should be implemented by the developer)
      * @throws IllegalArgumentException if an language server extensions manager is already registered for the given
      *                                  file extension
@@ -154,8 +154,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
                             wrapper = new LanguageServerWrapper(serverDefinition, project);
                         }
                         String[] exts = serverDefinition.ext.split(SPLIT_CHAR);
-                        for (String exension : exts) {
-                            extToLanguageWrapper.put(new ImmutablePair<>(exension, rootUri), wrapper);
+                        for (String ex : exts) {
+                            extToLanguageWrapper.put(new ImmutablePair<>(ex, rootUri), wrapper);
                         }
                     } else {
                         LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
@@ -183,9 +183,6 @@ public class IntellijLanguageClient implements ApplicationComponent {
                 if (serverWrapper != null) {
                     LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
                     serverWrapper.disconnect(editor);
-                    String rootPath = FileUtils.editorToProjectFolderPath(editor);
-                    String rootUri = FileUtils.pathToUri(rootPath);
-                    extToLanguageWrapper.remove(new ImmutablePair<>(ext, rootUri));
                 }
             });
         } else {
