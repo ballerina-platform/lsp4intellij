@@ -918,7 +918,7 @@ public class EditorEventManager {
                         int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
                         if (text == null || text.equals("")) {
                             document.deleteString(start, end);
-                        } else if (end - start <= 0) {
+                        } else if (end - start <= 0 || end < 0) {
                             document.insertString(start, text);
                         } else {
                             document.replaceString(start, end, text);

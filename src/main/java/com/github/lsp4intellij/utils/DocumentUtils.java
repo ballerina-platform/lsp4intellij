@@ -107,24 +107,30 @@ public class DocumentUtils {
      */
     public static int LSPPosToOffset(Editor editor, Position pos) {
         return computableReadAction(() -> {
-            Document doc = editor.getDocument();
-            int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()));
-            String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
-            String lineTextForPosition = !lineText.isEmpty() ?
-                    lineText.substring(0, min(lineText.length(), pos.getCharacter())) : "";
-            int tabs = StringUtil.countChars(lineTextForPosition, '\t');
-            int tabSize = editor.getSettings().getTabSize(editor.getProject());
-            int column = tabs * tabSize + lineTextForPosition.length() - tabs;
-            int offset = editor.logicalPositionToOffset(new LogicalPosition(line, column));
-            if (pos.getCharacter() >= lineText.length()) {
-                LOG.warn("LSPPOS outofbounds : " + pos + " line : " + lineText + " column : " + column + " offset : "
-                        + offset);
+            try {
+                Document doc = editor.getDocument();
+                int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()));
+                String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
+                String lineTextForPosition = !lineText.isEmpty() ?
+                        lineText.substring(0, min(lineText.length(), pos.getCharacter())) :
+                        "";
+                int tabs = StringUtil.countChars(lineTextForPosition, '\t');
+                int tabSize = editor.getSettings().getTabSize(editor.getProject());
+                int column = tabs * tabSize + lineTextForPosition.length() - tabs;
+                int offset = editor.logicalPositionToOffset(new LogicalPosition(line, column));
+                if (pos.getCharacter() >= lineText.length()) {
+                    LOG.warn(
+                            "LSPPOS outofbounds : " + pos + " line : " + lineText + " column : " + column + " offset : "
+                                    + offset);
+                }
+                int docLength = doc.getTextLength();
+                if (offset > docLength) {
+                    LOG.warn("Offset greater than text length : " + offset + " > " + docLength);
+                }
+                return Math.min(Math.max(offset, 0), docLength);
+            } catch (IndexOutOfBoundsException e) {
+                return -1;
             }
-            int docLength = doc.getTextLength();
-            if (offset > docLength) {
-                LOG.warn("Offset greater than text length : " + offset + " > " + docLength);
-            }
-            return Math.min(Math.max(offset, 0), docLength);
         });
     }
 }
