@@ -32,7 +32,7 @@ import com.intellij.psi.PsiFile;
  * Action overriding the default reformat action
  * Fallback to the default action if the language is already supported or not supported by any language server
  */
-class LSPReformatAction extends ReformatCodeAction implements DumbAware {
+public class LSPReformatAction extends ReformatCodeAction implements DumbAware {
     private Logger LOG = Logger.getInstance(LSPReformatAction.class);
 
     @Override

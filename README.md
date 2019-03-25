@@ -126,7 +126,7 @@ to see other options you can use instead of implementing a preloading activity.)
         - Code Formatting
             ```xml
                <actions>
-                   <action class="com.github.lsp4intellij.actions.LSPShowReformatDialogAction" id="ReformatCode" use-shortcut-of="ReformatCode"
+                   <action class="com.github.lsp4intellij.actions.LSPReformatAction" id="ReformatCode" use-shortcut-of="ReformatCode"
                            overrides="true" text="Reformat Code"/>
                    <action class="com.github.lsp4intellij.actions.LSPShowReformatDialogAction" id="ShowReformatFileDialog"
                            use-shortcut-of="ShowReformatFileDialog" overrides="true" text="Show Reformat File Dialog"/>
