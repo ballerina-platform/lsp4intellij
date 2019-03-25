@@ -18,13 +18,16 @@ package com.github.lsp4intellij.contributors;
 import com.github.lsp4intellij.editor.EditorEventManager;
 import com.github.lsp4intellij.editor.EditorEventManagerBase;
 import com.github.lsp4intellij.utils.DocumentUtils;
+import com.github.lsp4intellij.utils.FileUtils;
 import com.intellij.codeInsight.completion.CompletionContributor;
 import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.psi.PsiElement;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Position;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The completion contributor for the LSP
@@ -45,5 +48,20 @@ class LSPCompletionContributor extends CompletionContributor {
             result.addAllElements(manager.completion(serverPos));
         }
         super.fillCompletionVariants(parameters, result);
+    }
+
+    @Override
+    public boolean invokeAutoPopup(@NotNull PsiElement position, char typeChar) {
+        String uri = FileUtils.VFSToURI(position.getContainingFile().getVirtualFile());
+        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+        if (manager == null) {
+            return false;
+        }
+        for (String triggerChar : manager.completionTriggers) {
+            if (triggerChar != null && triggerChar.length() == 1 && triggerChar.charAt(0) == typeChar) {
+                return true;
+            }
+        }
+        return false;
     }
 }

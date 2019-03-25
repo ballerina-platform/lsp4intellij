@@ -167,6 +167,7 @@ public class EditorEventManager {
 
     public Editor editor;
     public LanguageServerWrapper wrapper;
+    public List<String> completionTriggers;
     protected Project project;
     private RequestManager requestManager;
     private ServerOptions serverOptions;
@@ -177,7 +178,6 @@ public class EditorEventManager {
 
     private DidChangeTextDocumentParams changesParams;
     private TextDocumentSyncKind syncKind;
-    private List<String> completionTriggers;
     private volatile boolean needSave = false;
     private Timer hoverThread = new Timer("Hover", true);
     private int version = -1;
@@ -211,7 +211,7 @@ public class EditorEventManager {
                 Collections.singletonList(new TextDocumentContentChangeEvent()));
         this.syncKind = serverOptions.syncKind;
 
-        completionTriggers = (serverOptions.completionOptions != null
+        this.completionTriggers = (serverOptions.completionOptions != null
                 && serverOptions.completionOptions.getTriggerCharacters() != null) ?
                 serverOptions.completionOptions.getTriggerCharacters() :
                 new ArrayList<>();
