@@ -15,14 +15,6 @@
  */
 package org.wso2.lsp4intellij.contributors.inspection;
 
-import org.wso2.lsp4intellij.IntellijLanguageClient;
-import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
-import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
-import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
-import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
-import org.wso2.lsp4intellij.utils.DocumentUtils;
-import org.wso2.lsp4intellij.utils.FileUtils;
 import com.intellij.codeInspection.InspectionManager;
 import com.intellij.codeInspection.LocalInspectionTool;
 import com.intellij.codeInspection.LocalQuickFix;
@@ -38,14 +30,17 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.intellij.lang.annotations.Pattern;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.IntellijLanguageClient;
+import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
+import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
-import org.intellij.lang.annotations.Pattern;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -87,69 +82,70 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
             InspectionManager manager, boolean isOnTheFly) {
 
         List<ProblemDescriptor> descriptors = new ArrayList<>();
-        List<Diagnostic> diagnostics = m.getDiagnostics();
-        for (Diagnostic diagnostic : diagnostics) {
-            String message = diagnostic.getMessage();
-            Range range = diagnostic.getRange();
-            DiagnosticSeverity severity = diagnostic.getSeverity();
-            int start = DocumentUtils.LSPPosToOffset(m.editor, range.getStart());
-            int end = DocumentUtils.LSPPosToOffset(m.editor, range.getEnd());
+        if (!m.editor.isDisposed()) {
+            List<Diagnostic> diagnostics = m.getDiagnostics();
+            for (Diagnostic diagnostic : diagnostics) {
+                String message = diagnostic.getMessage();
+                Range range = diagnostic.getRange();
+                DiagnosticSeverity severity = diagnostic.getSeverity();
+                int start = DocumentUtils.LSPPosToOffset(m.editor, range.getStart());
+                int end = DocumentUtils.LSPPosToOffset(m.editor, range.getEnd());
 
-            if (start >= end) {
-                continue;
-            }
-
-            String name = m.editor.getDocument().getText(new TextRange(start, end));
-            ProblemHighlightType highlightType;
-            if (severity == DiagnosticSeverity.Error) {
-                highlightType = ProblemHighlightType.GENERIC_ERROR;
-            } else if (severity == DiagnosticSeverity.Warning) {
-                highlightType = ProblemHighlightType.GENERIC_ERROR_OR_WARNING;
-            } else if (severity == DiagnosticSeverity.Information) {
-                highlightType = ProblemHighlightType.INFORMATION;
-            } else if (severity == DiagnosticSeverity.Hint) {
-                highlightType = ProblemHighlightType.INFORMATION;
-            } else {
-                highlightType = null;
-            }
-
-            LSPPsiElement element = new LSPPsiElement(name, m.editor.getProject(), start, end, file);
-            List<Either<Command, CodeAction>> codeActionResults = m.codeAction(element);
-            if (codeActionResults != null) {
-                List<LSPCommandFix> commands = new ArrayList<>();
-                List<LSPCodeActionFix> codeActions = new ArrayList<>();
-                for (Either<Command, CodeAction> item : codeActionResults) {
-                    if (item == null) {
-                        continue;
-                    }
-                    if (item.isLeft()) {
-                        commands.add(new LSPCommandFix(uri, item.getLeft()));
-                    } else if (item.isRight()) {
-                        codeActions.add(new LSPCodeActionFix(uri, item.getRight()));
-                    }
+                if (start >= end) {
+                    continue;
                 }
-                List<LocalQuickFix> fixes = new ArrayList<>();
-                fixes.addAll(commands);
-                fixes.addAll(codeActions);
-                try {
-                    descriptors.add(manager
-                            .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
-                                    fixes.toArray(new LocalQuickFix[fixes.size()])));
-                } catch (Exception ignored) {
-                    // Occurred only at plugin start, due to the dummy inspection tool.
-                    // Todo
+                String name = m.editor.getDocument().getText(new TextRange(start, end));
+                ProblemHighlightType highlightType;
+                if (severity == DiagnosticSeverity.Error) {
+                    highlightType = ProblemHighlightType.GENERIC_ERROR;
+                } else if (severity == DiagnosticSeverity.Warning) {
+                    highlightType = ProblemHighlightType.GENERIC_ERROR_OR_WARNING;
+                } else if (severity == DiagnosticSeverity.Information) {
+                    highlightType = ProblemHighlightType.INFORMATION;
+                } else if (severity == DiagnosticSeverity.Hint) {
+                    highlightType = ProblemHighlightType.INFORMATION;
+                } else {
+                    highlightType = null;
                 }
-            } else {
-                try {
-                    descriptors.add(manager
-                            .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly));
-                } catch (Exception ignored) {
-                    // Occurred only at plugin start, due to the dummy inspection tool.
-                    // Todo
+
+                LSPPsiElement element = new LSPPsiElement(name, m.editor.getProject(), start, end, file);
+                List<Either<Command, CodeAction>> codeActionResults = m.codeAction(element);
+                if (codeActionResults != null) {
+                    List<LSPCommandFix> commands = new ArrayList<>();
+                    List<LSPCodeActionFix> codeActions = new ArrayList<>();
+                    for (Either<Command, CodeAction> item : codeActionResults) {
+                        if (item == null) {
+                            continue;
+                        }
+                        if (item.isLeft()) {
+                            commands.add(new LSPCommandFix(uri, item.getLeft()));
+                        } else if (item.isRight()) {
+                            codeActions.add(new LSPCodeActionFix(uri, item.getRight()));
+                        }
+                    }
+                    List<LocalQuickFix> fixes = new ArrayList<>();
+                    fixes.addAll(commands);
+                    fixes.addAll(codeActions);
+                    try {
+                        descriptors.add(manager
+                                .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
+                                        fixes.toArray(new LocalQuickFix[fixes.size()])));
+                    } catch (Exception ignored) {
+                        // Occurred only at plugin start, due to the dummy inspection tool.
+                        // Todo
+                    }
+                } else {
+                    try {
+                        descriptors.add(manager
+                                .createProblemDescriptor(element, (TextRange) null, message, highlightType,
+                                        isOnTheFly));
+                    } catch (Exception ignored) {
+                        // Occurred only at plugin start, due to the dummy inspection tool.
+                        // Todo
+                    }
                 }
             }
         }
-
         ProblemDescriptor[] descArray = new ProblemDescriptor[descriptors.size()];
         return descriptors.toArray(descArray);
     }
