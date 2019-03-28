@@ -11,7 +11,7 @@ repositories {
     mavenCentral()
 }
 
-group = "com.github.lsp4intellij"
+group = "org.wso2.lsp4intellij"
 version = gitVersionCalculator.calculateVersion("v")
 
 intellij {

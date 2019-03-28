@@ -97,7 +97,7 @@ to see other options you can use instead of implementing a preloading activity.)
        ```xml
        <application-components>
            <component>
-               <implementation-class>com.github.lsp4intellij.IntellijLanguageClient</implementation-class>
+               <implementation-class>org.wso2.lsp4intellij.IntellijLanguageClient</implementation-class>
            </component>
        </application-components>
        ```
@@ -107,30 +107,30 @@ to see other options you can use instead of implementing a preloading activity.)
         - Code completion
             ```xml
             <extensions defaultExtensionNs="com.intellij">
-                <completion.contributor implementationClass="com.github.lsp4intellij.contributors.LSPCompletionContributor"
+                <completion.contributor implementationClass="org.wso2.lsp4intellij.contributors.LSPCompletionContributor"
                                         id="LSPCompletionContributor" language="any"/>
             </extensions>
             ```
         - Code Formatting
             ```xml
                <actions>
-                   <action class="com.github.lsp4intellij.actions.LSPReformatAction" id="ReformatCode" use-shortcut-of="ReformatCode"
+                   <action class="org.wso2.lsp4intellij.actions.LSPReformatAction" id="ReformatCode" use-shortcut-of="ReformatCode"
                            overrides="true" text="Reformat Code"/>
-                   <action class="com.github.lsp4intellij.actions.LSPShowReformatDialogAction" id="ShowReformatFileDialog"
+                   <action class="org.wso2.lsp4intellij.actions.LSPShowReformatDialogAction" id="ShowReformatFileDialog"
                            use-shortcut-of="ShowReformatFileDialog" overrides="true" text="Show Reformat File Dialog"/>
                </actions>
             ```
         - Diagnostics and code actions
             ```xml
             <extensions defaultExtensionNs="com.intellij">
-                <inspectionToolProvider implementation="com.github.lsp4intellij.contributors.inspection.LSPInspectionProvider"
+                <inspectionToolProvider implementation="org.wso2.lsp4intellij.contributors.inspection.LSPInspectionProvider"
                                         id="LSPInspectionProvider"/>
             </extensions>
             ```
         - Find Usages 
             ```xml
               <actions>
-                <action class="com.github.lsp4intellij.actions.LSPReferencesAction"
+                <action class="org.wso2.lsp4intellij.actions.LSPReferencesAction"
                         id="LSPFindUsages">
                     <keyboard-shortcut first-keystroke="shift alt F7" keymap="$default"/>
                 </action>
