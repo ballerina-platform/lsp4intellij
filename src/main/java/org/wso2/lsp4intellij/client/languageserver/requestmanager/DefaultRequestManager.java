@@ -15,8 +15,6 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.requestmanager;
 
-import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
-import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import com.intellij.openapi.diagnostic.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
@@ -80,6 +78,8 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
+import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

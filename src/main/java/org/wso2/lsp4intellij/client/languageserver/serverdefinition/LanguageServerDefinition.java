@@ -15,11 +15,11 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 
-import org.wso2.lsp4intellij.client.LanguageClientImpl;
-import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 import com.intellij.openapi.diagnostic.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.wso2.lsp4intellij.client.LanguageClientImpl;
+import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 
 import java.io.IOException;
 import java.io.InputStream;

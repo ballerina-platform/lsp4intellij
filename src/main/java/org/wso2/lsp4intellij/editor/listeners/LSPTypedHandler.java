@@ -15,8 +15,6 @@
  */
 package org.wso2.lsp4intellij.editor.listeners;
 
-import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;

@@ -15,17 +15,17 @@
  */
 package org.wso2.lsp4intellij.contributors.icon;
 
-import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
-import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.SymbolKind;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
+import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 
 import java.util.Map;
 import javax.swing.*;
 
 public abstract class LSPIconProvider {
 
-    public static Icon getCompletionIcon(CompletionItemKind kind){
+    public static Icon getCompletionIcon(CompletionItemKind kind) {
         return LSPDefaultIconProvider.getCompletionIcon(kind);
     }
 
@@ -33,7 +33,7 @@ public abstract class LSPIconProvider {
         return LSPDefaultIconProvider.getStatusIcons();
     }
 
-    public static Icon getSymbolIcon(SymbolKind kind){
+    public static Icon getSymbolIcon(SymbolKind kind) {
         return getSymbolIcon(kind);
     }
 

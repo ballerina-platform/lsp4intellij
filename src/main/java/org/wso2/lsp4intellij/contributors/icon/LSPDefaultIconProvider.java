@@ -15,12 +15,12 @@
  */
 package org.wso2.lsp4intellij.contributors.icon;
 
-import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
-import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import com.intellij.icons.AllIcons;
 import com.intellij.icons.AllIcons.Nodes;
 import com.intellij.openapi.util.IconLoader;
 import org.eclipse.lsp4j.CompletionItemKind;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
+import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 
 import java.util.HashMap;
 import java.util.Map;

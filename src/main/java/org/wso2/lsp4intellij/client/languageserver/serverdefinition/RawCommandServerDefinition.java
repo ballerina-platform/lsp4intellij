@@ -16,7 +16,6 @@
 package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 
 import org.wso2.lsp4intellij.utils.Utils;
-import org.wso2.lsp4intellij.utils.Utils;
 
 import java.util.Arrays;
 

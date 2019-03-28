@@ -15,12 +15,6 @@
  */
 package org.wso2.lsp4intellij.requests;
 
-import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
-import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
-import org.wso2.lsp4intellij.utils.DocumentUtils;
-import org.wso2.lsp4intellij.utils.FileUtils;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.command.UndoConfirmationPolicy;
 import com.intellij.openapi.diagnostic.Logger;
@@ -45,6 +39,11 @@ import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
+import org.wso2.lsp4intellij.editor.EditorEventManager;
+import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
+import org.wso2.lsp4intellij.utils.ApplicationUtils;
+import org.wso2.lsp4intellij.utils.DocumentUtils;
+import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.io.File;
 import java.net.MalformedURLException;

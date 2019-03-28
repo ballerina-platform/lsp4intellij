@@ -15,24 +15,6 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.wrapper;
 
-import org.wso2.lsp4intellij.IntellijLanguageClient;
-import org.wso2.lsp4intellij.client.LanguageClientImpl;
-import org.wso2.lsp4intellij.client.languageserver.LSPServerStatusWidget;
-import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
-import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
-import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
-import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
-import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
-import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.listeners.DocumentListenerImpl;
-import org.wso2.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
-import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
-import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
-import org.wso2.lsp4intellij.requests.Timeout;
-import org.wso2.lsp4intellij.requests.Timeouts;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
-import org.wso2.lsp4intellij.utils.FileUtils;
-import org.wso2.lsp4intellij.utils.LSPException;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditor;
@@ -76,8 +58,12 @@ import org.eclipse.lsp4j.jsonrpc.messages.Message;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage;
 import org.eclipse.lsp4j.services.LanguageServer;
+import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.LanguageClientImpl;
 import org.wso2.lsp4intellij.client.languageserver.LSPServerStatusWidget;
+import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
@@ -91,7 +77,6 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;

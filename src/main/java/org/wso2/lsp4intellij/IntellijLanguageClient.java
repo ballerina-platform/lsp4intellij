@@ -15,14 +15,6 @@
  */
 package org.wso2.lsp4intellij;
 
-import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
-import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import org.wso2.lsp4intellij.editor.listeners.EditorListener;
-import org.wso2.lsp4intellij.editor.listeners.FileDocumentManagerListenerImpl;
-import org.wso2.lsp4intellij.editor.listeners.VFSListener;
-import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
-import org.wso2.lsp4intellij.utils.FileUtils;
 import com.intellij.AppTopics;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ApplicationComponent;
@@ -59,8 +51,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import static org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition.SPLIT_CHAR;
 
 public class IntellijLanguageClient implements ApplicationComponent {
 

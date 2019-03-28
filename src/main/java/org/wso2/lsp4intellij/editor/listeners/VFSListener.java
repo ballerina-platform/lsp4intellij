@@ -15,15 +15,14 @@
  */
 package org.wso2.lsp4intellij.editor.listeners;
 
-import org.wso2.lsp4intellij.requests.FileEventManager;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileCopyEvent;
 import com.intellij.openapi.vfs.VirtualFileEvent;
 import com.intellij.openapi.vfs.VirtualFileListener;
 import com.intellij.openapi.vfs.VirtualFileMoveEvent;
 import com.intellij.openapi.vfs.VirtualFilePropertyEvent;
-import org.wso2.lsp4intellij.requests.FileEventManager;
 import org.jetbrains.annotations.NotNull;
+import org.wso2.lsp4intellij.requests.FileEventManager;
 
 public class VFSListener implements VirtualFileListener {
 

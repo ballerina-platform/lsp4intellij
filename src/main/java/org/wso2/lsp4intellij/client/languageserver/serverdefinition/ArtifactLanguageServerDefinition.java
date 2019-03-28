@@ -15,10 +15,9 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 
+import com.intellij.openapi.diagnostic.Logger;
 import org.wso2.lsp4intellij.client.connection.ProcessStreamConnectionProvider;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
-import org.wso2.lsp4intellij.utils.Utils;
-import com.intellij.openapi.diagnostic.Logger;
 import org.wso2.lsp4intellij.utils.Utils;
 
 import java.util.ArrayList;

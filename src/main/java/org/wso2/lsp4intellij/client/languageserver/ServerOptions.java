@@ -26,7 +26,7 @@ import org.eclipse.lsp4j.TextDocumentSyncKind;
 
 /**
  * Class containing the options of the language server
- *
+ * <p>
  * syncKind                        The type of synchronization
  * completionOptions               The completion options
  * signatureHelpOptions            The signatureHelp options

@@ -15,9 +15,6 @@
  */
 package org.wso2.lsp4intellij.actions;
 
-import org.wso2.lsp4intellij.IntellijLanguageClient;
-import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import com.intellij.codeInsight.actions.LayoutCodeDialog;
 import com.intellij.codeInsight.actions.LayoutCodeOptions;
 import com.intellij.codeInsight.actions.ShowReformatFileDialog;
@@ -33,6 +30,9 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
+import org.wso2.lsp4intellij.IntellijLanguageClient;
+import org.wso2.lsp4intellij.editor.EditorEventManager;
+import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
 /**
  * Class overriding the default action handling the Reformat dialog event (CTRL+ALT+SHIFT+L by default)

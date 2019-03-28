@@ -15,10 +15,10 @@
  */
 package org.wso2.lsp4intellij.editor;
 
-import org.wso2.lsp4intellij.utils.DocumentUtils;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.markup.RangeHighlighter;
 import org.eclipse.lsp4j.Location;
+import org.wso2.lsp4intellij.utils.DocumentUtils;
 
 import java.awt.*;
 
