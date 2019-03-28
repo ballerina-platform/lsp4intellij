@@ -62,7 +62,7 @@ release {
 
     git {
         requireBranch = 'master'
-        pushToRemote = 'origin'
+        pushToRemote = 'upstream'
         commitVersionFileOnly = false
         signTag = false
     }
