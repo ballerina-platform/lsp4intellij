@@ -1,8 +1,8 @@
 # [Lsp4IntelliJ](#sp4intellij) - Language Server Protocol Support for Jetbrains Plugins
 
-[![Build Status](https://travis-ci.com/NipunaRanasinghe/lsp4intellij.svg?branch=master)](https://travis-ci.com/NipunaRanasinghe/lsp4intellij)
-[![](https://img.shields.io/maven-central/v/com.github.nipunaranasinghe/lsp4intellij.svg?color=blue)](https://repo.maven.apache.org/maven2/com/github/nipunaranasinghe/lsp4intellij/)
-[![](https://jitpack.io/v/NipunaRanasinghe/lsp4intellij.svg)](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)
+[![Build Status](https://travis-ci.com/ballerina-platform/lsp4intellij.svg?branch=master)](https://travis-ci.com/NipunaRanasinghe/lsp4intellij)
+[![](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
+[![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)
 
 **Lsp4IntelliJ** provides language server support for IntelliJ IDEA and other Jetbrains IDEs.
 
@@ -10,7 +10,6 @@ This language client library is designed to be used with any IntelliJ plugin as 
 language server based features.
 It also allows the plugin developers to use language specific language server protocol extensions via [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) 
 protocol.
-
 
 ## Table of Contents
 - [**How To Use**](#how-to-use)
@@ -34,24 +33,13 @@ Lets follow the below steps to use `Lsp4IntelliJ`  in your custom language plugi
 
 ### 1. Adding `lsp4intellij` dependency in project build file
 
-#### Gradle
-```
-dependencies {
-    compile group: 'com.github.nipunaranasinghe', name: 'lsp4intellij', version: '0.1.1'
-}
-```
+Refer **[jitpack/lsp4intellij](https://jitpack.io/#ballerina-platform/lsp4intellij)** to learn how you can add 
+  **Lsp4IntelliJ** as a dependency with the different build tools, which are listed below.
+  - gradle
+  - maven
+  - sbt
 
-#### Maven
-```xml
-    <dependency>
-        <groupId>com.github.nipunaranasinghe</groupId>
-        <artifactId>lsp4intellij</artifactId>
-        <version>0.1.1</version>
-    </dependency>
-```
-
->If you want to try out with the latest changes on the master branch , refer **[jitpack/lsp4intellij](https://jitpack.io/#NipunaRanasinghe/lsp4intellij)** to learn how you can add 
-  **Lsp4IntelliJ** as a dependency with different build tools.
+**Note** - Will be available soon in maven central as maven publishing process is WIP.
   
 ### 2. Adding language server definition
 
