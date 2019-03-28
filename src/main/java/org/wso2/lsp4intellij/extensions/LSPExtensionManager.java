@@ -15,18 +15,17 @@
  */
 package org.wso2.lsp4intellij.extensions;
 
-import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
-import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
-import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
-import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.editor.event.EditorMouseListener;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
+import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
+import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
+import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
+import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 
 public interface LSPExtensionManager {

@@ -15,8 +15,6 @@
  */
 package org.wso2.lsp4intellij.actions;
 
-import org.wso2.lsp4intellij.IntellijLanguageClient;
-import org.wso2.lsp4intellij.requests.ReformatHandler;
 import com.intellij.codeInsight.actions.ReformatCodeAction;
 import com.intellij.lang.LanguageFormatting;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -27,6 +25,7 @@ import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
+import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.requests.ReformatHandler;
 
 /**
@@ -40,7 +39,7 @@ public class LSPReformatAction extends ReformatCodeAction implements DumbAware {
     public void actionPerformed(AnActionEvent e) {
         Project project = e.getData(CommonDataKeys.PROJECT);
         Editor editor = e.getData(CommonDataKeys.EDITOR);
-        if (editor == null || project==null) {
+        if (editor == null || project == null) {
             return;
         }
         PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());

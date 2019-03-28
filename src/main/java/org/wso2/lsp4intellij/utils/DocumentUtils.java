@@ -24,8 +24,8 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.DocumentUtil;
 import org.eclipse.lsp4j.Position;
 
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static java.lang.Math.min;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 
 /**
  * Various methods to convert offsets / logical position / server position

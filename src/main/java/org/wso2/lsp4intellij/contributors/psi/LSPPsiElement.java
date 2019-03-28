@@ -15,8 +15,6 @@
  */
 package org.wso2.lsp4intellij.contributors.psi;
 
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
-import org.wso2.lsp4intellij.utils.FileUtils;
 import com.intellij.lang.ASTNode;
 import com.intellij.lang.Language;
 import com.intellij.navigation.ItemPresentation;
@@ -51,6 +49,8 @@ import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.concurrency.AtomicFieldUpdater;
 import com.intellij.util.keyFMap.KeyFMap;
 import org.jetbrains.annotations.NotNull;
+import org.wso2.lsp4intellij.utils.ApplicationUtils;
+import org.wso2.lsp4intellij.utils.FileUtils;
 
 import javax.annotation.Nullable;
 import javax.swing.*;
@@ -495,7 +495,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * for example, the element is a string literal containing multiple sub-strings which are valid full-qualified class
      * names. If an element contains only one text fragment which acts as a reference but the reference has multiple
      * possible targets, {@link PsiPolyVariantReference} should be used instead of returning multiple references.
-     *
+     * <p>
      * Actually, it's preferable to call {@link PsiReferenceService#getReferences} instead as it allows adding
      * references by plugins when the element implements {@link ContributedReferenceHost}.
      *

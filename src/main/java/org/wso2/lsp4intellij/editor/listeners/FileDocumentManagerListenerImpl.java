@@ -15,12 +15,11 @@
  */
 package org.wso2.lsp4intellij.editor.listeners;
 
-import org.wso2.lsp4intellij.requests.FileEventManager;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener;
 import com.intellij.openapi.vfs.VirtualFile;
-import org.wso2.lsp4intellij.requests.FileEventManager;
 import org.jetbrains.annotations.NotNull;
+import org.wso2.lsp4intellij.requests.FileEventManager;
 
 public class FileDocumentManagerListenerImpl implements FileDocumentManagerListener {
 
@@ -35,12 +34,12 @@ public class FileDocumentManagerListenerImpl implements FileDocumentManagerListe
     }
 
     @Override
-    public void beforeAllDocumentsSaving(){
+    public void beforeAllDocumentsSaving() {
         FileEventManager.willSaveAllDocuments();
     }
 
     @Override
-    public void beforeFileContentReload( VirtualFile virtualFile,  @NotNull Document document){
+    public void beforeFileContentReload(VirtualFile virtualFile, @NotNull Document document) {
 
     }
 
@@ -50,12 +49,12 @@ public class FileDocumentManagerListenerImpl implements FileDocumentManagerListe
     }
 
     @Override
-    public void fileContentReloaded(@NotNull VirtualFile virtualFile, @NotNull Document  document){
+    public void fileContentReloaded(@NotNull VirtualFile virtualFile, @NotNull Document document) {
 
     }
 
     @Override
-    public void fileContentLoaded( @NotNull VirtualFile virtualFile,  @NotNull Document document) {
+    public void fileContentLoaded(@NotNull VirtualFile virtualFile, @NotNull Document document) {
 
     }
 }

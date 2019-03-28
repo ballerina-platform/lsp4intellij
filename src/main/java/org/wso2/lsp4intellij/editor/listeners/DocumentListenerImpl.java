@@ -18,7 +18,7 @@ package org.wso2.lsp4intellij.editor.listeners;
 import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 
-public class DocumentListenerImpl extends LSPListener implements DocumentListener  {
+public class DocumentListenerImpl extends LSPListener implements DocumentListener {
 
     /**
      * Called before the text of the document is changed.
@@ -26,7 +26,7 @@ public class DocumentListenerImpl extends LSPListener implements DocumentListene
      * @param event the event containing the information about the change.
      */
     @Override
-    public void beforeDocumentChange( DocumentEvent event) {
+    public void beforeDocumentChange(DocumentEvent event) {
     }
 
     /**

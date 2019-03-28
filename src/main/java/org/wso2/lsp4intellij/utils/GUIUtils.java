@@ -15,14 +15,12 @@
  */
 package org.wso2.lsp4intellij.utils;
 
-import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
-import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
-import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.ui.Hint;
 import com.intellij.ui.LightweightHint;
+import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 

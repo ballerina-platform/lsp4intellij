@@ -15,8 +15,6 @@
  */
 package org.wso2.lsp4intellij.actions;
 
-import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import com.intellij.codeInsight.documentation.actions.ShowQuickDocInfoAction;
 import com.intellij.lang.Language;
 import com.intellij.lang.LanguageDocumentation;
@@ -30,6 +28,8 @@ import com.intellij.openapi.fileTypes.PlainTextLanguage;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiManager;
+import org.wso2.lsp4intellij.editor.EditorEventManager;
+import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
 /**
  * Action overriding QuickDoc (CTRL+Q)

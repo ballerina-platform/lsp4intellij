@@ -15,13 +15,13 @@
  */
 package org.wso2.lsp4intellij.editor.listeners;
 
-import org.wso2.lsp4intellij.IntellijLanguageClient;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
 import com.intellij.openapi.editor.event.EditorFactoryListener;
 import org.jetbrains.annotations.NotNull;
+import org.wso2.lsp4intellij.IntellijLanguageClient;
 
-public class EditorListener implements EditorFactoryListener{
+public class EditorListener implements EditorFactoryListener {
 
     private Logger LOG = Logger.getInstance(EditorListener.class);
 

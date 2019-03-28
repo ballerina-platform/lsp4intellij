@@ -15,18 +15,6 @@
  */
 package org.wso2.lsp4intellij.editor;
 
-import org.wso2.lsp4intellij.actions.LSPReferencesAction;
-import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
-import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
-import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
-import org.wso2.lsp4intellij.contributors.inspection.LSPInspection;
-import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
-import org.wso2.lsp4intellij.requests.HoverHandler;
-import org.wso2.lsp4intellij.requests.Timeouts;
-import org.wso2.lsp4intellij.utils.DocumentUtils;
-import org.wso2.lsp4intellij.utils.FileUtils;
-import org.wso2.lsp4intellij.utils.GUIUtils;
 import com.intellij.codeHighlighting.Pass;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.impl.HighlightInfoProcessor;
@@ -109,8 +97,12 @@ import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WillSaveTextDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.wso2.lsp4intellij.actions.LSPReferencesAction;
+import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
+import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
+import org.wso2.lsp4intellij.contributors.inspection.LSPInspection;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.requests.HoverHandler;
 import org.wso2.lsp4intellij.requests.Timeout;
@@ -143,21 +135,6 @@ import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
-import static org.wso2.lsp4intellij.requests.Timeout.CODEACTION_TIMEOUT;
-import static org.wso2.lsp4intellij.requests.Timeout.COMPLETION_TIMEOUT;
-import static org.wso2.lsp4intellij.requests.Timeout.DEFINITION_TIMEOUT;
-import static org.wso2.lsp4intellij.requests.Timeout.EXECUTE_COMMAND_TIMEOUT;
-import static org.wso2.lsp4intellij.requests.Timeout.HOVER_TIMEOUT;
-import static org.wso2.lsp4intellij.requests.Timeout.REFERENCES_TIMEOUT;
-import static org.wso2.lsp4intellij.requests.Timeout.WILLSAVE_TIMEOUT;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
-import static org.wso2.lsp4intellij.utils.DocumentUtils.LINUX_SEPARATOR;
-import static org.wso2.lsp4intellij.utils.DocumentUtils.WIN_SEPARATOR;
-import static org.wso2.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
 
 /**
  * Class handling events related to an Editor (a Document)
@@ -293,9 +270,11 @@ public class EditorEventManager {
                                         getCtrlRange().dispose();
                                     }
                                     setCtrlRange(null);
-                                    ApplicationUtils.pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
+                                    ApplicationUtils
+                                            .pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
                                 } else if (getCtrlRange().definitionContainsOffset(offset)) {
-                                    GUIUtils.createAndShowEditorHint(editor, "Click to show usages", editor.offsetToXY(offset));
+                                    GUIUtils.createAndShowEditorHint(editor, "Click to show usages",
+                                            editor.offsetToXY(offset));
                                 } else {
                                     editor.getContentComponent()
                                             .setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -667,7 +646,8 @@ public class EditorEventManager {
      * @param point     The point at which to show the hint
      */
     private void requestAndShowDoc(long curTime, LogicalPosition editorPos, Point point) {
-        Position serverPos = ApplicationUtils.computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
+        Position serverPos = ApplicationUtils
+                .computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
         CompletableFuture<Hover> request = requestManager.hover(new TextDocumentPositionParams(identifier, serverPos));
         if (request == null) {
             return;
@@ -681,8 +661,8 @@ public class EditorEventManager {
                     if (getIsCtrlDown()) {
                         ApplicationUtils.invokeLater(() -> {
                             if (!editor.isDisposed()) {
-                                currentHint = GUIUtils.createAndShowEditorHint(editor, string, point,
-                                        HintManager.HIDE_BY_OTHER_HINT);
+                                currentHint = GUIUtils
+                                        .createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
                             }
                         });
                         // createCtrlRange(serverPos, hover.getRange());
@@ -725,7 +705,8 @@ public class EditorEventManager {
             return lookupItems;
         }
         try {
-            Either<List<CompletionItem>, CompletionList> res = request.get(Timeout.COMPLETION_TIMEOUT, TimeUnit.MILLISECONDS);
+            Either<List<CompletionItem>, CompletionList> res = request
+                    .get(Timeout.COMPLETION_TIMEOUT, TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.COMPLETION);
             if (res != null) {
                 if (res.getLeft() != null) {
@@ -922,8 +903,8 @@ public class EditorEventManager {
             if (document.isWritable()) {
                 return () -> {
                     edits.forEach(edit -> {
-                        String text = edit.getNewText().replace(
-                                DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
+                        String text = edit.getNewText()
+                                .replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
                         Range range = edit.getRange();
                         int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
                         int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
@@ -983,7 +964,8 @@ public class EditorEventManager {
     }
 
     private void saveDocument() {
-        ApplicationUtils.invokeLater(() -> ApplicationUtils.writeAction(() -> FileDocumentManager.getInstance().saveDocument(editor.getDocument())));
+        ApplicationUtils.invokeLater(() -> ApplicationUtils
+                .writeAction(() -> FileDocumentManager.getInstance().saveDocument(editor.getDocument())));
     }
 
     /**

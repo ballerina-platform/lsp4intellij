@@ -15,9 +15,9 @@
  */
 package org.wso2.lsp4intellij.requests;
 
+import com.intellij.openapi.editor.Editor;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
-import com.intellij.openapi.editor.Editor;
 
 public class ReformatHandler {
 
