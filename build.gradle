@@ -1,5 +1,5 @@
 plugins {
-    id "org.jetbrains.intellij" version "0.3.7"
+    id "org.jetbrains.intellij" version "0.4.5"
     id "com.github.hierynomus.license" version "0.15.0"
     id "com.github.gradle-git-version-calculator" version "1.1.0"
     id 'net.researchgate.release' version '2.6.0'
