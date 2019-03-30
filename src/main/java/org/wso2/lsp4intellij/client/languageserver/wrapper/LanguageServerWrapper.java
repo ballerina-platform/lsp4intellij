@@ -37,6 +37,7 @@ import org.eclipse.lsp4j.FormattingCapabilities;
 import org.eclipse.lsp4j.HoverCapabilities;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.OnTypeFormattingCapabilities;
 import org.eclipse.lsp4j.RangeFormattingCapabilities;
 import org.eclipse.lsp4j.ReferencesCapabilities;
@@ -458,6 +459,8 @@ public class LanguageServerWrapper {
                         requestManager = new DefaultRequestManager(this, languageServer, client, res.getCapabilities());
                     }
                     setStatus(STARTED);
+                    // send the initialized message since some langauge servers depends on this message
+                    requestManager.initialized(new InitializedParams());
                     return res;
                 });
                 initializeStartTime = System.currentTimeMillis();

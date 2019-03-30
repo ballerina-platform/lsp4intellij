@@ -33,18 +33,30 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
     }
 
     /**
-     * Creates new instance.
+     * Creates new instance with the given languag id which is different from the file extension.
      *
      * @param ext     The extension
+     * @param id      The language server id
      * @param command The command to run
      */
-    public RawCommandServerDefinition(String ext, String[] command) {
+    public RawCommandServerDefinition(String ext, String id, String[] command) {
         this.ext = ext;
-        this.id = ext;
+        this.id = id;
         this.command = command;
         this.typ = "rawCommand";
         this.presentableTyp = "Raw command";
     }
+
+    /**
+     * Creates new instance.
+     *
+     * @param ext The extension
+     * @param command The command to run
+     */
+    public RawCommandServerDefinition(String ext, String[] command) {
+        this(ext, ext, command);
+    }
+
 
     /**
      * Transforms an array of string into the corresponding UserConfigurableServerDefinition
