@@ -151,7 +151,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
         Project project = editor.getProject();
         String rootPath = FileUtils.editorToProjectFolderPath(editor);
         String rootUri = FileUtils.pathToUri(rootPath);
-        if (file != null) {
+        if (file != null && rootUri != null) {
             ApplicationUtils.pool(() -> {
                 String ext = file.getExtension();
                 final String fileName = file.getName();
