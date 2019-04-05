@@ -34,7 +34,7 @@ public abstract class LSPIconProvider {
     }
 
     public static Icon getSymbolIcon(SymbolKind kind) {
-        return getSymbolIcon(kind);
+        return LSPDefaultIconProvider.getSymbolIcon(kind);
     }
 
     public abstract boolean isSpecificFor(LanguageServerDefinition serverDefinition);
