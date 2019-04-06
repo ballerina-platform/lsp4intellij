@@ -29,6 +29,17 @@ import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -40,17 +51,6 @@ import org.wso2.lsp4intellij.editor.listeners.VFSListener;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
-
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 public class IntellijLanguageClient implements ApplicationComponent {
 
@@ -140,8 +140,24 @@ public class IntellijLanguageClient implements ApplicationComponent {
         if (file != null) {
             ApplicationUtils.pool(() -> {
                 String ext = file.getExtension();
+                final String fileName = file.getName();
                 LOG.info("Opened " + file.getName());
+
+                // The ext can be a file name or it can be a file pattern or the extension.
+                // First try for the extension since it is the most comment usage, if not try to
+                // match file name.
                 LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
+                if (serverDefinition == null) {
+                    // Fallback to file name pattern matching, where the map key is a regex
+                    Optional<String> keyForFile = extToServerDefinition.keySet().stream()
+                        .filter(key -> fileName.matches(key)).findFirst();
+                    if (keyForFile.isPresent()) {
+                        serverDefinition = extToServerDefinition.get(keyForFile.get());
+                        // ext must be the key since we are in file name mode.
+                        ext = keyForFile.get();
+                    }
+                }
+
                 if (serverDefinition != null) {
                     LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, rootUri));
                     if (wrapper == null) {
