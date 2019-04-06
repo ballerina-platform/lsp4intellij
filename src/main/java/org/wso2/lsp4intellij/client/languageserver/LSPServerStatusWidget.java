@@ -124,6 +124,10 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                         actions.add(new ShowConnectedFiles());
                     }
                     actions.add(new ShowTimeouts());
+                    if (wrapper.isResettable()) {
+                        actions.add(new Reset());
+                    }
+
                     String title = "Server actions";
                     DataContext context = DataManager.getInstance().getDataContext(component);
                     DefaultActionGroup group = new DefaultActionGroup(actions);
@@ -179,6 +183,19 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                     message.append("</html>");
                     Messages.showInfoMessage(message.toString(), "Timeouts");
                 }
+            }
+
+            class Reset extends AnAction implements DumbAware {
+
+                Reset() {
+                    super("&Reset", "Reset the server so it can be started again.", null);
+                }
+
+                @Override
+                public void actionPerformed(@NotNull AnActionEvent anActionEvent) {
+                    wrapper.reset();
+                }
+
             }
 
             @Override

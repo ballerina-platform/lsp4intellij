@@ -601,5 +601,23 @@ public class LanguageServerWrapper {
             connect(editors.get(0));
         }
     }
+
+    /**
+     * Is the langauge server in a state where it can be resettable. Normally language server is
+     * resettable if it has timedout or has a startup error.
+     */
+    public boolean isResettable() {
+        return status == STOPPED && (alreadyShownTimeout || alreadyShownCrash);
+    }
+
+    /**
+     * Reset language server wrapper state so it can be started again if it was failed earlier.
+     */
+    public void reset() {
+        if (isResettable()) {
+            alreadyShownCrash = false;
+            alreadyShownTimeout = false;
+        }
+    }
 }
 
