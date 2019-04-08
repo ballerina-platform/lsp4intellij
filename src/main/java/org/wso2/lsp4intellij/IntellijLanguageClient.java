@@ -143,7 +143,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
                 final String fileName = file.getName();
                 LOG.info("Opened " + fileName);
 
-                // The ext can be a file name or it can be a file pattern or the extension.
+                // The ext can either be a file extension or a file pattern(regex expression).
                 // First try for the extension since it is the most comment usage, if not try to
                 // match file name.
                 LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
