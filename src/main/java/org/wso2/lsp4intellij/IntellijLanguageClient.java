@@ -141,7 +141,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
             ApplicationUtils.pool(() -> {
                 String ext = file.getExtension();
                 final String fileName = file.getName();
-                LOG.info("Opened " + file.getName());
+                LOG.info("Opened " + fileName);
 
                 // The ext can be a file name or it can be a file pattern or the extension.
                 // First try for the extension since it is the most comment usage, if not try to
