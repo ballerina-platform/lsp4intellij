@@ -21,7 +21,8 @@ protocol.
     - [Goto Definition](#go-to-definition)
     - [Go to References / Find Usages](#goto-references-/-find-usages)
     - [Hover Support](#hover-support)
-    
+- [**User API**](#user-api) 
+    - [Timeouts](#timeouts)
 - [**License**](#license)
 - [**Inspiration**](#inspiration)
 - [**Useful Links**](#useful-links)
@@ -195,7 +196,61 @@ You can hover to an element while pressing the `CTRL` key to view its documentat
 
  **WIP Features** 
  - Signature Help
+ - Workspace Symbols
+ - Renaming Support
+
+## User API 
+
+### Timeouts
+Lsp4IntelliJ language client has default timeout values LSP based requests, as shown below.
+
+| Type     | Default timeout value(in milliseconds)|
+|----------|:-------------------------------------:|
+| Code Actions    |  2000 |
+| Completion      |  1000 |
+| Goto Definition |  2000 |
+| Execute Command |  2000 |
+| Formatting      |  2000 |
+| Hover Support   |  2000 | 
+| Initialization  | 10000 |
+| References      |  2000 |
+| Shutdown        |  5000 |
+| WillSave        |  2000 |
+
+LspIntelliJ language client provides following methods related to timeout configurations.
+
+- **getTimeouts()** - Returns current timeout values(in milliseconds).
+
+    Example
+    ```java
+    Map<Timeouts, Integer> timeouts = IntelliJLnaguageClient.getTimeouts();
+    ```
+
+- **getTimeout(Timeouts timeoutType)** - Returns current timeout value of a given timeout type(in milliseconds).
+
+    Example
+    ```java
+    int timeout = IntellijLanguageClient.getTimeout(Timeouts.INIT);
+    ```
+
+- **setTimeouts(Map<Timeouts, Integer> newTimeouts))** - Overrides default timeout values with a given set
+ of timeouts.
  
+    Example
+    ```java
+    Map<Timeouts,Integer> newTimeouts = new HashMap<>();
+    newTimeouts.put(Timeouts.INIT,15000);
+    newTimeouts.put(Timeouts.COMPLETION,1000);
+    IntellijLanguageClient.setTimeouts(newTimeouts);
+    ```
+    
+- **setTimeout(Timeouts timeout, int value)** - Overrides specific timeout with a new timeout value.
+ 
+    Example
+    ```java
+    IntellijLanguageClient.setTimeout(Timeouts.INIT, 15000);
+    ```
+
 
 ## License
 

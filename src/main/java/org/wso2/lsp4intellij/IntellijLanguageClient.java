@@ -38,11 +38,14 @@ import org.wso2.lsp4intellij.editor.listeners.EditorListener;
 import org.wso2.lsp4intellij.editor.listeners.FileDocumentManagerListenerImpl;
 import org.wso2.lsp4intellij.editor.listeners.VFSListener;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
+import org.wso2.lsp4intellij.requests.Timeout;
+import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -186,6 +189,43 @@ public class IntellijLanguageClient implements ApplicationComponent {
         } else {
             LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
         }
+    }
+
+    /**
+     * Returns current timeout values.
+     *
+     * @return A map of Timeout types and corresponding values(in milliseconds).
+     */
+    public static Map<Timeouts, Integer> getTimeouts() {
+        return Timeout.getTimeouts();
+    }
+
+    /**
+     * Returns current timeout value of a given timeout type.
+     *
+     * @return A map of Timeout types and corresponding values(in milliseconds).
+     */
+    public static int getTimeout(Timeouts timeoutType) {
+        return getTimeouts().get(timeoutType);
+    }
+
+    /**
+     * Overrides default timeout values with a given set of timeouts.
+     *
+     * @param newTimeouts A map of Timeout types and corresponding values to be set.
+     */
+    public static void setTimeouts(Map<Timeouts, Integer> newTimeouts) {
+        Timeout.setTimeouts(newTimeouts);
+    }
+
+    /**
+     * @param timeout Timeout type
+     * @param value   new timeout value to be set (in milliseconds).
+     */
+    public static void setTimeout(Timeouts timeout, int value) {
+        Map<Timeouts, Integer> newTimeout = new HashMap<>();
+        newTimeout.put(timeout, value);
+        setTimeouts(newTimeout);
     }
 
     private static void processDefinition(LanguageServerDefinition definition) {

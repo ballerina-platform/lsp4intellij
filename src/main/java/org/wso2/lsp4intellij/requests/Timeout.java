@@ -16,8 +16,8 @@
 package org.wso2.lsp4intellij.requests;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
 import static org.wso2.lsp4intellij.requests.Timeouts.CODELENS;
@@ -39,7 +39,7 @@ import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
  */
 public class Timeout {
 
-    private static Map<Timeouts, Integer> timeouts = new HashMap<>();
+    private static Map<Timeouts, Integer> timeouts = new ConcurrentHashMap<>();
 
     static {
         Arrays.stream(Timeouts.values()).forEach(t -> timeouts.put(t, t.getDefaultTimeout()));
@@ -73,7 +73,12 @@ public class Timeout {
 
     public static int WILLSAVE_TIMEOUT = timeouts.get(WILLSAVE);
 
+    public static Map<Timeouts, Integer> getTimeouts() {
+        return timeouts;
+    }
+
     public static void setTimeouts(Map<Timeouts, Integer> loaded) {
         timeouts = loaded;
     }
+
 }
