@@ -1,14 +1,14 @@
-# [Lsp4IntelliJ](#sp4intellij) - Language Server Protocol Support for Jetbrains Plugins
+# [LSP4IntelliJ](#sp4intellij) - Language Server Protocol Support for the  Jetbrains Plugins
 
 [![Build Status](https://travis-ci.com/ballerina-platform/lsp4intellij.svg?branch=master)](https://travis-ci.com/NipunaRanasinghe/lsp4intellij)
 [![](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
 [![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)
 
-**Lsp4IntelliJ** provides language server support for IntelliJ IDEA and other Jetbrains IDEs.
+**Lsp4IntelliJ** provides is a client library, which provides language server support for IntelliJ IDEA and other Jetbrains IDEs.
 
-This language client library is designed to be used with any IntelliJ plugin as its language server client, to get 
-language server based features.
-It also allows the plugin developers to use language specific language server protocol extensions via [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) 
+It is designed to be used with any IntelliJ plugin as its language server client to get the features that are based on the language server.
+
+Also, it allows the plugin developers to use language-specific language server protocol extensions via the [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) 
 protocol.
 
 ## Table of Contents
@@ -28,31 +28,29 @@ protocol.
 - [**Useful Links**](#useful-links)
 
 
-## How To Use
+## How to use LSP4IntelliJ
 
-Lets follow the below steps to use `Lsp4IntelliJ`  in your custom language plugin.
+Follow the steps below to use `Lsp4IntelliJ` in your custom language plugin.
 
-### 1. Adding `lsp4intellij` dependency in project build file
+### 1. Add the `lsp4intellij` dependency in the build file of the project.
 
-Refer **[jitpack/lsp4intellij](https://jitpack.io/#ballerina-platform/lsp4intellij)** to learn how you can add 
-  **Lsp4IntelliJ** as a dependency with the different build tools, which are listed below.
+For instrcutions on addding **Lsp4IntelliJ** as a dependency when using the below build tools, go to **[jitpack/lsp4intellij](https://jitpack.io/#ballerina-platform/lsp4intellij)**.
   - gradle
   - maven
   - sbt
 
-**Note** - Will be available soon in maven central as maven publishing process is WIP.
+>**Info:** - The Maven publishing process is currently WIP. Thus, the possibility to add LSP4IntelliJ as a dependency will be available soon in the Maven central.
   
-### 2. Adding language server definition
+### 2. Add the language server definition
 
-1. To add a language server, first you need to instantiate a concrete subclass of 
+1. Instantiate a concrete subclass of the
 [LanguageServerDefinition](src/main/java/com/github/lsp4intellij/client/languageserver/serverdefinition/LanguageServerDefinition.java).
 
-    You can use the following concrete class (more options will be added later):
+    You can use the following concrete class:
     
     - **RawCommandServerDefinition(string fileExtension, string[] command)** 
         
-        This definition simply runs the command 
-        given.You can specify multiple extensions for one server by separating them with a comma. (e.g: "ts,js")
+        This definition runs the given command. You can specify multiple extensions for one server by separating them with a comma (e.g., "ts,js").
     
         Examples: 
         
@@ -67,12 +65,13 @@ Refer **[jitpack/lsp4intellij](https://jitpack.io/#ballerina-platform/lsp4intell
         new RawCommandServerDefinition("bsl,os",command);
         ```
         
-    > Note that all these implementations will use server stdin/stdout to communicate.
+    > **Note:** All these implementations will use server stdin/stdout to communicate.
 
-2. Then to register any of the aforementioned options, you can implement a preloading activity in your plugin, as shown 
+2. To register any of the aforementioned options, implement a preloading activity in your plugin as shown 
 below.
-(Refer [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/) 
-to see other options you can use instead of implementing a preloading activity.)
+
+>**Tip:** For other options you can use instead of implementing a preloading activity, go to [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/) 
+to)
 
     Example:
     
@@ -92,9 +91,9 @@ to see other options you can use instead of implementing a preloading activity.)
     ```
 
 
-### 3. Adding configurations to plugin.xml 
+### 3. Add configurations to the plugin.xml file
    
-  1. `IntellijLanguageClient` must be added as an application component. 
+  1. Add `IntellijLanguageClient` as an application component. 
        ```xml
        <application-components>
            <component>
@@ -103,7 +102,7 @@ to see other options you can use instead of implementing a preloading activity.)
        </application-components>
        ```
        
-  2. Add the following extensions to get the relevant features, as listed below.
+  2. Add the following extensions to get the relevant features as listed below.
   
         - Code completion
             ```xml
@@ -138,14 +137,14 @@ to see other options you can use instead of implementing a preloading activity.)
               </actions>
             ```
         
-   > **Note:** You won't need any additional configurations for the other features.
+   > **Note:** You do not need any additional configurations for the other features.
       
-If you've connected to your language server successfully, you'll see a green icon at the bottom-right side of your 
-IDE when opening a file which has a registered file extension, as shown below.
+If you have connected to your language server successfully, you will see a green icon at the bottom-right side of your 
+IDE when opening a file that has a registered file extension as shown below.
 
 ![](resources/images/lang-server-connect.gif)
    
-You can also click on the icon to see the connected files and the timeouts.
+>**Tip:** You can also click on the icon to see the connected files and the timeouts.
 
 ![](resources/images/connected-and-timeouts.gif)
    
@@ -153,8 +152,8 @@ You can also click on the icon to see the connected files and the timeouts.
 ## Features 
 
 #### Code Completion 
-Press `CTRL+SPACE` to see the completion items list, which depends on your cursor position.(Code completion items 
-will also auto pop-up based on your language server specific trigger characters.)
+Press the `CTRL+SPACE` keys to see the completion items list, which depends on your cursor position.(Code completion items 
+will also pop-up auytomatically based on your language-server-specific trigger characters.)
 
 ![](resources/images/lsp4intellij-completion.gif)
 
@@ -165,34 +164,33 @@ selected range.
 ![](resources/images/lsp4intellij-formatting.gif)
 
 #### Diagnostics 
-To see diagnostics (errors, warnings, etc), hover over them to see the message.
+To see diagnostics (errors, warnings etc.), hover over them to view the message.
 
 ![](resources/images/lsp4intellij-dignostics.gif)
 
 #### Code Actions
-Hover to any diagnostic highlight and then you can view and apply related code actions using light bulb popup, as 
+Hover over any diagnostic highlight to view and apply related code actions using the light bulb that pops up as 
 shown below.
 ![](resources/images/lsp4intellij-codeactions.gif)  
 
 #### Go to Definition
-You can use `CTRL+CLICK` on a symbol to navigate to its definition. 
+Press the `CTRL` key while clicking on a symbol to navigate to its definition. 
  
 ![](resources/images/lsp4intellij-gotodef.gif)
 
 #### Goto References / Find Usages
-You can use `CTRL+CLICK` or `SHIFT+ALT+F7` on a symbol to see the list of its references/usages.
+You can use `CTRL+CLICK` or `SHIFT+ALT+F7` for a symbol to view the list of its references/usages.
  
 ![](resources/images/lsp4intellij-gotoref.gif)
 
 #### Hover Support
-You can hover to an element while pressing the `CTRL` key to view its documentation, if available.
+You can hover over an element while pressing the `CTRL` key to view its documentation if available.
 
 ![](resources/images/lsp4intellij-hover.gif)
 
 
-> **Note** - Above features are currently tested with IntelliJ IDEA and
-[Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server)
-. Need to be tested with other language servers and other Jetbrains IDEs as well.
+> **Note** - Above features are currently tested only with IntelliJ IDEA and
+the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server).
 
  **WIP Features** 
  - Signature Help
@@ -202,7 +200,7 @@ You can hover to an element while pressing the `CTRL` key to view its documentat
 ## User API 
 
 ### Timeouts
-Lsp4IntelliJ language client has default timeout values LSP based requests, as shown below.
+The Lsp4IntelliJ language client has default timeout values for LSP-based requests as shown below.
 
 | Type     | Default timeout value(in milliseconds)|
 |----------|:-------------------------------------:|
@@ -217,24 +215,24 @@ Lsp4IntelliJ language client has default timeout values LSP based requests, as s
 | Shutdown        |  5000 |
 | WillSave        |  2000 |
 
-LspIntelliJ language client provides following methods related to timeout configurations.
+The LspIntelliJ language client provides following methods related to timeout configurations.
 
-- **getTimeouts()** - Returns current timeout values(in milliseconds).
+- **getTimeouts()** - Returns the current timeout values (in milliseconds).
 
-    Example
+    Example:
     ```java
     Map<Timeouts, Integer> timeouts = IntelliJLnaguageClient.getTimeouts();
     ```
 
-- **getTimeout(Timeouts timeoutType)** - Returns current timeout value of a given timeout type(in milliseconds).
+- **getTimeout(Timeouts timeoutType)** - Returns the current timeout value of a given timeout type (in milliseconds).
 
     Example
     ```java
     int timeout = IntellijLanguageClient.getTimeout(Timeouts.INIT);
     ```
 
-- **setTimeouts(Map<Timeouts, Integer> newTimeouts))** - Overrides default timeout values with a given set
- of timeouts.
+- **setTimeouts(Map<Timeouts, Integer> newTimeouts))** - Overrides the default timeout values with a given set
+ of timeout values.
  
     Example
     ```java
@@ -244,7 +242,7 @@ LspIntelliJ language client provides following methods related to timeout config
     IntellijLanguageClient.setTimeouts(newTimeouts);
     ```
     
-- **setTimeout(Timeouts timeout, int value)** - Overrides specific timeout with a new timeout value.
+- **setTimeout(Timeouts timeout, int value)** - Overrides a specific timeout value with a new one.
  
     Example
     ```java
@@ -254,13 +252,13 @@ LspIntelliJ language client provides following methods related to timeout config
 
 ## License
 
-lsp4intellij code is distributed under [Apache license 2.0](LICENSE).
+The LSP4Intellij code is distributed under the [Apache license 2.0](LICENSE).
 
  
 ## Inspiration
 
-`Lsp4IntelliJ` is heavily inspired by [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community. 
-Credits should go to the original author for his awesome work.
+`Lsp4IntelliJ` is heavily inspired by the [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community. 
+Credits should go to the original author for his astounding work.
 
 
 # Useful Links
