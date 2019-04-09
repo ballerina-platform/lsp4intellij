@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -153,8 +154,24 @@ public class IntellijLanguageClient implements ApplicationComponent {
         if (file != null) {
             ApplicationUtils.pool(() -> {
                 String ext = file.getExtension();
-                LOG.info("Opened " + file.getName());
+                final String fileName = file.getName();
+                LOG.info("Opened " + fileName);
+
+                // The ext can either be a file extension or a file pattern(regex expression).
+                // First try for the extension since it is the most comment usage, if not try to
+                // match file name.
                 LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
+                if (serverDefinition == null) {
+                    // Fallback to file name pattern matching, where the map key is a regex
+                    Optional<String> keyForFile = extToServerDefinition.keySet().stream()
+                        .filter(key -> fileName.matches(key)).findFirst();
+                    if (keyForFile.isPresent()) {
+                        serverDefinition = extToServerDefinition.get(keyForFile.get());
+                        // ext must be the key since we are in file name mode.
+                        ext = keyForFile.get();
+                    }
+                }
+
                 if (serverDefinition != null) {
                     LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, rootUri));
                     if (wrapper == null) {
