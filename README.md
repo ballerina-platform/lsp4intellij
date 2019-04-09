@@ -4,7 +4,7 @@
 [![](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
 [![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)
 
-**Lsp4IntelliJ** provides is a client library, which provides language server support for IntelliJ IDEA and other Jetbrains IDEs.
+**Lsp4IntelliJ** is a client library, which provides language server support for IntelliJ IDEA and other Jetbrains IDEs.
 
 It is designed to be used with any IntelliJ plugin as its language server client to get the features that are based on the language server.
 
@@ -28,7 +28,7 @@ protocol.
 - [**Useful Links**](#useful-links)
 
 
-## How to use LSP4IntelliJ
+## How to use 
 
 Follow the steps below to use `Lsp4IntelliJ` in your custom language plugin.
 
