@@ -20,9 +20,10 @@ import com.intellij.navigation.NavigationItem;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import javax.swing.Icon;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import javax.swing.*;
 
 /**
  * LSP implementation of NavigationItem for intellij
@@ -31,54 +32,54 @@ import org.jetbrains.annotations.Nullable;
  */
 public class LSPNavigationItem extends OpenFileDescriptor implements NavigationItem {
 
-  private ItemPresentation presentation;
+    private ItemPresentation presentation;
 
-  public LSPNavigationItem(String name, String location, Icon icon, @NotNull Project project,
-      @NotNull VirtualFile file, int logicalLine, int logicalColumn) {
-    super(project, file, logicalLine, logicalColumn);
-    presentation = new LSPItemPresentation(location, name, icon);
-  }
-
-  @Nullable
-  @Override
-  public String getName() {
-    return presentation.getPresentableText();
-  }
-
-  @Nullable
-  @Override
-  public ItemPresentation getPresentation() {
-    return presentation;
-  }
-
-  private class LSPItemPresentation implements ItemPresentation {
-
-    private String location;
-    private String presentableText;
-    private Icon icon;
-
-    public LSPItemPresentation(String location, String presentableText, Icon icon) {
-      this.location = location;
-      this.presentableText = presentableText;
-      this.icon = icon;
+    public LSPNavigationItem(String name, String location, Icon icon, @NotNull Project project,
+            @NotNull VirtualFile file, int logicalLine, int logicalColumn) {
+        super(project, file, logicalLine, logicalColumn);
+        presentation = new LSPItemPresentation(location, name, icon);
     }
 
     @Nullable
     @Override
-    public String getPresentableText() {
-      return presentableText;
+    public String getName() {
+        return presentation.getPresentableText();
     }
 
     @Nullable
     @Override
-    public String getLocationString() {
-      return location;
+    public ItemPresentation getPresentation() {
+        return presentation;
     }
 
-    @Nullable
-    @Override
-    public Icon getIcon(boolean unused) {
-      return icon;
+    private class LSPItemPresentation implements ItemPresentation {
+
+        private String location;
+        private String presentableText;
+        private Icon icon;
+
+        public LSPItemPresentation(String location, String presentableText, Icon icon) {
+            this.location = location;
+            this.presentableText = presentableText;
+            this.icon = icon;
+        }
+
+        @Nullable
+        @Override
+        public String getPresentableText() {
+            return presentableText;
+        }
+
+        @Nullable
+        @Override
+        public String getLocationString() {
+            return location;
+        }
+
+        @Nullable
+        @Override
+        public Icon getIcon(boolean unused) {
+            return icon;
+        }
     }
-  }
 }

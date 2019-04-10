@@ -27,20 +27,19 @@ import org.jetbrains.annotations.NotNull;
  */
 class LSPSymbolContributor implements ChooseByNameContributor {
 
-  private WorkspaceSymbolProvider workspaceSymbolProvider = new WorkspaceSymbolProvider();
+    private WorkspaceSymbolProvider workspaceSymbolProvider = new WorkspaceSymbolProvider();
 
-  @NotNull
-  @Override
-  public String[] getNames(Project project, boolean includeNonProjectItems) {
-    return workspaceSymbolProvider.workspaceSymbols("", project).stream()
-        .map(NavigationItem::getName)
-        .toArray(i -> new String[i]);
-  }
+    @NotNull
+    @Override
+    public String[] getNames(Project project, boolean includeNonProjectItems) {
+        return workspaceSymbolProvider.workspaceSymbols("", project).stream().map(NavigationItem::getName)
+                .toArray(i -> new String[i]);
+    }
 
-  @NotNull
-  @Override
-  public NavigationItem[] getItemsByName(String name, String pattern, Project project,
-      boolean includeNonProjectItems) {
-    return workspaceSymbolProvider.workspaceSymbols(name, project).toArray(new NavigationItem[0]);
-  }
+    @NotNull
+    @Override
+    public NavigationItem[] getItemsByName(String name, String pattern, Project project,
+            boolean includeNonProjectItems) {
+        return workspaceSymbolProvider.workspaceSymbols(name, project).toArray(new NavigationItem[0]);
+    }
 }

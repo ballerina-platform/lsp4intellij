@@ -18,13 +18,14 @@ package org.wso2.lsp4intellij.contributors.icon;
 import com.intellij.icons.AllIcons;
 import com.intellij.icons.AllIcons.Nodes;
 import com.intellij.openapi.util.IconLoader;
-import java.util.HashMap;
-import java.util.Map;
-import javax.swing.Icon;
 import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.SymbolKind;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
+
+import java.util.HashMap;
+import java.util.Map;
+import javax.swing.*;
 
 public class LSPDefaultIconProvider extends LSPIconProvider {
 
@@ -77,23 +78,24 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
 
     public static Icon getSymbolIcon(SymbolKind kind) {
         switch (kind) {
-            case Field:
-            case EnumMember:
-                return Nodes.Field;
-            case Method:
-                return Nodes.Method;
-            case Variable:
-                return Nodes.Variable;
-            case Class:
-                return Nodes.Class;
-            case Constructor:
-                return Nodes.ClassInitializer;
-            case Enum:
-                return Nodes.Enum;
-            default:
-                return Nodes.Tag;
+        case Field:
+        case EnumMember:
+            return Nodes.Field;
+        case Method:
+            return Nodes.Method;
+        case Variable:
+            return Nodes.Variable;
+        case Class:
+            return Nodes.Class;
+        case Constructor:
+            return Nodes.ClassInitializer;
+        case Enum:
+            return Nodes.Enum;
+        default:
+            return Nodes.Tag;
         }
     }
+
     public static Map<ServerStatus, Icon> getStatusIcons() {
         Map<ServerStatus, Icon> statusIconMap = new HashMap<>();
         statusIconMap.put(ServerStatus.STOPPED, STOPPED);
