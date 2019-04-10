@@ -185,6 +185,18 @@ public class IntellijLanguageClient implements ApplicationComponent {
                         for (String ex : exts) {
                             extToLanguageWrapper.put(new ImmutablePair<>(ex, rootUri), wrapper);
                         }
+
+                        // Update project mapping for language servers
+                        final String projectUri = FileUtils.pathToUri(project.getBasePath());
+                        Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers
+                            .get(projectUri);
+                        if (wrappers == null) {
+                            wrappers = new HashSet<>();
+                            projectToLanguageWrappers.put(projectUri, wrappers);
+                        }
+                        if (!wrappers.contains(wrapper)) {
+                            wrappers.add(wrapper);
+                        }
                     } else {
                         LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
                     }
@@ -334,5 +346,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
         }
     }
 
-    // Todo - Implement workspace symbols support
+    public static Map<String, Set<LanguageServerWrapper>> getProjectToLanguageWrappers() {
+        return projectToLanguageWrappers;
+    }
 }
