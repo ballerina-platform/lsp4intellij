@@ -21,6 +21,7 @@ protocol.
     - [Goto Definition](#go-to-definition)
     - [Go to References / Find Usages](#goto-references-/-find-usages)
     - [Hover Support](#hover-support)
+    - [Workspace Symbols](#workspace-symbols)
     - [Renaming Support](#renaming-support)
 - [**User API**](#user-api) 
     - [Timeouts](#timeouts)
@@ -51,8 +52,13 @@ For instrcutions on addding **Lsp4IntelliJ** as a dependency when using the belo
     
     - **RawCommandServerDefinition(string fileExtension, string[] command)** 
         
-        This definition runs the given command. You can specify multiple extensions for one server by separating them with a comma (e.g., "ts,js").
+        This definition runs the given command. 
+        
+        * You can specify multiple extensions for one server by separating them with a comma (e.g., "ts,js").
     
+        * If you want to bind your language server definition only with a specific set of files, you can use that 
+        specific file pattern as a regex expression, instead of binding with the file extension. (e.g., "application*.properties").
+        
         Examples: 
         
         Ballerina Language Server 
@@ -197,6 +203,11 @@ You can hover over an element while pressing the `CTRL` key to view its document
 
 ![](resources/images/lsp4intellij-hover.gif)
 
+#### Workspace Symbols
+Navigate to **Navigate->Symbol...** and enter the symbol name you want to search in the search box popup.
+
+![](resources/images/lsp4intellij-workspacesymbols.gif)
+
 #### Renaming Support
 Set the courser to the element which needs to renamed and press `CTRL+F6` to trigger the inplace renaming as shown 
 below.
@@ -208,7 +219,6 @@ the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-
 
  **WIP Features** 
  - Signature Help
- - Workspace Symbols
  
 
 ## User API 
