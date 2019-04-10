@@ -34,8 +34,8 @@ public class LSPNavigationItem extends OpenFileDescriptor implements NavigationI
 
     private ItemPresentation presentation;
 
-    public LSPNavigationItem(String name, String location, Icon icon, @NotNull Project project,
-            @NotNull VirtualFile file, int logicalLine, int logicalColumn) {
+    LSPNavigationItem(String name, String location, Icon icon, @NotNull Project project, @NotNull VirtualFile file,
+            int logicalLine, int logicalColumn) {
         super(project, file, logicalLine, logicalColumn);
         presentation = new LSPItemPresentation(location, name, icon);
     }
@@ -58,7 +58,7 @@ public class LSPNavigationItem extends OpenFileDescriptor implements NavigationI
         private String presentableText;
         private Icon icon;
 
-        public LSPItemPresentation(String location, String presentableText, Icon icon) {
+        LSPItemPresentation(String location, String presentableText, Icon icon) {
             this.location = location;
             this.presentableText = presentableText;
             this.icon = icon;

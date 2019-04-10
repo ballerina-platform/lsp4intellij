@@ -35,43 +35,44 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
 
     public static Icon getCompletionIcon(CompletionItemKind kind) {
 
-        if (kind == CompletionItemKind.Class) {
+        switch (kind) {
+        case Class:
             return Nodes.Class;
-        } else if (kind == CompletionItemKind.Color) {
+        case Color:
             return null;
-        } else if (kind == CompletionItemKind.Constructor) {
+        case Constructor:
             return null;
-        } else if (kind == CompletionItemKind.Enum) {
+        case Enum:
             return Nodes.Class;
-        } else if (kind == CompletionItemKind.Field) {
+        case Field:
             return Nodes.Field;
-        } else if (kind == CompletionItemKind.File) {
+        case File:
             return AllIcons.FileTypes.Any_type;
-        } else if (kind == CompletionItemKind.Function) {
+        case Function:
             return Nodes.Function;
-        } else if (kind == CompletionItemKind.Interface) {
+        case Interface:
             return Nodes.Interface;
-        } else if (kind == CompletionItemKind.Keyword) {
+        case Keyword:
             return Nodes.UpLevel;
-        } else if (kind == CompletionItemKind.Method) {
+        case Method:
             return Nodes.Method;
-        } else if (kind == CompletionItemKind.Module) {
+        case Module:
             return Nodes.Module;
-        } else if (kind == CompletionItemKind.Property) {
+        case Property:
             return Nodes.Property;
-        } else if (kind == CompletionItemKind.Reference) {
+        case Reference:
             return Nodes.MethodReference;
-        } else if (kind == CompletionItemKind.Snippet) {
+        case Snippet:
             return Nodes.Static;
-        } else if (kind == CompletionItemKind.Text) {
+        case Text:
             return AllIcons.FileTypes.Text;
-        } else if (kind == CompletionItemKind.Unit) {
+        case Unit:
             return Nodes.Artifact;
-        } else if (kind == CompletionItemKind.Value) {
+        case Value:
             return Nodes.DataSource;
-        } else if (kind == CompletionItemKind.Variable) {
+        case Variable:
             return Nodes.Variable;
-        } else {
+        default:
             return null;
         }
     }

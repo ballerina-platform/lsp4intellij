@@ -82,6 +82,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @param definition The server definition
      * @throws IllegalArgumentException If the language server definition is null.
      */
+    @SuppressWarnings("unused")
     public static void addServerDefinition(LanguageServerDefinition definition) throws IllegalArgumentException {
         if (definition != null) {
             processDefinition(definition);
@@ -101,6 +102,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @throws IllegalArgumentException if an language server extensions manager is already registered for the given
      *                                  file extension
      */
+    @SuppressWarnings("unused")
     public static void addExtensionManager(String ext, LSPExtensionManager manager) throws IllegalArgumentException {
         if (extToExtManager.get(ext) == null) {
             extToExtManager.put(ext, manager);
@@ -153,8 +155,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
                 LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
                 if (serverDefinition == null) {
                     // Fallback to file name pattern matching, where the map key is a regex
-                    Optional<String> keyForFile = extToServerDefinition.keySet().stream()
-                            .filter(key -> fileName.matches(key)).findFirst();
+                    Optional<String> keyForFile = extToServerDefinition.keySet().stream().filter(fileName::matches)
+                            .findFirst();
                     if (keyForFile.isPresent()) {
                         serverDefinition = extToServerDefinition.get(keyForFile.get());
                         // ext must be the key since we are in file name mode.
@@ -189,7 +191,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
                     } else {
                         LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
                     }
-                    LOG.info("Adding file " + file.getName());
+                    LOG.info("Adding file " + fileName);
                     wrapper.connect(editor);
                 }
             });
@@ -233,6 +235,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      *
      * @return A map of Timeout types and corresponding values(in milliseconds).
      */
+    @SuppressWarnings("unused")
     public static int getTimeout(Timeouts timeoutType) {
         return getTimeouts().get(timeoutType);
     }
@@ -250,6 +253,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @param timeout Timeout type
      * @param value   new timeout value to be set (in milliseconds).
      */
+    @SuppressWarnings("unused")
     public static void setTimeout(Timeouts timeout, int value) {
         Map<Timeouts, Integer> newTimeout = new HashMap<>();
         newTimeout.put(timeout, value);
