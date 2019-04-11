@@ -62,9 +62,8 @@ public class FileUtils {
     }
 
     public static Editor editorFromVirtualFile(VirtualFile file, Project project) {
-        //collectFirst { case t: TextEditor => t.getEditor }.orNull
         FileEditor[] allEditors = FileEditorManager.getInstance(project).getAllEditors(file);
-        if (allEditors[0] instanceof TextEditor) {
+        if (allEditors.length > 0 && allEditors[0] instanceof TextEditor) {
             return ((TextEditor) allEditors[0]).getEditor();
         }
         return null;
@@ -191,7 +190,10 @@ public class FileUtils {
     }
 
     public static String editorToProjectFolderPath(Editor editor) {
-        return new File(editor.getProject().getBasePath()).getAbsolutePath();
+        if (editor != null && editor.getProject() != null && editor.getProject().getBasePath() != null) {
+            return new File(editor.getProject().getBasePath()).getAbsolutePath();
+        }
+        return null;
     }
 
     /**
