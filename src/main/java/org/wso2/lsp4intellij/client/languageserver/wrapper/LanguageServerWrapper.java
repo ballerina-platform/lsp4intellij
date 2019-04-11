@@ -454,9 +454,10 @@ public class LanguageServerWrapper {
                     } else {
                         requestManager = new DefaultRequestManager(this, languageServer, client, res.getCapabilities());
                     }
-                    setStatus(STARTED);
+                    setStatus(STARTED_INIT_PENDING);
                     // send the initialized message since some langauge servers depends on this message
                     requestManager.initialized(new InitializedParams());
+                    setStatus(STARTED);
                     return res;
                 });
                 initializeStartTime = System.currentTimeMillis();
