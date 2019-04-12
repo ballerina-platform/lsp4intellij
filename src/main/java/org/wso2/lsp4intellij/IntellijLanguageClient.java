@@ -29,18 +29,6 @@ import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -56,14 +44,27 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
 public class IntellijLanguageClient implements ApplicationComponent {
+
+    private static Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
 
     private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new ConcurrentHashMap<>();
     private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
     private static Map<String, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
     private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
-
-    private static Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
 
     @Override
     public void initComponent() {
@@ -141,14 +142,14 @@ public class IntellijLanguageClient implements ApplicationComponent {
     public static void editorOpened(Editor editor) {
         VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
         if (!FileUtils.isFileSupported(file)) {
-            LOG.debug("Handling open on a editor which host a virtual file");
+            LOG.debug("Handling open on a editor which host a LightVirtual/Null file");
             return;
         }
 
         Project project = editor.getProject();
         String rootPath = FileUtils.editorToProjectFolderPath(editor);
         String rootUri = FileUtils.pathToUri(rootPath);
-        if (file != null && rootUri != null) {
+        if (rootUri != null && project != null) {
             ApplicationUtils.pool(() -> {
                 String ext = file.getExtension();
                 final String fileName = file.getName();
@@ -185,14 +186,9 @@ public class IntellijLanguageClient implements ApplicationComponent {
 
                         // Update project mapping for language servers
                         final String projectUri = FileUtils.pathToUri(project.getBasePath());
-                        Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers.get(projectUri);
-                        if (wrappers == null) {
-                            wrappers = new HashSet<>();
-                            projectToLanguageWrappers.put(projectUri, wrappers);
-                        }
-                        if (!wrappers.contains(wrapper)) {
-                            wrappers.add(wrapper);
-                        }
+                        Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers
+                                .computeIfAbsent(projectUri, k -> new HashSet<>());
+                        wrappers.add(wrapper);
                     } else {
                         LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
                     }
@@ -201,7 +197,12 @@ public class IntellijLanguageClient implements ApplicationComponent {
                 }
             });
         } else {
-            LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
+            if (rootUri == null) {
+                LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
+            }
+            if (project == null) {
+                LOG.warn("Project for editor " + editor.getDocument().getText() + " is null");
+            }
         }
     }
 
@@ -213,22 +214,17 @@ public class IntellijLanguageClient implements ApplicationComponent {
     public static void editorClosed(Editor editor) {
         VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
         if (!FileUtils.isFileSupported(file)) {
-            LOG.debug("Handling close on a editor which host a virtual file");
+            LOG.debug("Handling close on a editor which host a LightVirtual/Null file");
             return;
         }
 
-        if (file != null) {
-            ApplicationUtils.pool(() -> {
-                String ext = file.getExtension();
-                LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
-                if (serverWrapper != null) {
-                    LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
-                    serverWrapper.disconnect(editor);
-                }
-            });
-        } else {
-            LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
-        }
+        ApplicationUtils.pool(() -> {
+            LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
+            if (serverWrapper != null) {
+                LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
+                serverWrapper.disconnect(editor);
+            }
+        });
     }
 
     /**
