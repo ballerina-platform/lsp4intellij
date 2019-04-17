@@ -52,12 +52,12 @@ For instrcutions on addding **Lsp4IntelliJ** as a dependency when using the belo
     
     - **RawCommandServerDefinition(string fileExtension, string[] command)** 
         
-        This definition runs the given command. 
+        This definition executes the given command. 
         
-        * You can specify multiple extensions for one server by separating them with a comma (e.g., "ts,js").
+        * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
     
         * If you want to bind your language server definition only with a specific set of files, you can use that 
-        specific file pattern as a regex expression, instead of binding with the file extension. (e.g., "application*.properties").
+        specific file pattern as a regex expression instead of binding with the file extension. (e.g., "application*.properties").
         
         Examples: 
         
@@ -136,11 +136,17 @@ With plugin.xml containing;
         - Find Usages 
             ```xml
             <actions>
-                <action class="org.wso2.lsp4intellij.actions.LSPReferencesAction"
-                        id="LSPFindUsages">
-                    <keyboard-shortcut first-keystroke="shift alt F7" keymap="$default"/>
+                <action class="org.wso2.lsp4intellij.actions.LSPReferencesAction" id="LSPFindUsages">
+                     <keyboard-shortcut first-keystroke="shift alt F7" keymap="$default"/>
                 </action>
             </actions>
+            ```
+        - Workspace symbols
+            ```xml
+            <extensions defaultExtensionNs="com.intellij">
+                <gotoSymbolContributor implementation="org.wso2.lsp4intellij.contributors.symbol.LSPSymbolContributor"
+                                              id="LSPSymbolContributor"/>
+            </extensions>
             ```
         - Renaming Support 
             ```xml
@@ -204,7 +210,8 @@ You can hover over an element while pressing the `CTRL` key to view its document
 ![](resources/images/lsp4intellij-hover.gif)
 
 #### Workspace Symbols
-Navigate to **Navigate->Symbol...** and enter the symbol name you want to search in the search box popup.
+Navigate to the **Navigate->Symbol...** and enter the name of the symbol you want to search in the search box that 
+pops up.
 
 ![](resources/images/lsp4intellij-workspacesymbols.gif)
 
