@@ -73,23 +73,22 @@ below.
 >**Tip:** For other options you can use instead of implementing a preloading activity, go to [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/) 
 to)
 
-    Example:
-    
-    ```java
-    public class BallerinaPreloadingActivity extends PreloadingActivity {
-        IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
-    }
-    ```
+Example:
 
-    With plugin.xml containing;
-    
-    ```xml
-    <extensions defaultExtensionNs="com.intellij">
-        <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" 
-                            id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
-    </extensions>
-    ```
+```java
+public class BallerinaPreloadingActivity extends PreloadingActivity {
+    IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
+}
+```
 
+With plugin.xml containing;
+
+```xml
+<extensions defaultExtensionNs="com.intellij">
+    <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" 
+                        id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
+</extensions>
+```
 
 ### 3. Add configurations to the plugin.xml file
    
@@ -113,12 +112,12 @@ to)
             ```
         - Code Formatting
             ```xml
-               <actions>
-                   <action class="org.wso2.lsp4intellij.actions.LSPReformatAction" id="ReformatCode" use-shortcut-of="ReformatCode"
-                           overrides="true" text="Reformat Code"/>
-                   <action class="org.wso2.lsp4intellij.actions.LSPShowReformatDialogAction" id="ShowReformatFileDialog"
-                           use-shortcut-of="ShowReformatFileDialog" overrides="true" text="Show Reformat File Dialog"/>
-               </actions>
+            <actions>
+               <action class="org.wso2.lsp4intellij.actions.LSPReformatAction" id="ReformatCode" use-shortcut-of="ReformatCode"
+                       overrides="true" text="Reformat Code"/>
+               <action class="org.wso2.lsp4intellij.actions.LSPShowReformatDialogAction" id="ShowReformatFileDialog"
+                       use-shortcut-of="ShowReformatFileDialog" overrides="true" text="Show Reformat File Dialog"/>
+            </actions>
             ```
         - Diagnostics and code actions
             ```xml
@@ -129,12 +128,12 @@ to)
             ```
         - Find Usages 
             ```xml
-              <actions>
+            <actions>
                 <action class="org.wso2.lsp4intellij.actions.LSPReferencesAction"
                         id="LSPFindUsages">
                     <keyboard-shortcut first-keystroke="shift alt F7" keymap="$default"/>
                 </action>
-              </actions>
+            </actions>
             ```
         
    > **Note:** You do not need any additional configurations for the other features.
