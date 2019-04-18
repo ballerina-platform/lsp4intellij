@@ -174,7 +174,7 @@ public class DefaultRequestManager implements RequestManager {
 
     @Override
     public void initialized(InitializedParams params) {
-        if (wrapper.getStatus() == ServerStatus.STARTED_INIT_PENDING) {
+        if (wrapper.getStatus() == ServerStatus.STARTED) {
             try {
                 server.initialized(params);
             } catch (Exception e) {
@@ -636,7 +636,7 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     private boolean checkStatus() {
-        return wrapper.getStatus() == ServerStatus.STARTED;
+        return wrapper.getStatus() == ServerStatus.INITIALIZED;
     }
 
     private void crashed(Exception e) {
