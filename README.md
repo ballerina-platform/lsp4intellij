@@ -21,6 +21,7 @@ protocol.
     - [Goto Definition](#go-to-definition)
     - [Go to References / Find Usages](#goto-references-/-find-usages)
     - [Hover Support](#hover-support)
+    - [Renaming Support](#renaming-support)
 - [**User API**](#user-api) 
     - [Timeouts](#timeouts)
 - [**License**](#license)
@@ -136,6 +137,15 @@ to)
                 </action>
               </actions>
             ```
+        - Renaming Support 
+            ```xml
+            <extensions defaultExtensionNs="com.intellij">
+                <renameHandler implementation="org.wso2.lsp4intellij.contributors.rename.LSPRenameHandler" 
+                id="LSPRenameHandler" order="first"/>
+                <renamePsiElementProcessor implementation="org.wso2.lsp4intellij.contributors.rename
+                 .LSPRenameProcessor" id="LSPRenameProcessor" order="first"/>
+            </extensions>
+            ```  
         
    > **Note:** You do not need any additional configurations for the other features.
       
@@ -188,6 +198,11 @@ You can hover over an element while pressing the `CTRL` key to view its document
 
 ![](resources/images/lsp4intellij-hover.gif)
 
+#### Renaming Support
+Set the courser to the element which needs to renamed and press `CTRL+F6` to trigger the inplace renaming as shown 
+below.
+
+![](resources/images/lsp4intellij-renaming.gif)
 
 > **Note** - Above features are currently tested only with IntelliJ IDEA and
 the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server).
@@ -195,7 +210,7 @@ the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-
  **WIP Features** 
  - Signature Help
  - Workspace Symbols
- - Renaming Support
+ 
 
 ## User API 
 
