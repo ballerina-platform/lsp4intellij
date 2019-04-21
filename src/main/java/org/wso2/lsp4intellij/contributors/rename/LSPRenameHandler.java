@@ -150,7 +150,12 @@ public class LSPRenameHandler implements RenameHandler {
 
     private LSPPsiElement getElementAtOffset(EditorEventManager eventManager, int offset) {
         Pair<List<PsiElement>, List<VirtualFile>> refResponse = eventManager.references(offset, true, false);
-        PsiElement curElement = refResponse.getFirst().stream()
+        List<PsiElement> refs = refResponse.getFirst();
+        if (refs == null || refs.isEmpty()) {
+            return null;
+        }
+
+        PsiElement curElement = refs.stream()
                 .filter(e -> e.getTextRange().getStartOffset() <= offset && offset <= e.getTextRange().getEndOffset())
                 .findAny().orElse(null);
         if (curElement != null) {
