@@ -54,10 +54,10 @@ For instrcutions on addding **Lsp4IntelliJ** as a dependency when using the belo
         
         This definition executes the given command. 
         
-        * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
+        * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts, js").
     
         * If you want to bind your language server definition only with a specific set of files, you can use that 
-        specific file pattern as a regex expression instead of binding with the file extension. (e.g., "application*.properties").
+        specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
         
         Examples: 
         
@@ -210,7 +210,7 @@ You can hover over an element while pressing the `CTRL` key to view its document
 ![](resources/images/lsp4intellij-hover.gif)
 
 #### Workspace Symbols
-Navigate to the **Navigate->Symbol...** and enter the name of the symbol you want to search in the search box that 
+Click **Navigate** in the top menu, then click **Symbol...**,  and enter the name of the symbol you want to search in the search box that 
 pops up.
 
 ![](resources/images/lsp4intellij-workspacesymbols.gif)
