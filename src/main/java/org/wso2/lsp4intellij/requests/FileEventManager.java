@@ -107,7 +107,8 @@ public class FileEventManager {
             Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers();
             if (wrappers != null) {
                 for (LanguageServerWrapper w : wrappers) {
-                    if (w != wrapper && w.getRequestManager() != null && w.getStatus() == ServerStatus.STARTED) {
+                    if (w != wrapper && w.getRequestManager() != null
+                        && w.getStatus() == ServerStatus.INITIALIZED) {
                         w.getRequestManager().didChangeWatchedFiles(params);
                     }
                 }

@@ -120,7 +120,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                     JBPopupFactory.ActionSelectionAid mnemonics = JBPopupFactory.ActionSelectionAid.MNEMONICS;
                     Component component = t.getComponent();
                     List<AnAction> actions = new ArrayList<>();
-                    if (wrapper.getStatus() == ServerStatus.STARTED) {
+                    if (wrapper.getStatus() == ServerStatus.INITIALIZED) {
                         actions.add(new ShowConnectedFiles());
                     }
                     actions.add(new ShowTimeouts());

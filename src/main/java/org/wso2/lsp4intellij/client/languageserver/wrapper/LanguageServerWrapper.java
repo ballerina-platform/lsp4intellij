@@ -96,6 +96,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZED;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTING;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
@@ -457,6 +458,7 @@ public class LanguageServerWrapper {
                     setStatus(STARTED);
                     // send the initialized message since some langauge servers depends on this message
                     requestManager.initialized(new InitializedParams());
+                    setStatus(INITIALIZED);
                     return res;
                 });
                 initializeStartTime = System.currentTimeMillis();

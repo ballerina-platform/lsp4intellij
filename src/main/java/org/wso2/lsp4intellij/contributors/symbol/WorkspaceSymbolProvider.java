@@ -54,7 +54,7 @@ public class WorkspaceSymbolProvider {
         .get(FileUtils.pathToUri(project.getBasePath()));
 
     final WorkspaceSymbolParams symbolParams = new WorkspaceSymbolParams(name);
-    return serverWrappers.stream().filter(s -> s.getStatus() == ServerStatus.STARTED)
+    return serverWrappers.stream().filter(s -> s.getStatus() == ServerStatus.INITIALIZED)
         .flatMap(server -> collectSymbol(server, server.getRequestManager(), symbolParams))
         .map(s -> createNavigationItem(s, project)).collect(Collectors.toList());
   }

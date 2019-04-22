@@ -19,5 +19,5 @@ package org.wso2.lsp4intellij.client.languageserver;
  * An enum representing a server status
  */
 public enum ServerStatus {
-    STOPPED, STARTING, STARTED
+    STOPPED, STARTING, STARTED, INITIALIZED
 }

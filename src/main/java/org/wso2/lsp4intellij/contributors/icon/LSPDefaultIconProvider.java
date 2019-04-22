@@ -98,7 +98,8 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
         Map<ServerStatus, Icon> statusIconMap = new HashMap<>();
         statusIconMap.put(ServerStatus.STOPPED, STOPPED);
         statusIconMap.put(ServerStatus.STARTING, STARTING);
-        statusIconMap.put(ServerStatus.STARTED, STARTED);
+        statusIconMap.put(ServerStatus.STARTED, STARTING);
+        statusIconMap.put(ServerStatus.INITIALIZED, STARTED);
         return statusIconMap;
     }
 
