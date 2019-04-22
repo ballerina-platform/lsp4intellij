@@ -21,6 +21,7 @@ import com.intellij.openapi.editor.event.EditorMouseListener;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
+import org.wso2.lsp4intellij.client.ClientContext;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
@@ -39,4 +40,13 @@ public interface LSPExtensionManager {
 
     Class<? extends LanguageServer> getExtendedServerInterface();
 
+    /**
+     * Extension implementor must provide a {@link LanguageClient} implementation which this library
+     * will use. LanuageClient is extended in situation where you have custom client notifications
+     * which are not part of the LS protocol. As a starting point the implementor can extend the
+     * {@link org.wso2.lsp4intellij.client.DefaultLanguageClient}.
+     *
+     * @param context The client context which can be used by the LanguageClient implementation.
+     */
+    LanguageClient getExtendedClientFor(ClientContext context);
 }
