@@ -29,17 +29,6 @@ import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -60,6 +49,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -92,6 +82,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @param definition The server definition
      * @throws IllegalArgumentException If the language server definition is null.
      */
+    @SuppressWarnings("unused")
     public static void addServerDefinition(LanguageServerDefinition definition) throws IllegalArgumentException {
         if (definition != null) {
             processDefinition(definition);
@@ -111,6 +102,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @throws IllegalArgumentException if an language server extensions manager is already registered for the given
      *                                  file extension
      */
+    @SuppressWarnings("unused")
     public static void addExtensionManager(String ext, LSPExtensionManager manager) throws IllegalArgumentException {
         if (extToExtManager.get(ext) == null) {
             extToExtManager.put(ext, manager);
@@ -163,8 +155,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
                 LanguageServerDefinition serverDefinition = extToServerDefinition.get(ext);
                 if (serverDefinition == null) {
                     // Fallback to file name pattern matching, where the map key is a regex
-                    Optional<String> keyForFile = extToServerDefinition.keySet().stream()
-                        .filter(key -> fileName.matches(key)).findFirst();
+                    Optional<String> keyForFile = extToServerDefinition.keySet().stream().filter(fileName::matches)
+                            .findFirst();
                     if (keyForFile.isPresent()) {
                         serverDefinition = extToServerDefinition.get(keyForFile.get());
                         // ext must be the key since we are in file name mode.
@@ -188,8 +180,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
 
                         // Update project mapping for language servers
                         final String projectUri = FileUtils.pathToUri(project.getBasePath());
-                        Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers
-                            .get(projectUri);
+                        Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers.get(projectUri);
                         if (wrappers == null) {
                             wrappers = new HashSet<>();
                             projectToLanguageWrappers.put(projectUri, wrappers);
@@ -200,7 +191,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
                     } else {
                         LOG.info("Wrapper already existing for " + ext + " , " + rootUri);
                     }
-                    LOG.info("Adding file " + file.getName());
+                    LOG.info("Adding file " + fileName);
                     wrapper.connect(editor);
                 }
             });
@@ -244,6 +235,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      *
      * @return A map of Timeout types and corresponding values(in milliseconds).
      */
+    @SuppressWarnings("unused")
     public static int getTimeout(Timeouts timeoutType) {
         return getTimeouts().get(timeoutType);
     }
@@ -261,6 +253,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @param timeout Timeout type
      * @param value   new timeout value to be set (in milliseconds).
      */
+    @SuppressWarnings("unused")
     public static void setTimeout(Timeouts timeout, int value) {
         Map<Timeouts, Integer> newTimeout = new HashMap<>();
         newTimeout.put(timeout, value);
