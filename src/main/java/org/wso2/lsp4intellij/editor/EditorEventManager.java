@@ -86,6 +86,7 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceContext;
 import org.eclipse.lsp4j.ReferenceParams;
+import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
@@ -95,6 +96,7 @@ import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WillSaveTextDocumentParams;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.wso2.lsp4intellij.actions.LSPReferencesAction;
@@ -104,10 +106,11 @@ import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 import org.wso2.lsp4intellij.contributors.inspection.LSPInspection;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
+import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
 import org.wso2.lsp4intellij.requests.HoverHandler;
 import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
+import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
@@ -135,6 +138,11 @@ import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
 
 /**
  * Class handling events related to an Editor (a Document)
@@ -270,8 +278,7 @@ public class EditorEventManager {
                                         getCtrlRange().dispose();
                                     }
                                     setCtrlRange(null);
-                                    ApplicationUtils
-                                            .pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
+                                    pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
                                 } else if (getCtrlRange().definitionContainsOffset(offset)) {
                                     GUIUtils.createAndShowEditorHint(editor, "Click to show usages",
                                             editor.offsetToXY(offset));
@@ -311,7 +318,7 @@ public class EditorEventManager {
             return;
         }
         Location loc = ctrlRange.location;
-        ApplicationUtils.invokeLater(() -> {
+        invokeLater(() -> {
             if (editor.isDisposed()) {
                 return;
             }
@@ -335,7 +342,7 @@ public class EditorEventManager {
                 }
                 if (file != null) {
                     OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
-                    ApplicationUtils.writeAction(() -> {
+                    writeAction(() -> {
                         Editor newEditor = FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
                         int startOffset = DocumentUtils.LSPPosToOffset(newEditor, loc.getRange().getStart());
                         if (newEditor != null) {
@@ -425,8 +432,7 @@ public class EditorEventManager {
      * @param offset The offset in the editor
      * @return An array of PsiElement
      */
-    private Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement,
-            boolean close) {
+    public Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement, boolean close) {
         Position lspPos = DocumentUtils.offsetToLSPPos(editor, offset);
         ReferenceParams params = new ReferenceParams(new ReferenceContext(getOriginalElement));
         params.setPosition(lspPos);
@@ -447,7 +453,7 @@ public class EditorEventManager {
                         Editor curEditor = FileUtils.editorFromUri(uri, project);
                         if (curEditor == null) {
                             OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
-                            curEditor = ApplicationUtils.computableWriteAction(
+                            curEditor = computableWriteAction(
                                     () -> FileEditorManager.getInstance(project).openTextEditor(descriptor, false));
                             openedEditors.add(file);
                         }
@@ -458,7 +464,7 @@ public class EditorEventManager {
                                 PsiDocumentManager.getInstance(project).getPsiFile(curEditor.getDocument())));
                     });
                     if (close) {
-                        ApplicationUtils.writeAction(
+                        writeAction(
                                 () -> openedEditors.forEach(f -> FileEditorManager.getInstance(project).closeFile(f)));
                         openedEditors.clear();
                     }
@@ -563,7 +569,7 @@ public class EditorEventManager {
      * Reformat the whole document
      */
     public void reformat() {
-        ApplicationUtils.pool(() -> {
+        pool(() -> {
             if (editor.isDisposed()) {
                 return;
             }
@@ -578,7 +584,7 @@ public class EditorEventManager {
             }
             request.thenAccept(formatting -> {
                 if (formatting != null) {
-                    ApplicationUtils.invokeLater(() -> applyEdit((List<TextEdit>) formatting, "Reformat document"));
+                    invokeLater(() -> applyEdit((List<TextEdit>) formatting, "Reformat document"));
                 }
             });
         });
@@ -588,15 +594,15 @@ public class EditorEventManager {
      * Reformat the text currently selected in the editor
      */
     public void reformatSelection() {
-        ApplicationUtils.pool(() -> {
+        pool(() -> {
             if (editor.isDisposed()) {
                 return;
             }
             DocumentRangeFormattingParams params = new DocumentRangeFormattingParams();
             params.setTextDocument(identifier);
             SelectionModel selectionModel = editor.getSelectionModel();
-            int start = ApplicationUtils.computableReadAction(selectionModel::getSelectionStart);
-            int end = ApplicationUtils.computableReadAction(selectionModel::getSelectionEnd);
+            int start = computableReadAction(selectionModel::getSelectionStart);
+            int end = computableReadAction(selectionModel::getSelectionEnd);
             Position startingPos = DocumentUtils.offsetToLSPPos(editor, start);
             Position endPos = DocumentUtils.offsetToLSPPos(editor, end);
             params.setRange(new Range(startingPos, endPos));
@@ -612,12 +618,38 @@ public class EditorEventManager {
                 if (formatting == null) {
                     return;
                 }
-                ApplicationUtils.invokeLater(() -> {
+                invokeLater(() -> {
                     if (!editor.isDisposed()) {
                         applyEdit((List<TextEdit>) formatting, "Reformat selection");
                     }
                 });
             });
+        });
+    }
+
+    public void rename(String renameTo) {
+        rename(renameTo, editor.getCaretModel().getCurrentCaret().getOffset());
+    }
+
+    /**
+     * Rename a symbol in the document
+     *
+     * @param renameTo The new name
+     */
+    public void rename(String renameTo, int offset) {
+        pool(() -> {
+            if (editor.isDisposed()) {
+                return;
+            }
+            Position servPos = DocumentUtils.offsetToLSPPos(editor, offset);
+            RenameParams params = new RenameParams(identifier, servPos, renameTo);
+            CompletableFuture<WorkspaceEdit> request = requestManager.rename(params);
+            if (request != null) {
+                request.thenAccept(res -> {
+                    WorkspaceEditHandler.applyEdit(res, "Rename to " + renameTo, new ArrayList<>(LSPRenameProcessor.getEditors()));
+                    LSPRenameProcessor.clearEditors();
+                });
+            }
         });
     }
 
@@ -631,7 +663,7 @@ public class EditorEventManager {
             LogicalPosition caretPos = editor.getCaretModel().getLogicalPosition();
             Point pointPos = editor.logicalPositionToXY(caretPos);
             long currentTime = System.nanoTime();
-            ApplicationUtils.pool(() -> requestAndShowDoc(currentTime, caretPos, pointPos));
+            pool(() -> requestAndShowDoc(currentTime, caretPos, pointPos));
             predTime = currentTime;
         } else {
             LOG.warn("Not same editor!");
@@ -646,8 +678,7 @@ public class EditorEventManager {
      * @param point     The point at which to show the hint
      */
     private void requestAndShowDoc(long curTime, LogicalPosition editorPos, Point point) {
-        Position serverPos = ApplicationUtils
-                .computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
+        Position serverPos = computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
         CompletableFuture<Hover> request = requestManager.hover(new TextDocumentPositionParams(identifier, serverPos));
         if (request == null) {
             return;
@@ -659,7 +690,7 @@ public class EditorEventManager {
                 String string = HoverHandler.getHoverString(hover);
                 if (string != null && !string.equals("")) {
                     if (getIsCtrlDown()) {
-                        ApplicationUtils.invokeLater(() -> {
+                        invokeLater(() -> {
                             if (!editor.isDisposed()) {
                                 currentHint = GUIUtils
                                         .createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
@@ -667,7 +698,7 @@ public class EditorEventManager {
                         });
                         // createCtrlRange(serverPos, hover.getRange());
                     } else {
-                        ApplicationUtils.invokeLater(() -> {
+                        invokeLater(() -> {
                             if (!editor.isDisposed()) {
                                 currentHint = GUIUtils.createAndShowEditorHint(editor, string, point);
                             }
@@ -776,7 +807,7 @@ public class EditorEventManager {
             lookupElementBuilder = lookupElementBuilder
                     .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
                         context.commitDocument();
-                        ApplicationUtils.invokeLater(() -> executeCommands(command));
+                        invokeLater(() -> executeCommands(command));
                     });
         }
 
@@ -845,7 +876,7 @@ public class EditorEventManager {
             String label) {
         return builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
             context.commitDocument();
-            ApplicationUtils.invokeLater(() -> {
+            invokeLater(() -> {
                 applyEdit(edits, "Completion : " + label);
                 if (command != null) {
                     executeCommands(command);
@@ -875,7 +906,7 @@ public class EditorEventManager {
      */
     boolean applyEdit(int version, List<TextEdit> edits, String name, boolean closeAfter) {
         Runnable runnable = getEditsRunnable(version, edits, name);
-        ApplicationUtils.writeAction(() -> {
+        writeAction(() -> {
             if (runnable != null) {
                 CommandProcessor.getInstance()
                         .executeCommand(project, runnable, name, "LSPPlugin", editor.getDocument());
@@ -940,7 +971,7 @@ public class EditorEventManager {
      * @param commands The commands to execute
      */
     public void executeCommands(List<Command> commands) {
-        ApplicationUtils.pool(() -> {
+        pool(() -> {
             if (!editor.isDisposed()) {
                 commands.stream().map(c -> {
                     ExecuteCommandParams params = new ExecuteCommandParams();
@@ -964,8 +995,7 @@ public class EditorEventManager {
     }
 
     private void saveDocument() {
-        ApplicationUtils.invokeLater(() -> ApplicationUtils
-                .writeAction(() -> FileDocumentManager.getInstance().saveDocument(editor.getDocument())));
+        invokeLater(() -> writeAction(() -> FileDocumentManager.getInstance().saveDocument(editor.getDocument())));
     }
 
     /**
@@ -994,7 +1024,7 @@ public class EditorEventManager {
      * Notifies the server that the corresponding document has been closed
      */
     public void documentClosed() {
-        ApplicationUtils.pool(() -> {
+        pool(() -> {
             if (this.isOpen) {
                 requestManager.didClose(new DidCloseTextDocumentParams(identifier));
                 isOpen = false;
@@ -1007,7 +1037,7 @@ public class EditorEventManager {
     }
 
     public void documentOpened() {
-        ApplicationUtils.pool(() -> {
+        pool(() -> {
             if (!editor.isDisposed()) {
                 if (isOpen) {
                     LOG.warn("Editor " + editor + " was already open");
@@ -1068,7 +1098,7 @@ public class EditorEventManager {
      * Notifies the server that the corresponding document has been saved
      */
     public void documentSaved() {
-        ApplicationUtils.pool(() -> {
+        pool(() -> {
             if (!editor.isDisposed()) {
                 DidSaveTextDocumentParams params = new DidSaveTextDocumentParams(identifier,
                         editor.getDocument().getText());
@@ -1085,7 +1115,7 @@ public class EditorEventManager {
         if (wrapper.isWillSaveWaitUntil() && !needSave) {
             willSaveWaitUntil();
         } else
-            ApplicationUtils.pool(() -> {
+            pool(() -> {
                 if (!editor.isDisposed()) {
                     requestManager.willSave(new WillSaveTextDocumentParams(identifier, TextDocumentSaveReason.Manual));
                 }
@@ -1098,7 +1128,7 @@ public class EditorEventManager {
      */
     private void willSaveWaitUntil() {
         if (wrapper.isWillSaveWaitUntil()) {
-            ApplicationUtils.pool(() -> {
+            pool(() -> {
                 if (!editor.isDisposed()) {
                     WillSaveTextDocumentParams params = new WillSaveTextDocumentParams(identifier,
                             TextDocumentSaveReason.Manual);
@@ -1108,7 +1138,7 @@ public class EditorEventManager {
                             List<TextEdit> edits = future.get(Timeout.WILLSAVE_TIMEOUT, TimeUnit.MILLISECONDS);
                             wrapper.notifySuccess(Timeouts.WILLSAVE);
                             if (edits != null) {
-                                ApplicationUtils.invokeLater(() -> applyEdit(edits, "WaitUntil edits"));
+                                invokeLater(() -> applyEdit(edits, "WaitUntil edits"));
                             }
                         } catch (TimeoutException e) {
                             LOG.warn(e);

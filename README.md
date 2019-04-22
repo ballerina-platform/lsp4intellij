@@ -21,6 +21,8 @@ protocol.
     - [Goto Definition](#go-to-definition)
     - [Go to References / Find Usages](#goto-references-/-find-usages)
     - [Hover Support](#hover-support)
+    - [Workspace Symbols](#workspace-symbols)
+    - [Renaming Support](#renaming-support)
 - [**User API**](#user-api) 
     - [Timeouts](#timeouts)
 - [**License**](#license)
@@ -50,8 +52,13 @@ For instrcutions on addding **Lsp4IntelliJ** as a dependency when using the belo
     
     - **RawCommandServerDefinition(string fileExtension, string[] command)** 
         
-        This definition runs the given command. You can specify multiple extensions for one server by separating them with a comma (e.g., "ts,js").
+        This definition executes the given command. 
+        
+        * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts, js").
     
+        * If you want to bind your language server definition only with a specific set of files, you can use that 
+        specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
+        
         Examples: 
         
         Ballerina Language Server 
@@ -129,12 +136,27 @@ With plugin.xml containing;
         - Find Usages 
             ```xml
             <actions>
-                <action class="org.wso2.lsp4intellij.actions.LSPReferencesAction"
-                        id="LSPFindUsages">
-                    <keyboard-shortcut first-keystroke="shift alt F7" keymap="$default"/>
+                <action class="org.wso2.lsp4intellij.actions.LSPReferencesAction" id="LSPFindUsages">
+                     <keyboard-shortcut first-keystroke="shift alt F7" keymap="$default"/>
                 </action>
             </actions>
             ```
+        - Workspace symbols
+            ```xml
+            <extensions defaultExtensionNs="com.intellij">
+                <gotoSymbolContributor implementation="org.wso2.lsp4intellij.contributors.symbol.LSPSymbolContributor"
+                                              id="LSPSymbolContributor"/>
+            </extensions>
+            ```
+        - Renaming Support 
+            ```xml
+            <extensions defaultExtensionNs="com.intellij">
+                <renameHandler implementation="org.wso2.lsp4intellij.contributors.rename.LSPRenameHandler" 
+                id="LSPRenameHandler" order="first"/>
+                <renamePsiElementProcessor implementation="org.wso2.lsp4intellij.contributors.rename
+                 .LSPRenameProcessor" id="LSPRenameProcessor" order="first"/>
+            </extensions>
+            ```  
         
    > **Note:** You do not need any additional configurations for the other features.
       
@@ -187,14 +209,24 @@ You can hover over an element while pressing the `CTRL` key to view its document
 
 ![](resources/images/lsp4intellij-hover.gif)
 
+#### Workspace Symbols
+Click **Navigate** in the top menu, then click **Symbol...**,  and enter the name of the symbol you want to search in the search box that 
+pops up.
+
+![](resources/images/lsp4intellij-workspacesymbols.gif)
+
+#### Renaming Support
+Set the courser to the element which needs to renamed and press `CTRL+F6` to trigger the inplace renaming as shown 
+below.
+
+![](resources/images/lsp4intellij-renaming.gif)
 
 > **Note** - Above features are currently tested only with IntelliJ IDEA and
 the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server).
 
  **WIP Features** 
  - Signature Help
- - Workspace Symbols
- - Renaming Support
+ 
 
 ## User API 
 
