@@ -47,6 +47,9 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.List;
 
+/**
+ * The LSP based rename handler implementation.
+ */
 public class LSPRenameHandler implements RenameHandler {
 
     @Override

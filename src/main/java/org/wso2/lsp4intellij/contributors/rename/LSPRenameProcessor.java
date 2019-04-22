@@ -42,6 +42,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * LSPRenameProcessor implementation.
+ */
 public class LSPRenameProcessor extends RenamePsiElementProcessor {
 
     private static Set<VirtualFile> openedEditors = new HashSet<>();

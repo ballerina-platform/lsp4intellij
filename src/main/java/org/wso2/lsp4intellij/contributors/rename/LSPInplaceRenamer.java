@@ -32,6 +32,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * The LSP based in-place renaming implementation.
+ */
 public class LSPInplaceRenamer extends MemberInplaceRenamer {
 
     private Editor editor;
