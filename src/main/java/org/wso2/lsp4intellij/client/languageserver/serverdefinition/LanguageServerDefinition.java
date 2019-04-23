@@ -127,6 +127,6 @@ public class LanguageServerDefinition {
     }
 
     public ServerListener getServerListener() {
-        return ServerListener.NO_OP;
+        return ServerListener.DEFAULT;
     }
 }
