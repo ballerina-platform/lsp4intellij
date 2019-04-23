@@ -1,6 +1,6 @@
 # [LSP4IntelliJ](#sp4intellij) - Language Server Protocol Support for the  Jetbrains Plugins
 
-[![Build Status](https://travis-ci.com/ballerina-platform/lsp4intellij.svg?branch=master)](https://travis-ci.com/NipunaRanasinghe/lsp4intellij)
+[![Build Status](https://travis-ci.com/ballerina-platform/lsp4intellij.svg?branch=master)](https://travis-ci.com/ballerina-platform/lsp4intellij)
 [![](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
 [![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)
 
