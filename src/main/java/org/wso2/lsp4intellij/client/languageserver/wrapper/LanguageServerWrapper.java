@@ -22,6 +22,24 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -433,18 +451,26 @@ public class LanguageServerWrapper {
                 OutputStream outputStream = streams.getValue();
                 client = serverDefinition.createLanguageClient();
                 InitializeParams initParams = getInitParams();
+                ExecutorService executorService = Executors.newCachedThreadPool();
+                MessageHandler messageHandler = new MessageHandler(
+                    serverDefinition.getServerListener());
                 if (extManager != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
                     Launcher<? extends LanguageServer> launcher = Launcher
-                            .createLauncher(client, remoteServerInterFace, inputStream, outputStream);
+                        .createLauncher(client, remoteServerInterFace, inputStream, outputStream,
+                            executorService,
+                            messageHandler);
                     languageServer = launcher.getRemoteProxy();
                     launcherFuture = launcher.startListening();
                 } else {
                     Launcher<LanguageServer> launcher = Launcher
-                            .createLauncher(client, LanguageServer.class, inputStream, outputStream);
+                        .createLauncher(client, LanguageServer.class, inputStream, outputStream,
+                            executorService,
+                            messageHandler);
                     languageServer = launcher.getRemoteProxy();
                     launcherFuture = launcher.startListening();
                 }
+                messageHandler.setLanguageServer(languageServer);
 
                 initializeFuture = languageServer.initialize(initParams).thenApply(res -> {
                     initializeResult = res;

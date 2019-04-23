@@ -32,6 +32,7 @@ import com.intellij.openapi.vfs.VirtualFileManager;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.editor.listeners.EditorListener;
@@ -341,5 +342,13 @@ public class IntellijLanguageClient implements ApplicationComponent {
 
     public static Map<String, Set<LanguageServerWrapper>> getProjectToLanguageWrappers() {
         return projectToLanguageWrappers;
+    }
+
+    public static void didChangeConfiguration(DidChangeConfigurationParams params,
+        Project project) {
+        final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient
+            .getProjectToLanguageWrappers()
+            .get(FileUtils.pathToUri(project.getBasePath()));
+        serverWrappers.forEach(s -> s.getRequestManager().didChangeConfiguration(params));
     }
 }

@@ -125,4 +125,8 @@ public class LanguageServerDefinition {
     public StreamConnectionProvider createConnectionProvider(String workingDir) {
         throw new UnsupportedOperationException();
     }
+
+    public ServerListener getServerListener() {
+        return ServerListener.DEFAULT;
+    }
 }
