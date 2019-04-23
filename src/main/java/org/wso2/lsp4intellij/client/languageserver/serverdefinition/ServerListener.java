@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 
 public interface ServerListener {
 
-  public static final ServerListener NO_OP = new ServerListener() {
+  public static final ServerListener DEFAULT = new ServerListener() {
   };
 
 
