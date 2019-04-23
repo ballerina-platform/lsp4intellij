@@ -108,7 +108,6 @@ import org.wso2.lsp4intellij.contributors.inspection.LSPInspection;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
 import org.wso2.lsp4intellij.requests.HoverHandler;
-import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
@@ -138,6 +137,14 @@ import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
+import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
+import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
+import static org.wso2.lsp4intellij.requests.Timeouts.COMPLETION;
+import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
+import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
+import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
+import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
+import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
@@ -404,7 +411,7 @@ public class EditorEventManager {
             return null;
         }
         try {
-            List<? extends Location> definition = request.get(Timeout.DEFINITION_TIMEOUT, TimeUnit.MILLISECONDS);
+            List<? extends Location> definition = request.get(getTimeout(DEFINITION), TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.DEFINITION);
             if (definition != null && !definition.isEmpty()) {
                 return definition.get(0);
@@ -440,7 +447,7 @@ public class EditorEventManager {
         CompletableFuture<List<? extends Location>> request = requestManager.references(params);
         if (request != null) {
             try {
-                List<? extends Location> res = request.get(Timeout.REFERENCES_TIMEOUT, TimeUnit.MILLISECONDS);
+                List<? extends Location> res = request.get(getTimeout(REFERENCES), TimeUnit.MILLISECONDS);
                 wrapper.notifySuccess(Timeouts.REFERENCES);
                 if (res != null && res.size() > 0) {
                     List<VirtualFile> openedEditors = new ArrayList<>();
@@ -549,12 +556,12 @@ public class EditorEventManager {
         CompletableFuture<List<Either<Command, CodeAction>>> future = requestManager.codeAction(params);
         if (future != null) {
             try {
-                List<Either<Command, CodeAction>> res = future.get(Timeout.CODEACTION_TIMEOUT, TimeUnit.MILLISECONDS);
-                wrapper.notifySuccess(Timeouts.CODEACTION);
+                List<Either<Command, CodeAction>> res = future.get(getTimeout(CODEACTION), TimeUnit.MILLISECONDS);
+                wrapper.notifySuccess(CODEACTION);
                 return res;
             } catch (TimeoutException e) {
                 LOG.warn(e);
-                wrapper.notifyFailure(Timeouts.CODEACTION);
+                wrapper.notifyFailure(CODEACTION);
                 return null;
             } catch (InterruptedException | JsonRpcException | ExecutionException e) {
                 LOG.warn(e);
@@ -646,7 +653,8 @@ public class EditorEventManager {
             CompletableFuture<WorkspaceEdit> request = requestManager.rename(params);
             if (request != null) {
                 request.thenAccept(res -> {
-                    WorkspaceEditHandler.applyEdit(res, "Rename to " + renameTo, new ArrayList<>(LSPRenameProcessor.getEditors()));
+                    WorkspaceEditHandler
+                            .applyEdit(res, "Rename to " + renameTo, new ArrayList<>(LSPRenameProcessor.getEditors()));
                     LSPRenameProcessor.clearEditors();
                 });
             }
@@ -684,7 +692,7 @@ public class EditorEventManager {
             return;
         }
         try {
-            Hover hover = request.get(Timeout.HOVER_TIMEOUT, TimeUnit.MILLISECONDS);
+            Hover hover = request.get(getTimeout(HOVER), TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.HOVER);
             if (hover != null) {
                 String string = HoverHandler.getHoverString(hover);
@@ -737,7 +745,7 @@ public class EditorEventManager {
         }
         try {
             Either<List<CompletionItem>, CompletionList> res = request
-                    .get(Timeout.COMPLETION_TIMEOUT, TimeUnit.MILLISECONDS);
+                    .get(getTimeout(COMPLETION), TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.COMPLETION);
             if (res != null) {
                 if (res.getLeft() != null) {
@@ -980,7 +988,7 @@ public class EditorEventManager {
                     return requestManager.executeCommand(params);
                 }).filter(Objects::nonNull).forEach(f -> {
                     try {
-                        f.get(Timeout.EXECUTE_COMMAND_TIMEOUT, TimeUnit.MILLISECONDS);
+                        f.get(getTimeout(EXECUTE_COMMAND), TimeUnit.MILLISECONDS);
                         wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
                     } catch (TimeoutException te) {
                         LOG.warn(te);
@@ -1135,7 +1143,7 @@ public class EditorEventManager {
                     CompletableFuture<List<TextEdit>> future = requestManager.willSaveWaitUntil(params);
                     if (future != null) {
                         try {
-                            List<TextEdit> edits = future.get(Timeout.WILLSAVE_TIMEOUT, TimeUnit.MILLISECONDS);
+                            List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
                             wrapper.notifySuccess(Timeouts.WILLSAVE);
                             if (edits != null) {
                                 invokeLater(() -> applyEdit(edits, "WaitUntil edits"));

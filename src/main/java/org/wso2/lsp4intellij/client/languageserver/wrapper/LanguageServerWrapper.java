@@ -91,7 +91,6 @@ import org.wso2.lsp4intellij.editor.listeners.DocumentListenerImpl;
 import org.wso2.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
-import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
@@ -118,6 +117,9 @@ import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZ
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTING;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
+import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
+import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
+import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
 
 /**
  * The implementation of a LanguageServerWrapper (specific to a serverDefinition and a project)
@@ -215,14 +217,13 @@ public class LanguageServerWrapper {
             try {
                 start();
                 if (initializeFuture != null) {
-                    initializeFuture
-                            .get((capabilitiesAlreadyRequested ? 0 : Timeout.INIT_TIMEOUT), TimeUnit.MILLISECONDS);
-                    notifySuccess(Timeouts.INIT);
+                    initializeFuture.get((capabilitiesAlreadyRequested ? 0 : getTimeout(INIT)), TimeUnit.MILLISECONDS);
+                    notifySuccess(INIT);
                 }
             } catch (TimeoutException e) {
-                notifyFailure(Timeouts.INIT);
+                notifyFailure(INIT);
                 String msg = "LanguageServer for definition\n " + serverDefinition + "\nnot initialized after "
-                        + Timeout.INIT_TIMEOUT / 1000 + "s\nCheck settings";
+                        + getTimeout(INIT) / 1000 + "s\nCheck settings";
                 LOG.warn(msg, e);
                 ApplicationUtils.invokeLater(() -> {
                     if (!alreadyShownTimeout) {
@@ -392,7 +393,7 @@ public class LanguageServerWrapper {
             capabilitiesAlreadyRequested = false;
             if (languageServer != null) {
                 CompletableFuture<Object> shutdown = languageServer.shutdown();
-                shutdown.get(Timeout.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
+                shutdown.get(getTimeout(SHUTDOWN), TimeUnit.MILLISECONDS);
                 notifySuccess(Timeouts.SHUTDOWN);
                 if (exit) {
                     languageServer.exit();
