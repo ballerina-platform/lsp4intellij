@@ -6,10 +6,9 @@ import org.jetbrains.annotations.NotNull;
 
 public interface ServerListener {
 
-  public static final ServerListener DEFAULT = new ServerListener() {
-  };
+    public static final ServerListener DEFAULT = new ServerListener() {
+    };
 
-
-  public default void initilize(@NotNull LanguageServer server, @NotNull InitializeResult result) {
-  }
+    public default void initialize(@NotNull LanguageServer server, @NotNull InitializeResult result) {
+    }
 }
