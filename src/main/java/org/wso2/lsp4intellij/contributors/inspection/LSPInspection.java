@@ -101,9 +101,9 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
                 } else if (severity == DiagnosticSeverity.Warning) {
                     highlightType = ProblemHighlightType.GENERIC_ERROR_OR_WARNING;
                 } else if (severity == DiagnosticSeverity.Information) {
-                    highlightType = ProblemHighlightType.INFORMATION;
+                    highlightType = ProblemHighlightType.WEAK_WARNING;
                 } else if (severity == DiagnosticSeverity.Hint) {
-                    highlightType = ProblemHighlightType.INFORMATION;
+                    highlightType = ProblemHighlightType.WEAK_WARNING;
                 } else {
                     highlightType = null;
                 }
