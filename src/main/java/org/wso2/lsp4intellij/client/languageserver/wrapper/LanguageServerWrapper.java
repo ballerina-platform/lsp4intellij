@@ -76,10 +76,13 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Message;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
+import org.wso2.lsp4intellij.client.DefaultLanguageClient;
 import org.wso2.lsp4intellij.client.LanguageClientImpl;
+import org.wso2.lsp4intellij.client.ServerWrapperBaseClientContext;
 import org.wso2.lsp4intellij.client.languageserver.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
@@ -139,7 +142,7 @@ public class LanguageServerWrapper {
     private volatile boolean alreadyShownCrash = false;
     private volatile ServerStatus status = STOPPED;
     private LanguageServer languageServer;
-    private LanguageClientImpl client;
+    private LanguageClient client;
     private RequestManager requestManager;
     private InitializeResult initializeResult;
     private Future<?> launcherFuture;
@@ -449,13 +452,15 @@ public class LanguageServerWrapper {
                 Pair<InputStream, OutputStream> streams = serverDefinition.start(rootPath);
                 InputStream inputStream = streams.getKey();
                 OutputStream outputStream = streams.getValue();
-                client = serverDefinition.createLanguageClient();
                 InitializeParams initParams = getInitParams();
                 ExecutorService executorService = Executors.newCachedThreadPool();
                 MessageHandler messageHandler = new MessageHandler(
                     serverDefinition.getServerListener());
                 if (extManager != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
+                    client = extManager
+                        .getExtendedClientFor(new ServerWrapperBaseClientContext(this));
+
                     Launcher<? extends LanguageServer> launcher = Launcher
                         .createLauncher(client, remoteServerInterFace, inputStream, outputStream,
                             executorService,
@@ -463,6 +468,7 @@ public class LanguageServerWrapper {
                     languageServer = launcher.getRemoteProxy();
                     launcherFuture = launcher.startListening();
                 } else {
+                    client = new DefaultLanguageClient(new ServerWrapperBaseClientContext(this));
                     Launcher<LanguageServer> launcher = Launcher
                         .createLauncher(client, LanguageServer.class, inputStream, outputStream,
                             executorService,
