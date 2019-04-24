@@ -16,9 +16,11 @@
 package org.wso2.lsp4intellij.editor;
 
 import com.intellij.codeHighlighting.Pass;
+import com.intellij.codeHighlighting.TextEditorHighlightingPass;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.impl.HighlightInfoProcessor;
 import com.intellij.codeInsight.daemon.impl.LocalInspectionsPass;
+import com.intellij.codeInsight.daemon.impl.LocalInspectionsPassFactory;
 import com.intellij.codeInsight.daemon.impl.UpdateHighlightersUtil;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
@@ -193,6 +195,7 @@ public class EditorEventManager {
     protected final List<Diagnostic> diagnostics = new ArrayList<>();
     private final InspectionManagerEx inspectionManagerEx;
     private final List<LocalInspectionToolWrapper> inspectionToolWrapper;
+    private final LocalInspectionsPassFactory inspectionsPassFactory;
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
@@ -227,7 +230,7 @@ public class EditorEventManager {
         // Inspections
         this.inspectionManagerEx = (InspectionManagerEx) InspectionManagerEx.getInstance(project);
         this.inspectionToolWrapper = Collections.singletonList(new LocalInspectionToolWrapper(new LSPInspection()));
-
+        this.inspectionsPassFactory = project.getComponent(LocalInspectionsPassFactory.class);
         this.currentHint = null;
     }
 
@@ -510,33 +513,36 @@ public class EditorEventManager {
                 this.diagnostics.clear();
                 this.diagnostics.addAll(diagnostics);
             }
-            // PsiFile psiFile = computableReadAction(
-            // () -> PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
-            // // Forcefully triggers local inspection tool.
-            // runInspection(psiFile);
+            // Forcefully triggers local inspection tool.
+            runInspection();
         }
     }
 
     /**
      * Triggers local inspections for a given PSI file.
      */
-    private void runInspection(PsiFile psiFile) {
+    private void runInspection() {
+        PsiFile psiFile = computableReadAction(
+                () -> PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
         Document document = PsiDocumentManager.getInstance(project).getDocument(psiFile);
-        if (document != null) {
-            DumbService.getInstance(project).smartInvokeLater(() -> {
-                LocalInspectionsPass localInspectionsPass = new LocalInspectionsPass(psiFile, document, 0,
-                        document.getTextLength(), LocalInspectionsPass.EMPTY_PRIORITY_RANGE, true,
-                        HighlightInfoProcessor.getEmpty());
+        if (document == null) {
+            return;
+        }
+
+        DumbService.getInstance(project).smartInvokeLater(() -> {
+            TextEditorHighlightingPass highlightingPass = this.inspectionsPassFactory
+                    .createMainHighlightingPass(psiFile, document, HighlightInfoProcessor.getEmpty());
+            if (highlightingPass instanceof LocalInspectionsPass) {
                 ProgressManager.getInstance().runProcess(() -> {
-                    localInspectionsPass
+                    ((LocalInspectionsPass) highlightingPass)
                             .doInspectInBatch(inspectionManagerEx.createNewGlobalContext(false), inspectionManagerEx,
                                     inspectionToolWrapper);
                     UpdateHighlightersUtil
                             .setHighlightersToEditor(psiFile.getProject(), document, 0, document.getTextLength(),
-                                    localInspectionsPass.getInfos(), null, Pass.UPDATE_ALL);
+                                    highlightingPass.getInfos(), null, Pass.WHOLE_FILE_LOCAL_INSPECTIONS);
                 }, new EmptyProgressIndicator());
-            });
-        }
+            }
+        });
     }
 
     /**

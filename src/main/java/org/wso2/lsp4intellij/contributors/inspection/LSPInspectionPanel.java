@@ -23,7 +23,7 @@ import javax.swing.*;
 /**
  * The Options panel for the LSP inspection
  */
-public class LSPInspectionPanel extends JPanel {
+class LSPInspectionPanel extends JPanel {
     String label;
     InspectionProfileEntry owner;
 
