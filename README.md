@@ -129,8 +129,10 @@ With plugin.xml containing;
         - Diagnostics and code actions
             ```xml
             <extensions defaultExtensionNs="com.intellij">
-                <inspectionToolProvider implementation="org.wso2.lsp4intellij.contributors.inspection.LSPInspectionProvider"
-                                        id="LSPInspectionProvider"/>
+               <localInspection displayName="LSP"
+                                shortName="LSP"
+                                enabledByDefault="true"
+                                implementationClass="org.wso2.lsp4intellij.contributors.inspection.DummyLSPInspection"/>
             </extensions>
             ```
         - Find Usages 

@@ -16,6 +16,7 @@ version = gitVersionCalculator.calculateVersion("v")
 
 intellij {
     version '2017.3'
+    type 'IC'
     updateSinceUntilBuild false
 }
 
