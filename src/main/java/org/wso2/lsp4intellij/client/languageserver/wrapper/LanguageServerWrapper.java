@@ -22,24 +22,6 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -94,7 +76,6 @@ import org.wso2.lsp4intellij.editor.listeners.DocumentListenerImpl;
 import org.wso2.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
-import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
@@ -113,6 +94,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -121,6 +104,9 @@ import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZ
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTING;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
+import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
+import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
+import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
 
 /**
  * The implementation of a LanguageServerWrapper (specific to a serverDefinition and a project)
@@ -218,14 +204,13 @@ public class LanguageServerWrapper {
             try {
                 start();
                 if (initializeFuture != null) {
-                    initializeFuture
-                            .get((capabilitiesAlreadyRequested ? 0 : Timeout.INIT_TIMEOUT), TimeUnit.MILLISECONDS);
-                    notifySuccess(Timeouts.INIT);
+                    initializeFuture.get((capabilitiesAlreadyRequested ? 0 : getTimeout(INIT)), TimeUnit.MILLISECONDS);
+                    notifySuccess(INIT);
                 }
             } catch (TimeoutException e) {
-                notifyFailure(Timeouts.INIT);
+                notifyFailure(INIT);
                 String msg = "LanguageServer for definition\n " + serverDefinition + "\nnot initialized after "
-                        + Timeout.INIT_TIMEOUT / 1000 + "s\nCheck settings";
+                        + getTimeout(INIT) / 1000 + "s\nCheck settings";
                 LOG.warn(msg, e);
                 ApplicationUtils.invokeLater(() -> {
                     if (!alreadyShownTimeout) {
@@ -395,7 +380,7 @@ public class LanguageServerWrapper {
             capabilitiesAlreadyRequested = false;
             if (languageServer != null) {
                 CompletableFuture<Object> shutdown = languageServer.shutdown();
-                shutdown.get(Timeout.SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
+                shutdown.get(getTimeout(SHUTDOWN), TimeUnit.MILLISECONDS);
                 notifySuccess(Timeouts.SHUTDOWN);
                 if (exit) {
                     languageServer.exit();
@@ -454,25 +439,22 @@ public class LanguageServerWrapper {
                 OutputStream outputStream = streams.getValue();
                 InitializeParams initParams = getInitParams();
                 ExecutorService executorService = Executors.newCachedThreadPool();
-                MessageHandler messageHandler = new MessageHandler(
-                    serverDefinition.getServerListener());
+                MessageHandler messageHandler = new MessageHandler(serverDefinition.getServerListener());
                 if (extManager != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
                     client = extManager
                         .getExtendedClientFor(new ServerWrapperBaseClientContext(this));
 
                     Launcher<? extends LanguageServer> launcher = Launcher
-                        .createLauncher(client, remoteServerInterFace, inputStream, outputStream,
-                            executorService,
-                            messageHandler);
+                            .createLauncher(client, remoteServerInterFace, inputStream, outputStream, executorService,
+                                    messageHandler);
                     languageServer = launcher.getRemoteProxy();
                     launcherFuture = launcher.startListening();
                 } else {
                     client = new DefaultLanguageClient(new ServerWrapperBaseClientContext(this));
                     Launcher<LanguageServer> launcher = Launcher
-                        .createLauncher(client, LanguageServer.class, inputStream, outputStream,
-                            executorService,
-                            messageHandler);
+                            .createLauncher(client, LanguageServer.class, inputStream, outputStream, executorService,
+                                    messageHandler);
                     languageServer = launcher.getRemoteProxy();
                     launcherFuture = launcher.startListening();
                 }

@@ -344,11 +344,10 @@ public class IntellijLanguageClient implements ApplicationComponent {
         return projectToLanguageWrappers;
     }
 
-    public static void didChangeConfiguration(DidChangeConfigurationParams params,
-        Project project) {
-        final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient
-            .getProjectToLanguageWrappers()
-            .get(FileUtils.pathToUri(project.getBasePath()));
+    @SuppressWarnings("unused")
+    public static void didChangeConfiguration(DidChangeConfigurationParams params, Project project) {
+        final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient.getProjectToLanguageWrappers()
+                .get(FileUtils.pathToUri(project.getBasePath()));
         serverWrappers.forEach(s -> s.getRequestManager().didChangeConfiguration(params));
     }
 }
