@@ -324,9 +324,17 @@ public class EditorEventManager {
         createCtrlRange(DocumentUtils.logicalToLSPPos(editor.xyToLogicalPosition(e.getMouseEvent().getPoint()), editor),
                 null);
         final CtrlRangeMarker ctrlRange = getCtrlRange();
+
         if (ctrlRange == null) {
+            int offset = editor.logicalPositionToOffset(editor.xyToLogicalPosition(e.getMouseEvent().getPoint()));
+            LSPReferencesAction referencesAction = (LSPReferencesAction) ActionManager.getInstance()
+                    .getAction("LSPFindUsages");
+            if (referencesAction != null) {
+                referencesAction.forManagerAndOffset(this, offset);
+            }
             return;
         }
+
         Location loc = ctrlRange.location;
         invokeLater(() -> {
             if (editor.isDisposed()) {
@@ -334,10 +342,9 @@ public class EditorEventManager {
             }
             int offset = editor.logicalPositionToOffset(editor.xyToLogicalPosition(e.getMouseEvent().getPoint()));
             String locUri = FileUtils.sanitizeURI(loc.getUri());
-            if (identifier.getUri().equals(locUri)
-                    && DocumentUtils.LSPPosToOffset(editor, loc.getRange().getStart()) <= offset
-                    && offset <= DocumentUtils.LSPPosToOffset(editor, loc.getRange().getEnd())) {
-                // Todo - Add when implementing show references action
+            if (identifier.getUri().equals(locUri) && offset >= DocumentUtils
+                    .LSPPosToOffset(editor, loc.getRange().getStart()) && offset <= DocumentUtils
+                    .LSPPosToOffset(editor, loc.getRange().getEnd())) {
                 LSPReferencesAction referencesAction = (LSPReferencesAction) ActionManager.getInstance()
                         .getAction("LSPFindUsages");
                 if (referencesAction != null) {
@@ -946,23 +953,30 @@ public class EditorEventManager {
         if (version >= this.version) {
             Document document = editor.getDocument();
             if (document.isWritable()) {
-                return () -> {
-                    edits.forEach(edit -> {
-                        String text = edit.getNewText()
-                                .replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
-                        Range range = edit.getRange();
-                        int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
-                        int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
-                        if (text == null || text.equals("")) {
-                            document.deleteString(start, end);
-                        } else if (end - start <= 0 || end < 0) {
+                return () -> edits.forEach(edit -> {
+                    String text = edit.getNewText();
+                    Range range = edit.getRange();
+                    // LSPPosToOffset() will return -1, if any IndexOutOfBoundException is occurred.
+                    int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
+                    int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
+                    if (text == null || text.isEmpty()) {
+                        document.deleteString(start, end);
+                    } else {
+                        text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
+                        if (end >= 0) {
+                            if (end - start <= 0) {
+                                document.insertString(start, text);
+                            } else {
+                                document.replaceString(start, end, text);
+                            }
+                        } else if (start == 0) {
+                            document.setText(text);
+                        } else if (start > 0) {
                             document.insertString(start, text);
-                        } else {
-                            document.replaceString(start, end, text);
                         }
-                    });
+                    }
                     saveDocument();
-                };
+                });
             } else {
                 LOG.warn("Document is not writable");
                 return null;
@@ -1009,7 +1023,7 @@ public class EditorEventManager {
     }
 
     private void saveDocument() {
-        invokeLater(() -> writeAction(() -> FileDocumentManager.getInstance().saveDocument(editor.getDocument())));
+        FileDocumentManager.getInstance().saveDocument(editor.getDocument());
     }
 
     /**
