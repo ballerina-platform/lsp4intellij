@@ -63,7 +63,6 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.DefaultLanguageClient;
-import org.wso2.lsp4intellij.client.LanguageClientImpl;
 import org.wso2.lsp4intellij.client.ServerWrapperBaseClientContext;
 import org.wso2.lsp4intellij.client.languageserver.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
@@ -442,8 +441,7 @@ public class LanguageServerWrapper {
                 MessageHandler messageHandler = new MessageHandler(serverDefinition.getServerListener());
                 if (extManager != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
-                    client = extManager
-                        .getExtendedClientFor(new ServerWrapperBaseClientContext(this));
+                    client = extManager.getExtendedClientFor(new ServerWrapperBaseClientContext(this));
 
                     Launcher<? extends LanguageServer> launcher = Launcher
                             .createLauncher(client, remoteServerInterFace, inputStream, outputStream, executorService,

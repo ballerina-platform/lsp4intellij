@@ -18,7 +18,6 @@ package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 import com.intellij.openapi.diagnostic.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.wso2.lsp4intellij.client.LanguageClientImpl;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 
 import java.io.IOException;
@@ -91,13 +90,6 @@ public class LanguageServerDefinition {
         } else {
             LOG.warn("No connection for workingDir " + workingDir + " and ext " + ext);
         }
-    }
-
-    /**
-     * @return the LanguageClient for this LanguageServer
-     */
-    public LanguageClientImpl createLanguageClient() {
-        return new LanguageClientImpl();
     }
 
     public Object getInitializationOptions(URI uri) {
