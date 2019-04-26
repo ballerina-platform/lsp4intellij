@@ -807,9 +807,9 @@ public class EditorEventManager {
         LookupElementBuilder lookupElementBuilder;
 
         if (insertText != null && !insertText.equals("")) {
-            lookupElementBuilder = LookupElementBuilder.create(insertText);
+            lookupElementBuilder = LookupElementBuilder.create(insertText, "");
         } else if (label != null && !label.equals("")) {
-            lookupElementBuilder = LookupElementBuilder.create(label);
+            lookupElementBuilder = LookupElementBuilder.create(label, "");
         } else {
             return LookupElementBuilder.create((String) null);
         }
@@ -837,7 +837,8 @@ public class EditorEventManager {
         }
 
         return lookupElementBuilder.withPresentableText(presentableText).withTypeText(tailText, true).withIcon(icon)
-                .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
+            .withLookupString(presentableText)
+            .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
     }
 
     /**
@@ -964,7 +965,7 @@ public class EditorEventManager {
                     } else {
                         text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
                         if (end >= 0) {
-                            if (end - start <= 0) {
+                            if (end - start <= 0 || end - start != text.length()) {
                                 document.insertString(start, text);
                             } else {
                                 document.replaceString(start, end, text);
@@ -974,6 +975,7 @@ public class EditorEventManager {
                         } else if (start > 0) {
                             document.insertString(start, text);
                         }
+                        editor.getCaretModel().moveToOffset(start + text.length());
                     }
                     saveDocument();
                 });
