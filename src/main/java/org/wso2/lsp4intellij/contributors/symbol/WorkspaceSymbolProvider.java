@@ -18,6 +18,7 @@ package org.wso2.lsp4intellij.contributors.symbol;
 import com.intellij.navigation.NavigationItem;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -51,7 +52,7 @@ public class WorkspaceSymbolProvider {
   public List<NavigationItem> workspaceSymbols(String name, Project project) {
     final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient
         .getProjectToLanguageWrappers()
-        .get(FileUtils.pathToUri(project.getBasePath()));
+        .getOrDefault(FileUtils.pathToUri(project.getBasePath()), Collections.emptySet());
 
     final WorkspaceSymbolParams symbolParams = new WorkspaceSymbolParams(name);
     return serverWrappers.stream().filter(s -> s.getStatus() == ServerStatus.INITIALIZED)
