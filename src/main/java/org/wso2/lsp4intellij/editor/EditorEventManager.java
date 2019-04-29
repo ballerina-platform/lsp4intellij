@@ -15,6 +15,28 @@
  */
 package org.wso2.lsp4intellij.editor;
 
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.HOVER_TIME_THRES;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.POPUP_THRES;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.SCHEDULE_THRES;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
+import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
+import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
+import static org.wso2.lsp4intellij.requests.Timeouts.COMPLETION;
+import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
+import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
+import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
+import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
+import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
+
+import com.google.common.base.Strings;
 import com.intellij.codeHighlighting.Pass;
 import com.intellij.codeHighlighting.TextEditorHighlightingPass;
 import com.intellij.codeInsight.completion.InsertionContext;
@@ -63,6 +85,22 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
+import java.awt.Cursor;
+import java.awt.Point;
+import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import javax.swing.Icon;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -115,43 +153,6 @@ import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
-
-import java.awt.*;
-import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import javax.swing.*;
-
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.HOVER_TIME_THRES;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.POPUP_THRES;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.SCHEDULE_THRES;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
-import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
-import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
-import static org.wso2.lsp4intellij.requests.Timeouts.COMPLETION;
-import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
-import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
-import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
-import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
-import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
 
 /**
  * Class handling events related to an Editor (a Document)
@@ -806,10 +807,12 @@ public class EditorEventManager {
         Icon icon = iconProvider.getCompletionIcon(kind);
         LookupElementBuilder lookupElementBuilder;
 
-        if (insertText != null && !insertText.equals("")) {
-            lookupElementBuilder = LookupElementBuilder.create(insertText, "");
-        } else if (label != null && !label.equals("")) {
+        if (!Strings.isNullOrEmpty(label)) {
             lookupElementBuilder = LookupElementBuilder.create(label, "");
+        } else if (textEdit != null) {
+            lookupElementBuilder = LookupElementBuilder.create(textEdit.getNewText(), "");
+        } else if (!Strings.isNullOrEmpty(insertText)) {
+            lookupElementBuilder = LookupElementBuilder.create(insertText, "");
         } else {
             return LookupElementBuilder.create((String) null);
         }
@@ -965,7 +968,7 @@ public class EditorEventManager {
                     } else {
                         text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
                         if (end >= 0) {
-                            if (end - start <= 0 || end - start != text.length()) {
+                            if (end - start <= 0) {
                                 document.insertString(start, text);
                             } else {
                                 document.replaceString(start, end, text);
