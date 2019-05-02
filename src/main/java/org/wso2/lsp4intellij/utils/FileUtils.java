@@ -27,6 +27,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
+import com.intellij.testFramework.LightVirtualFileBase;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.jetbrains.annotations.Nullable;
 
@@ -224,4 +225,10 @@ public class FileUtils {
         WINDOWS, UNIX
     }
 
+    /**
+     * Checks if the file instance is supported by this LS client library.
+     */
+    public static boolean isFileSupported(VirtualFile file) {
+        return !(file instanceof LightVirtualFileBase);
+    }
 }
