@@ -28,14 +28,13 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
 import com.intellij.testFramework.LightVirtualFileBase;
-import org.eclipse.lsp4j.TextDocumentIdentifier;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Various file / uri related methods
@@ -229,6 +228,21 @@ public class FileUtils {
      * Checks if the file instance is supported by this LS client library.
      */
     public static boolean isFileSupported(VirtualFile file) {
-        return !(file instanceof LightVirtualFileBase);
+        if (file instanceof LightVirtualFileBase) {
+            return false;
+        }
+
+        if (file.getUrl().startsWith("jar:")) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Checks if the file in editor is supported by this LS client library.
+     */
+    public static boolean isEditorSupported(Editor editor) {
+        return isFileSupported(FileDocumentManager.getInstance().getFile(editor.getDocument()));
     }
 }
