@@ -52,6 +52,10 @@ class LSPCompletionContributor extends CompletionContributor {
 
     @Override
     public boolean invokeAutoPopup(@NotNull PsiElement position, char typeChar) {
+        if (!FileUtils.isFileSupported(position.getContainingFile().getVirtualFile())) {
+            return false;
+        }
+
         String uri = FileUtils.VFSToURI(position.getContainingFile().getVirtualFile());
         EditorEventManager manager = EditorEventManagerBase.forUri(uri);
         if (manager == null) {
