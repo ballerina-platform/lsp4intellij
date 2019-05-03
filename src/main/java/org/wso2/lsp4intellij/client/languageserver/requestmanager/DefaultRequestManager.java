@@ -88,10 +88,10 @@ public class DefaultRequestManager implements RequestManager {
 
     private Logger LOG = Logger.getInstance(DefaultRequestManager.class);
 
-    public LanguageServerWrapper wrapper;
-    public LanguageServer server;
-    public LanguageClient client;
-    public ServerCapabilities serverCapabilities;
+    private LanguageServerWrapper wrapper;
+    private LanguageServer server;
+    private LanguageClient client;
+    private ServerCapabilities serverCapabilities;
     private TextDocumentSyncOptions textDocumentOptions;
     private WorkspaceService workspaceService;
     private TextDocumentService textDocumentService;
@@ -109,6 +109,22 @@ public class DefaultRequestManager implements RequestManager {
                 null;
         workspaceService = server.getWorkspaceService();
         textDocumentService = server.getTextDocumentService();
+    }
+
+    public LanguageServerWrapper getWrapper() {
+        return wrapper;
+    }
+
+    public LanguageClient getClient() {
+        return client;
+    }
+
+    public LanguageServer getServer() {
+        return server;
+    }
+
+    public ServerCapabilities getServerCapabilities() {
+        return serverCapabilities;
     }
 
     //Client

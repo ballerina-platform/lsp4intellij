@@ -172,9 +172,9 @@ public class EditorEventManager {
     public Editor editor;
     public LanguageServerWrapper wrapper;
     public List<String> completionTriggers;
-    public Project project;
-    public RequestManager requestManager;
-    public TextDocumentIdentifier identifier;
+    private Project project;
+    private RequestManager requestManager;
+    private TextDocumentIdentifier identifier;
     private ServerOptions serverOptions;
     private DocumentListener documentListener;
     private EditorMouseListener mouseListener;
@@ -232,6 +232,18 @@ public class EditorEventManager {
         this.inspectionToolWrapper = Collections.singletonList(new LocalInspectionToolWrapper(new LSPInspection()));
         this.inspectionsPassFactory = project.getComponent(LocalInspectionsPassFactory.class);
         this.currentHint = null;
+    }
+
+    public Project getProject() {
+        return project;
+    }
+
+    public RequestManager getRequestManager() {
+        return requestManager;
+    }
+
+    public TextDocumentIdentifier getIdentifier() {
+        return identifier;
     }
 
     /**
