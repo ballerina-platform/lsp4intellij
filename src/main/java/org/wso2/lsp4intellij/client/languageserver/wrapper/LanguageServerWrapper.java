@@ -15,6 +15,14 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.wrapper;
 
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZED;
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTING;
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
+import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
+import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
+import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
+
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditor;
@@ -22,6 +30,24 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -79,33 +105,6 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZED;
-import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
-import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTING;
-import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
-import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
-import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
-import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
 
 /**
  * The implementation of a LanguageServerWrapper (specific to a serverDefinition and a project)
@@ -272,7 +271,13 @@ public class LanguageServerWrapper {
     public void connect(Editor editor) {
         if (editor == null) {
             LOG.warn("editor is null for " + serverDefinition);
+            return;
         }
+        if (!FileUtils.isEditorSupported(editor)) {
+            LOG.debug("Editor hosts a unsupported file type by the LS library.");
+            return;
+        }
+
         String uri = FileUtils.editorToURIString(editor);
         uriToLanguageServerWrapper.put(new MutablePair<>(uri, FileUtils.editorToProjectFolderUri(editor)), this);
         if (connectedEditors.containsKey(uri)) {
