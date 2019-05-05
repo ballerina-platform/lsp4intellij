@@ -34,6 +34,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -228,6 +229,10 @@ public class FileUtils {
      * Checks if the file instance is supported by this LS client library.
      */
     public static boolean isFileSupported(VirtualFile file) {
+        if (file == null) {
+            return false;
+        }
+
         if (file instanceof LightVirtualFileBase) {
             return false;
         }
@@ -242,7 +247,7 @@ public class FileUtils {
     /**
      * Checks if the file in editor is supported by this LS client library.
      */
-    public static boolean isEditorSupported(Editor editor) {
+    public static boolean isEditorSupported(@NotNull Editor editor) {
         return isFileSupported(FileDocumentManager.getInstance().getFile(editor.getDocument()));
     }
 }
