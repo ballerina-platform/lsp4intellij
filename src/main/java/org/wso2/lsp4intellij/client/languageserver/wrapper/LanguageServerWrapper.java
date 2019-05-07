@@ -357,12 +357,12 @@ public class LanguageServerWrapper {
      * @param uri The uri of the editor
      */
     public void disconnect(String uri) {
-        connectedEditors.remove(uri);
-        connectedEditors.forEach((key, value) -> {
+        EditorEventManager manager = connectedEditors.remove(uri);
+        if (manager != null) {
+            manager.removeListeners();
+            manager.documentClosed();
             uriToLanguageServerWrapper.remove(new ImmutablePair<>(uri, FileUtils.projectToUri(project)));
-            value.removeListeners();
-            value.documentClosed();
-        });
+        }
 
         if (connectedEditors.isEmpty()) {
             stop(true);

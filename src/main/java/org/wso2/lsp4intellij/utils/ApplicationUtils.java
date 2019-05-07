@@ -17,15 +17,32 @@ package org.wso2.lsp4intellij.utils;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.util.Computable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ApplicationUtils {
+
+    private static final ExecutorService EXECUTOR_SERVICE;
+
+    static {
+        // Single threaded executor is used to simulate a behavior of async sequencial execution.
+        // All runnables are executed asyncly but they are executed in the order of their submission.
+        EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                EXECUTOR_SERVICE.shutdownNow();
+            }
+        });
+    }
+
 
     static public void invokeLater(Runnable runnable) {
         ApplicationManager.getApplication().invokeLater(runnable);
     }
 
     static public void pool(Runnable runnable) {
-        ApplicationManager.getApplication().executeOnPooledThread(runnable);
+        EXECUTOR_SERVICE.submit(runnable);
     }
 
     static public <T> T computableReadAction(Computable<T> computable) {
