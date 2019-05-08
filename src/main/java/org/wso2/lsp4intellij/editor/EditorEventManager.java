@@ -85,6 +85,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
+
 import java.awt.Cursor;
 import java.awt.Point;
 import java.io.File;
@@ -101,6 +102,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.swing.Icon;
+
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -200,8 +202,8 @@ public class EditorEventManager {
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
-            EditorMouseMotionListener mouseMotionListener, RequestManager requestManager, ServerOptions serverOptions,
-            LanguageServerWrapper wrapper) {
+                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager, ServerOptions serverOptions,
+                              LanguageServerWrapper wrapper) {
 
         this.editor = editor;
         this.documentListener = documentListener;
@@ -778,8 +780,9 @@ public class EditorEventManager {
         } catch (JsonRpcException | ExecutionException | InterruptedException e) {
             LOG.warn(e);
             wrapper.crashed(e);
+        } finally {
+            return lookupItems;
         }
-        return lookupItems;
     }
 
     /**
@@ -807,12 +810,12 @@ public class EditorEventManager {
         Icon icon = iconProvider.getCompletionIcon(kind);
         LookupElementBuilder lookupElementBuilder;
 
-        if (!Strings.isNullOrEmpty(label)) {
-            lookupElementBuilder = LookupElementBuilder.create(label, "");
-        } else if (textEdit != null) {
-            lookupElementBuilder = LookupElementBuilder.create(textEdit.getNewText(), "");
+        if (textEdit != null) {
+            lookupElementBuilder = LookupElementBuilder.create("");
         } else if (!Strings.isNullOrEmpty(insertText)) {
-            lookupElementBuilder = LookupElementBuilder.create(insertText, "");
+            lookupElementBuilder = LookupElementBuilder.create(insertText);
+        } else if (!Strings.isNullOrEmpty(label)) {
+            lookupElementBuilder = LookupElementBuilder.create(label);
         } else {
             return LookupElementBuilder.create((String) null);
         }
@@ -840,8 +843,7 @@ public class EditorEventManager {
         }
 
         return lookupElementBuilder.withPresentableText(presentableText).withTypeText(tailText, true).withIcon(icon)
-            .withLookupString(presentableText)
-            .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
+                .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
     }
 
     /**
@@ -898,7 +900,7 @@ public class EditorEventManager {
     }
 
     private LookupElementBuilder setInsertHandler(LookupElementBuilder builder, List<TextEdit> edits, Command command,
-            String label) {
+                                                  String label) {
         return builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
             context.commitDocument();
             invokeLater(() -> {
