@@ -116,6 +116,7 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
+import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import java.net.URI;
@@ -130,7 +131,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import javax.swing.*;
 
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.HOVER_TIME_THRES;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.POPUP_THRES;
