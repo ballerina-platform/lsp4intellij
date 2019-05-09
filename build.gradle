@@ -5,6 +5,7 @@ plugins {
     id 'net.researchgate.release' version '2.6.0'
     id "com.gradle.plugin-publish" version "0.10.1"
     id 'signing'
+    id 'maven'
 }
 
 repositories {
@@ -12,12 +13,12 @@ repositories {
 }
 
 group = "org.wso2.lsp4intellij"
-version = gitVersionCalculator.calculateVersion("v")
+version = "8.0.1-SNAPSHOT"
 
 intellij {
-    version '2017.3'
     type 'IC'
     updateSinceUntilBuild false
+    localPath '/opt/ideaIC-2019'
 }
 
 dependencies {
