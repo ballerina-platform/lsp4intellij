@@ -20,6 +20,7 @@ import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Position;
@@ -52,7 +53,12 @@ class LSPCompletionContributor extends CompletionContributor {
 
     @Override
     public boolean invokeAutoPopup(@NotNull PsiElement position, char typeChar) {
-        String uri = FileUtils.VFSToURI(position.getContainingFile().getVirtualFile());
+        final VirtualFile file = position.getContainingFile().getVirtualFile();
+        if (!FileUtils.isFileSupported(file)) {
+            return false;
+        }
+
+        String uri = FileUtils.VFSToURI(file);
         EditorEventManager manager = EditorEventManagerBase.forUri(uri);
         if (manager == null) {
             return false;

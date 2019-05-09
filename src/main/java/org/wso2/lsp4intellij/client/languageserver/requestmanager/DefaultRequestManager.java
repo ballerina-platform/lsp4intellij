@@ -87,13 +87,14 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultRequestManager implements RequestManager {
 
     private Logger LOG = Logger.getInstance(DefaultRequestManager.class);
-    private TextDocumentSyncOptions textDocumentOptions;
-    private WorkspaceService workspaceService;
-    private TextDocumentService textDocumentService;
+
     private LanguageServerWrapper wrapper;
     private LanguageServer server;
     private LanguageClient client;
     private ServerCapabilities serverCapabilities;
+    private TextDocumentSyncOptions textDocumentOptions;
+    private WorkspaceService workspaceService;
+    private TextDocumentService textDocumentService;
 
     public DefaultRequestManager(LanguageServerWrapper wrapper, LanguageServer server, LanguageClient client,
             ServerCapabilities serverCapabilities) {
@@ -108,6 +109,22 @@ public class DefaultRequestManager implements RequestManager {
                 null;
         workspaceService = server.getWorkspaceService();
         textDocumentService = server.getTextDocumentService();
+    }
+
+    public LanguageServerWrapper getWrapper() {
+        return wrapper;
+    }
+
+    public LanguageClient getClient() {
+        return client;
+    }
+
+    public LanguageServer getServer() {
+        return server;
+    }
+
+    public ServerCapabilities getServerCapabilities() {
+        return serverCapabilities;
     }
 
     //Client
@@ -635,7 +652,7 @@ public class DefaultRequestManager implements RequestManager {
         return null;
     }
 
-    private boolean checkStatus() {
+    public boolean checkStatus() {
         return wrapper.getStatus() == ServerStatus.INITIALIZED;
     }
 
