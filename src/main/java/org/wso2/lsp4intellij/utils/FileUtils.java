@@ -24,18 +24,27 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.search.FilenameIndex;
+import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.testFramework.LightVirtualFileBase;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import org.eclipse.lsp4j.TextDocumentIdentifier;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 
 /**
  * Various file / uri related methods
@@ -249,5 +258,22 @@ public class FileUtils {
      */
     public static boolean isEditorSupported(@NotNull Editor editor) {
         return isFileSupported(FileDocumentManager.getInstance().getFile(editor.getDocument()));
+    }
+
+    /**
+     * Find projects which contains the given file. This search among all open projects.
+     */
+    @NotNull
+    public static Set<Project> findProjectsFor(@NotNull VirtualFile file) {
+        return Arrays.stream(ProjectManager.getInstance().getOpenProjects())
+                .flatMap(p -> Arrays.stream(searchFiles(file, p)))
+                .filter(f -> f.getVirtualFile().getPath().equals(file.getPath()))
+                .map(f -> f.getProject())
+                .collect(Collectors.toSet());
+    }
+
+    private static PsiFile[] searchFiles(VirtualFile file, Project p) {
+        return computableReadAction(() ->
+                FilenameIndex.getFilesByName(p, file.getName(), GlobalSearchScope.projectScope(p)));
     }
 }

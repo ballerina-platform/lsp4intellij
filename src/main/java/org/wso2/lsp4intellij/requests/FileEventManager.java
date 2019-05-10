@@ -66,9 +66,11 @@ public class FileEventManager {
             EditorEventManager manager = EditorEventManagerBase.forUri(uri);
             if (manager != null) {
                 manager.documentSaved();
-                changedConfiguration(uri, FileChangeType.Changed, manager.wrapper);
+                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
+                        FileUtils.projectToUri(p), FileChangeType.Changed, manager.wrapper));
             } else {
-                changedConfiguration(uri, FileChangeType.Changed);
+                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
+                        FileUtils.projectToUri(p), FileChangeType.Changed));
             }
         }
     }
@@ -90,21 +92,22 @@ public class FileEventManager {
     public static void fileDeleted(VirtualFile file) {
         String uri = FileUtils.VFSToURI(file);
         if (uri != null) {
-            changedConfiguration(uri, FileChangeType.Deleted);
+            FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
+                    FileUtils.projectToUri(p), FileChangeType.Deleted));
         }
     }
 
-    private static void changedConfiguration(String uri, FileChangeType typ) {
-        changedConfiguration(uri, typ, null);
+    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ) {
+        changedConfiguration(uri, projectUri, typ, null);
     }
 
-    private static void changedConfiguration(String uri, FileChangeType typ, LanguageServerWrapper wrapper) {
+    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ, LanguageServerWrapper wrapper) {
 
         ApplicationUtils.pool(() -> {
             List<FileEvent> event = new ArrayList<>();
             event.add(new FileEvent(uri, typ));
             DidChangeWatchedFilesParams params = new DidChangeWatchedFilesParams(event);
-            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers();
+            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(projectUri);
             if (wrappers != null) {
                 for (LanguageServerWrapper w : wrappers) {
                     if (w != wrapper && w.getRequestManager() != null
@@ -134,7 +137,8 @@ public class FileEventManager {
     public static void fileCreated(VirtualFile file) {
         String uri = FileUtils.VFSToURI(file);
         if (uri != null) {
-            changedConfiguration(uri, FileChangeType.Created);
+            FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
+                    FileUtils.projectToUri(p), FileChangeType.Created));
         }
     }
 }
