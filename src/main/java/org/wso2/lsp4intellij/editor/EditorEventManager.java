@@ -833,9 +833,6 @@ public class EditorEventManager {
         if (textEdit != null) {
             if (addTextEdits != null) {
                 lookupElementBuilder = setInsertHandler(lookupElementBuilder, addTextEdits, command, label);
-            } else {
-                lookupElementBuilder = setInsertHandler(lookupElementBuilder, Collections.emptyList(),
-                        command, label);
             }
         } else if (addTextEdits != null) {
             lookupElementBuilder = setInsertHandler(lookupElementBuilder, addTextEdits, command, label);
