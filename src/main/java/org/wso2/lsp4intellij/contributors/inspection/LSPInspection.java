@@ -57,7 +57,8 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
             boolean isOnTheFly) {
 
         VirtualFile virtualFile = file.getVirtualFile();
-        if (IntellijLanguageClient.isExtensionSupported(virtualFile.getExtension())) {
+        if (FileUtils.isFileSupported(virtualFile) &&
+                IntellijLanguageClient.isExtensionSupported(virtualFile.getExtension())) {
             String uri = FileUtils.VFSToURI(virtualFile);
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
             if (eventManager != null) {

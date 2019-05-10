@@ -228,7 +228,7 @@ public class FileUtils {
     /**
      * Checks if the file instance is supported by this LS client library.
      */
-    public static boolean isFileSupported(VirtualFile file) {
+    public static boolean isFileSupported(@Nullable VirtualFile file) {
         if (file == null) {
             return false;
         }
