@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.editor;
 
+import com.google.common.base.Strings;
 import com.intellij.codeHighlighting.Pass;
 import com.intellij.codeHighlighting.TextEditorHighlightingPass;
 import com.intellij.codeInsight.completion.InsertionContext;
@@ -199,8 +200,8 @@ public class EditorEventManager {
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
-            EditorMouseMotionListener mouseMotionListener, RequestManager requestManager, ServerOptions serverOptions,
-            LanguageServerWrapper wrapper) {
+                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager, ServerOptions serverOptions,
+                              LanguageServerWrapper wrapper) {
 
         this.editor = editor;
         this.documentListener = documentListener;
@@ -789,8 +790,9 @@ public class EditorEventManager {
         } catch (JsonRpcException | ExecutionException | InterruptedException e) {
             LOG.warn(e);
             wrapper.crashed(e);
+        } finally {
+            return lookupItems;
         }
-        return lookupItems;
     }
 
     /**
@@ -818,9 +820,11 @@ public class EditorEventManager {
         Icon icon = iconProvider.getCompletionIcon(kind);
         LookupElementBuilder lookupElementBuilder;
 
-        if (insertText != null && !insertText.equals("")) {
+        if (textEdit != null) {
+            lookupElementBuilder = LookupElementBuilder.create(textEdit.getNewText());
+        } else if (!Strings.isNullOrEmpty(insertText)) {
             lookupElementBuilder = LookupElementBuilder.create(insertText);
-        } else if (label != null && !label.equals("")) {
+        } else if (!Strings.isNullOrEmpty(label)) {
             lookupElementBuilder = LookupElementBuilder.create(label);
         } else {
             return LookupElementBuilder.create((String) null);
@@ -828,11 +832,7 @@ public class EditorEventManager {
 
         if (textEdit != null) {
             if (addTextEdits != null) {
-                addTextEdits.add(textEdit);
                 lookupElementBuilder = setInsertHandler(lookupElementBuilder, addTextEdits, command, label);
-            } else {
-                lookupElementBuilder = setInsertHandler(lookupElementBuilder, Collections.singletonList(textEdit),
-                        command, label);
             }
         } else if (addTextEdits != null) {
             lookupElementBuilder = setInsertHandler(lookupElementBuilder, addTextEdits, command, label);
@@ -906,7 +906,7 @@ public class EditorEventManager {
     }
 
     private LookupElementBuilder setInsertHandler(LookupElementBuilder builder, List<TextEdit> edits, Command command,
-            String label) {
+                                                  String label) {
         return builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
             context.commitDocument();
             invokeLater(() -> {
@@ -986,6 +986,7 @@ public class EditorEventManager {
                         } else if (start > 0) {
                             document.insertString(start, text);
                         }
+                        editor.getCaretModel().moveToOffset(start + text.length());
                     }
                     saveDocument();
                 });
