@@ -15,8 +15,10 @@
  */
 package org.wso2.lsp4intellij.client;
 
+import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 
 /**
@@ -32,4 +34,16 @@ public interface ClientContext {
      */
     @Nullable
     EditorEventManager getEditorEventManagerFor(@NotNull String documentUri);
+
+    /**
+     * Returns the {@link Project} associated with the LanuageClient.
+     */
+    @NotNull
+    Project getProject();
+
+    /**
+     * Returns the {@link RequestManager} associated with the Language Server Connection.
+     */
+    @NotNull
+    RequestManager getRequestManager();
 }
