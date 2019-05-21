@@ -29,18 +29,6 @@ import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -55,6 +43,20 @@ import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
+
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public class IntellijLanguageClient implements ApplicationComponent {
 
@@ -117,12 +119,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
     /**
      * @return All instantiated ServerWrappers
      */
-    public static Set<LanguageServerWrapper> getAllServerWrappers() {
-        Set<LanguageServerWrapper> result = new HashSet<>();
-        for (Set<LanguageServerWrapper> wrappers : projectToLanguageWrappers.values()) {
-            result.addAll(wrappers);
-        }
-        return result;
+    public static Set<LanguageServerWrapper> getAllServerWrappers(String projectUri) {
+        return projectToLanguageWrappers.getOrDefault(projectUri, Collections.emptySet());
     }
 
     /**
