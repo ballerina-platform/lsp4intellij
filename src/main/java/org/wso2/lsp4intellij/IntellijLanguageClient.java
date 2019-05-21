@@ -46,6 +46,7 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -118,12 +119,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
     /**
      * @return All instantiated ServerWrappers
      */
-    public static Set<LanguageServerWrapper> getAllServerWrappers() {
-        Set<LanguageServerWrapper> result = new HashSet<>();
-        for (Set<LanguageServerWrapper> wrappers : projectToLanguageWrappers.values()) {
-            result.addAll(wrappers);
-        }
-        return result;
+    public static Set<LanguageServerWrapper> getAllServerWrappers(String projectUri) {
+        return projectToLanguageWrappers.getOrDefault(projectUri, Collections.emptySet());
     }
 
     /**
