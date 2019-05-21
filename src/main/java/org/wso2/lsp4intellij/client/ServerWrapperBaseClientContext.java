@@ -15,6 +15,9 @@
  */
 package org.wso2.lsp4intellij.client;
 
+import com.intellij.openapi.project.Project;
+import org.jetbrains.annotations.NotNull;
+import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 
@@ -29,5 +32,16 @@ public class ServerWrapperBaseClientContext implements ClientContext {
     @Override
     public EditorEventManager getEditorEventManagerFor(String documentUri) {
         return wrapper.getEditorManagerFor(documentUri);
+    }
+
+    @Override
+    public Project getProject() {
+        return wrapper.getProject();
+    }
+
+    @NotNull
+    @Override
+    public RequestManager getRequestManager() {
+        return wrapper.getRequestManager();
     }
 }
