@@ -247,6 +247,10 @@ public class EditorEventManager {
         return identifier;
     }
 
+    public DidChangeTextDocumentParams getChangesParams() {
+        return changesParams;
+    }
+
     /**
      * Calls onTypeFormatting or signatureHelp if the character typed was a trigger character
      *
