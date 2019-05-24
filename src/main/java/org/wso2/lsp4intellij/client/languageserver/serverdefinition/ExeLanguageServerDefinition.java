@@ -16,6 +16,7 @@
 package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 /**
  * Class representing server definitions corresponding to an executable file This class is basically a more convenient
@@ -43,7 +44,7 @@ public class ExeLanguageServerDefinition extends CommandServerDefinition {
      */
     public ExeLanguageServerDefinition(String ext, String path, String[] args) {
         this.ext = ext;
-        this.id = ext;
+        this.languageIds = Collections.emptyMap();
         this.path = path;
         this.args = args;
         this.command = getCommand();
