@@ -17,11 +17,18 @@ package org.wso2.lsp4intellij.contributors;
 
 import com.intellij.codeInsight.completion.CompletionContributor;
 import com.intellij.codeInsight.completion.CompletionParameters;
+import com.intellij.codeInsight.completion.CompletionProvider;
 import com.intellij.codeInsight.completion.CompletionResultSet;
+import com.intellij.codeInsight.completion.CompletionType;
+import com.intellij.openapi.application.ex.ApplicationUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.progress.ProgressIndicatorProvider;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.patterns.ElementPattern;
+import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.PsiElement;
+import com.intellij.util.ProcessingContext;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Position;
 import org.jetbrains.annotations.NotNull;
@@ -34,21 +41,40 @@ import org.wso2.lsp4intellij.utils.FileUtils;
  * The completion contributor for the LSP
  */
 class LSPCompletionContributor extends CompletionContributor {
-    private Logger LOG = Logger.getInstance(LSPCompletionContributor.class);
+    private static final Logger LOG = Logger.getInstance(LSPCompletionContributor.class);
 
-    @Override
-    public void fillCompletionVariants(CompletionParameters parameters, CompletionResultSet result) {
-        Editor editor = parameters.getEditor();
-        int offset = parameters.getOffset();
-        Position serverPos = DocumentUtils.offsetToLSPPos(editor, offset);
-        Iterable<CompletionItem> toAdd;
+    public LSPCompletionContributor() {
+        this.extend(CompletionType.BASIC, usePattern(), new CompletionProvider<CompletionParameters>() {
+            @Override
+            protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
+                try {
+                    ApplicationUtil.runWithCheckCanceled(() -> {
+                        Editor editor = parameters.getEditor();
+                        int offset = parameters.getOffset();
+                        Position serverPos = DocumentUtils.offsetToLSPPos(editor, offset);
+                        Iterable<CompletionItem> toAdd;
 
-        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
+                        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
 
-        if (manager != null) {
-            result.addAllElements(manager.completion(serverPos));
-        }
-        super.fillCompletionVariants(parameters, result);
+                        if (manager != null) {
+                            result.addAllElements(manager.completion(serverPos));
+                        }
+                        return null;
+                    }, ProgressIndicatorProvider.getGlobalProgressIndicator());
+                } catch (Exception e) {
+                    LOG.warn("LSP Completions ended with an error", e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Override this methods and provide a {@link ElementPattern} so that the contributor is
+     * triggered at a location that the pattern is matching. The default pattern which this method
+     * returns is <b>Always True</b>
+     */
+    protected ElementPattern<? extends PsiElement> usePattern() {
+        return PlatformPatterns.not(PlatformPatterns.alwaysFalse());
     }
 
     @Override
