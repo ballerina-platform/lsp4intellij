@@ -18,6 +18,8 @@ package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 import org.wso2.lsp4intellij.utils.Utils;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * A class representing a raw command to launch a languageserver
@@ -35,13 +37,13 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
     /**
      * Creates new instance with the given languag id which is different from the file extension.
      *
-     * @param ext     The extension
-     * @param id      The language server id
-     * @param command The command to run
+     * @param ext         The extension
+     * @param languageIds The language server ids mapping to extension(s).
+     * @param command     The command to run
      */
-    public RawCommandServerDefinition(String ext, String id, String[] command) {
+    public RawCommandServerDefinition(String ext, Map<String, String> languageIds, String[] command) {
         this.ext = ext;
-        this.id = id;
+        this.languageIds = languageIds;
         this.command = command;
         this.typ = "rawCommand";
         this.presentableTyp = "Raw command";
@@ -54,7 +56,7 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
      * @param command The command to run
      */
     public RawCommandServerDefinition(String ext, String[] command) {
-        this(ext, ext, command);
+        this(ext, Collections.emptyMap(), command);
     }
 
 
