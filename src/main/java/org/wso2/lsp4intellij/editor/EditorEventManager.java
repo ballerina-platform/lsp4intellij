@@ -537,36 +537,7 @@ public class EditorEventManager {
                 this.diagnostics.clear();
                 this.diagnostics.addAll(diagnostics);
             }
-            // Forcefully triggers local inspection tool.
-            runInspection();
         }
-    }
-
-    /**
-     * Triggers local inspections for a given PSI file.
-     */
-    private void runInspection() {
-        PsiFile psiFile = computableReadAction(
-                () -> PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
-        Document document = PsiDocumentManager.getInstance(project).getDocument(psiFile);
-        if (document == null) {
-            return;
-        }
-
-        DumbService.getInstance(project).smartInvokeLater(() -> {
-            TextEditorHighlightingPass highlightingPass = this.inspectionsPassFactory
-                    .createMainHighlightingPass(psiFile, document, HighlightInfoProcessor.getEmpty());
-            if (highlightingPass instanceof LocalInspectionsPass) {
-                ProgressManager.getInstance().runProcess(() -> {
-                    ((LocalInspectionsPass) highlightingPass)
-                            .doInspectInBatch(inspectionManagerEx.createNewGlobalContext(false), inspectionManagerEx,
-                                    inspectionToolWrapper);
-                    UpdateHighlightersUtil
-                            .setHighlightersToEditor(psiFile.getProject(), document, 0, document.getTextLength(),
-                                    highlightingPass.getInfos(), null, Pass.WHOLE_FILE_LOCAL_INSPECTIONS);
-                }, new EmptyProgressIndicator());
-            }
-        });
     }
 
     /**
