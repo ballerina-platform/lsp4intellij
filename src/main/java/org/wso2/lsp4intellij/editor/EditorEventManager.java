@@ -16,13 +16,8 @@
 package org.wso2.lsp4intellij.editor;
 
 import com.google.common.base.Strings;
-import com.intellij.codeHighlighting.Pass;
-import com.intellij.codeHighlighting.TextEditorHighlightingPass;
 import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.daemon.impl.HighlightInfoProcessor;
-import com.intellij.codeInsight.daemon.impl.LocalInspectionsPass;
 import com.intellij.codeInsight.daemon.impl.LocalInspectionsPassFactory;
-import com.intellij.codeInsight.daemon.impl.UpdateHighlightersUtil;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
@@ -51,9 +46,6 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.PlainTextLanguage;
-import com.intellij.openapi.progress.EmptyProgressIndicator;
-import com.intellij.openapi.progress.ProgressManager;
-import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
@@ -62,7 +54,6 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
@@ -193,7 +184,9 @@ public class EditorEventManager {
     private boolean mouseInEditor = true;
     private Hint currentHint;
 
+    private final CompletableListValue<Diagnostic> completableListValue = new CompletableListValue<>();
     protected final List<Diagnostic> diagnostics = new ArrayList<>();
+
     private final InspectionManagerEx inspectionManagerEx;
     private final List<LocalInspectionToolWrapper> inspectionToolWrapper;
     private final LocalInspectionsPassFactory inspectionsPassFactory;
@@ -523,6 +516,8 @@ public class EditorEventManager {
      * @return The current diagnostics highlights
      */
     public List<Diagnostic> getDiagnostics() {
+        diagnostics.clear();
+        diagnostics.addAll(completableListValue.getValue());
         return diagnostics;
     }
 
@@ -533,10 +528,7 @@ public class EditorEventManager {
      */
     public void diagnostics(List<Diagnostic> diagnostics) {
         if (!editor.isDisposed()) {
-            synchronized (this.diagnostics) {
-                this.diagnostics.clear();
-                this.diagnostics.addAll(diagnostics);
-            }
+            completableListValue.complete(diagnostics);
         }
     }
 
