@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -38,10 +39,8 @@ public class LanguageServerDefinition {
      * The extension that the language server manages.
      */
     public String ext;
-    /**
-     * The id of the language server (same as extension).
-     */
-    public String id;
+
+    protected Map<String, String> languageIds = Collections.emptyMap();
 
     private Map<String, StreamConnectionProvider> streamConnectionProviders = new ConcurrentHashMap<>();
 
@@ -120,5 +119,13 @@ public class LanguageServerDefinition {
 
     public ServerListener getServerListener() {
         return ServerListener.DEFAULT;
+    }
+
+    /**
+     * Return language id for the given extension. if there is no langauge ids registered then the
+     * return value will be the value of <code>extension</code>.
+     */
+    public String languageIdFor(String extension) {
+        return languageIds.getOrDefault(extension, extension);
     }
 }

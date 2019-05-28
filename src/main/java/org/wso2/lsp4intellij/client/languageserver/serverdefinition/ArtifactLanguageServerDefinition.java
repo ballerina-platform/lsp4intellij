@@ -54,7 +54,7 @@ public class ArtifactLanguageServerDefinition extends UserConfigurableServerDefi
      */
     public ArtifactLanguageServerDefinition(String ext, String packge, String mainClass, String[] args) {
         this.ext = ext;
-        this.id = ext;
+        this.languageIds = Collections.emptyMap();
         this.packge = packge;
         this.mainClass = mainClass;
         this.args = args;
