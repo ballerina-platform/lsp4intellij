@@ -15,39 +15,16 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.wrapper;
 
-import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZED;
-import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
-import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTING;
-import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
-import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
-import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
-import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
-
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.Messages;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import com.intellij.remoteServer.util.CloudNotifier;
+import com.intellij.util.PlatformIcons;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -102,9 +79,36 @@ import org.wso2.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.requests.Timeouts;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZED;
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTING;
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
+import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
+import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
+import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
 
 /**
  * The implementation of a LanguageServerWrapper (specific to a serverDefinition and a project)
@@ -112,6 +116,7 @@ import org.wso2.lsp4intellij.utils.LSPException;
 public class LanguageServerWrapper {
 
     private Logger LOG = Logger.getInstance(LanguageServerWrapper.class);
+    private static CloudNotifier notifier = new CloudNotifier("Language Server Protocol client");
 
     private static final Map<Pair<String, String>, LanguageServerWrapper> uriToLanguageServerWrapper = new ConcurrentHashMap<>();
     private final LSPExtensionManager extManager;
@@ -135,15 +140,11 @@ public class LanguageServerWrapper {
     private long initializeStartTime = 0L;
 
     public LanguageServerWrapper(LanguageServerDefinition serverDefinition, Project project) {
-        this.serverDefinition = serverDefinition;
-        this.project = project;
-        this.rootPath = project.getBasePath();
-        this.statusWidget = LSPServerStatusWidget.createWidgetFor(this);
-        this.extManager = null;
+        this(serverDefinition, project, null);
     }
 
     public LanguageServerWrapper(LanguageServerDefinition serverDefinition, Project project,
-            LSPExtensionManager extManager) {
+                                 LSPExtensionManager extManager) {
         this.serverDefinition = serverDefinition;
         this.project = project;
         this.rootPath = project.getBasePath();
@@ -177,8 +178,9 @@ public class LanguageServerWrapper {
      * @return if the server supports willSaveWaitUntil
      */
     public boolean isWillSaveWaitUntil() {
+        ServerCapabilities serverCapabilities = getServerCapabilities();
         Either<TextDocumentSyncKind, TextDocumentSyncOptions> capabilities =
-                getServerCapabilities() != null ? getServerCapabilities().getTextDocumentSync() : null;
+                serverCapabilities != null ? serverCapabilities.getTextDocumentSync() : null;
         if (capabilities == null) {
             return false;
         }
@@ -207,12 +209,12 @@ public class LanguageServerWrapper {
                 }
             } catch (TimeoutException e) {
                 notifyFailure(INIT);
-                String msg = "LanguageServer for definition\n " + serverDefinition + "\nnot initialized after "
-                        + getTimeout(INIT) / 1000 + "s\nCheck settings";
+                String msg = String.format("%s \n not initialized after %ds \n Check settings",
+                        serverDefinition.toString(), getTimeout(INIT) / 1000);
                 LOG.warn(msg, e);
-                ApplicationUtils.invokeLater(() -> {
+                invokeLater(() -> {
                     if (!alreadyShownTimeout) {
-                        Messages.showErrorDialog(msg, "LSP Error");
+                        notifier.showMessage(msg, MessageType.WARNING);
                         alreadyShownTimeout = true;
                     }
                 });
@@ -286,64 +288,72 @@ public class LanguageServerWrapper {
         start();
         if (initializeFuture != null) {
             ServerCapabilities capabilities = getServerCapabilities();
-            if (capabilities != null) {
-                initializeFuture.thenRun(() -> {
-                    if (!connectedEditors.containsKey(uri)) {
-                        try {
-                            Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities
-                                    .getTextDocumentSync();
-                            TextDocumentSyncKind syncKind = null;
-                            if (syncOptions != null) {
-                                if (syncOptions.isRight()) {
-                                    syncKind = syncOptions.getRight().getChange();
-                                } else if (syncOptions.isLeft()) {
-                                    syncKind = syncOptions.getLeft();
-                                }
-                                //Todo - Implement
-                                //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
-                                DocumentListenerImpl documentListener = new DocumentListenerImpl();
-                                EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
-                                EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
+            if (capabilities == null) {
+                LOG.warn("Capabilities are null for " + serverDefinition);
+                return;
+            }
 
-                                ServerOptions serverOptions = new ServerOptions(syncKind,
-                                        capabilities.getCompletionProvider(), capabilities.getSignatureHelpProvider(),
-                                        capabilities.getCodeLensProvider(),
-                                        capabilities.getDocumentOnTypeFormattingProvider(),
-                                        capabilities.getDocumentLinkProvider(),
-                                        capabilities.getExecuteCommandProvider(),
-                                        capabilities.getSemanticHighlighting());
-                                EditorEventManager manager;
-                                if (extManager != null) {
-                                    manager = extManager
-                                            .getExtendedEditorEventManagerFor(editor, documentListener, mouseListener,
-                                                    mouseMotionListener, requestManager, serverOptions, this);
-                                } else {
-                                    manager = new EditorEventManager(editor, documentListener, mouseListener,
+            initializeFuture.thenRun(() -> {
+                if (connectedEditors.containsKey(uri)) {
+                    return;
+                }
+                try {
+                    Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities
+                            .getTextDocumentSync();
+                    TextDocumentSyncKind syncKind = null;
+                    if (syncOptions != null) {
+                        if (syncOptions.isRight()) {
+                            syncKind = syncOptions.getRight().getChange();
+                        } else if (syncOptions.isLeft()) {
+                            syncKind = syncOptions.getLeft();
+                        }
+                        //Todo - Implement
+                        //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
+                        DocumentListenerImpl documentListener = new DocumentListenerImpl();
+                        EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
+                        EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
+
+                        ServerOptions serverOptions = new ServerOptions(syncKind,
+                                capabilities.getCompletionProvider(), capabilities.getSignatureHelpProvider(),
+                                capabilities.getCodeLensProvider(),
+                                capabilities.getDocumentOnTypeFormattingProvider(),
+                                capabilities.getDocumentLinkProvider(),
+                                capabilities.getExecuteCommandProvider(),
+                                capabilities.getSemanticHighlighting());
+
+                        EditorEventManager manager;
+                        if (extManager != null) {
+                            manager = extManager
+                                    .getExtendedEditorEventManagerFor(editor, documentListener, mouseListener,
                                             mouseMotionListener, requestManager, serverOptions, this);
-                                }
-                                // selectionListener.setManager(manager);
-                                documentListener.setManager(manager);
-                                mouseListener.setManager(manager);
-                                mouseMotionListener.setManager(manager);
-                                manager.registerListeners();
-                                connectedEditors.put(uri, manager);
-                                manager.documentOpened();
-                                LOG.info("Created a manager for " + uri);
-                                synchronized (toConnect) {
-                                    toConnect.remove(editor);
-                                }
-                                for (Editor ed : toConnect) {
-                                    connect(ed);
-                                }
+                            if (manager == null) {
+                                manager = new EditorEventManager(editor, documentListener, mouseListener,
+                                        mouseMotionListener, requestManager, serverOptions, this);
                             }
-                        } catch (Exception e) {
-                            LOG.error(e);
+                        } else {
+                            manager = new EditorEventManager(editor, documentListener, mouseListener,
+                                    mouseMotionListener, requestManager, serverOptions, this);
+                        }
+                        // selectionListener.setManager(manager);
+                        documentListener.setManager(manager);
+                        mouseListener.setManager(manager);
+                        mouseMotionListener.setManager(manager);
+                        manager.registerListeners();
+                        connectedEditors.put(uri, manager);
+                        manager.documentOpened();
+                        LOG.info("Created a manager for " + uri);
+                        synchronized (toConnect) {
+                            toConnect.remove(editor);
+                        }
+                        for (Editor ed : toConnect) {
+                            connect(ed);
                         }
                     }
-                });
-            } else {
-                LOG.warn("Capabilities are null for " + serverDefinition);
-            }
+                } catch (Exception e) {
+                    LOG.error(e);
+                }
+            });
+
         } else {
             synchronized (toConnect) {
                 toConnect.add(editor);
@@ -356,7 +366,7 @@ public class LanguageServerWrapper {
      *
      * @param uri The uri of the editor
      */
-    public void disconnect(String uri) {
+    private void disconnect(String uri) {
         EditorEventManager manager = connectedEditors.remove(uri);
         if (manager != null) {
             manager.removeListeners();
@@ -434,7 +444,7 @@ public class LanguageServerWrapper {
     /**
      * Starts the LanguageServer
      */
-    public void start() {
+    private void start() {
         if (status == STOPPED && !alreadyShownCrash && !alreadyShownTimeout) {
             setStatus(STARTING);
             try {
@@ -444,7 +454,7 @@ public class LanguageServerWrapper {
                 InitializeParams initParams = getInitParams();
                 ExecutorService executorService = Executors.newCachedThreadPool();
                 MessageHandler messageHandler = new MessageHandler(serverDefinition.getServerListener());
-                if (extManager != null) {
+                if (extManager != null && extManager.getExtendedServerInterface() != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
                     client = extManager.getExtendedClientFor(new ServerWrapperBaseClientContext(this));
 
@@ -467,8 +477,10 @@ public class LanguageServerWrapper {
                     initializeResult = res;
                     LOG.info("Got initializeResult for " + serverDefinition + " ; " + rootPath);
                     if (extManager != null) {
-                        requestManager = extManager
-                                .getExtendedRequestManagerFor(this, languageServer, client, res.getCapabilities());
+                        requestManager = extManager.getExtendedRequestManagerFor(this, languageServer, client, res.getCapabilities());
+                        if (requestManager == null) {
+                            requestManager = new DefaultRequestManager(this, languageServer, client, res.getCapabilities());
+                        }
                     } else {
                         requestManager = new DefaultRequestManager(this, languageServer, client, res.getCapabilities());
                     }
@@ -481,9 +493,9 @@ public class LanguageServerWrapper {
                 initializeStartTime = System.currentTimeMillis();
             } catch (LSPException | IOException e) {
                 LOG.warn(e);
-                ApplicationUtils.invokeLater(() -> Messages
-                        .showErrorDialog("Can't start server, please check " + "settings\n" + e.getMessage(),
-                                "LSP Error"));
+                invokeLater(() ->
+                        notifier.showMessage(String.format("Can't start server due to %s", e.getMessage()),
+                                MessageType.WARNING));
                 removeServerWrapper();
             }
         }
@@ -549,25 +561,42 @@ public class LanguageServerWrapper {
 
     public void crashed(Exception e) {
         crashCount += 1;
-        if (crashCount < 2) {
-            final Set<String> editors = connectedEditors.keySet();
-            stop(false);
-            for (String uri : editors) {
-                connect(uri);
-            }
+        if (crashCount <= 3) {
+            reconnect();
         } else {
-            removeServerWrapper();
-            if (!alreadyShownCrash) {
-                ApplicationUtils.invokeLater(() -> {
-                    if (!alreadyShownCrash) {
-                        Messages.showErrorDialog(
-                                "LanguageServer for definition " + serverDefinition + ", project " + project
-                                        + " keeps crashing due to \n" + e.getMessage() + "\nCheck settings.",
-                                "LSP Error");
-                        alreadyShownCrash = true;
+            invokeLater(() -> {
+                if (alreadyShownCrash) {
+                    reconnect();
+                } else {
+                    int response = Messages.showYesNoDialog(String.format(
+                            "LanguageServer for definition %s, project %s keeps crashing due to \n%s\n"
+                            , serverDefinition.toString(), project.getName(), e.getMessage()),
+                            "Language Server Client Warning", "Keep Connected", "Disconnect", null);
+                    if (response == Messages.NO) {
+                        int confirm = Messages.showYesNoDialog("All the language server based plugin features will be disabled until the next IDEA restart. " +
+                                "Do you wish to continue?", "", PlatformIcons.WARNING_INTRODUCTION_ICON);
+                        if (confirm == Messages.YES) {
+                            // Disconnects from the language server.
+                            removeServerWrapper();
+                        } else {
+                            reconnect();
+                        }
+                    } else {
+                        reconnect();
                     }
-                });
-            }
+                }
+                alreadyShownCrash = true;
+                crashCount = 0;
+            });
+        }
+    }
+
+    private void reconnect() {
+        // Need to copy by value since connected editors gets cleared during 'stop()' invocation.
+        final Set<String> connected = new HashSet<>(connectedEditors.keySet());
+        stop(false);
+        for (String uri : connected) {
+            connect(uri);
         }
     }
 
@@ -597,7 +626,7 @@ public class LanguageServerWrapper {
     }
 
     private void removeServerWrapper() {
-        stop(false);
+        stop(true);
         removeWidget();
         IntellijLanguageClient.removeWrapper(this);
     }
