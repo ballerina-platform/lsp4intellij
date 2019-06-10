@@ -788,10 +788,10 @@ public class EditorEventManager {
                     }
                 }
             }
-        } catch (TimeoutException e) {
+        } catch (TimeoutException | InterruptedException e) {
             LOG.warn(e);
             wrapper.notifyFailure(Timeouts.COMPLETION);
-        } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+        } catch (JsonRpcException | ExecutionException e) {
             LOG.warn(e);
             wrapper.crashed(e);
         } finally {
