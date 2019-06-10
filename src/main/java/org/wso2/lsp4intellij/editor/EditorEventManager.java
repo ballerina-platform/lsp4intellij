@@ -117,8 +117,9 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
-import javax.swing.*;
-import java.awt.*;
+import javax.swing.Icon;
+import java.awt.Cursor;
+import java.awt.Point;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -726,7 +727,7 @@ public class EditorEventManager {
             wrapper.notifySuccess(Timeouts.HOVER);
             if (hover != null) {
                 String string = HoverHandler.getHoverString(hover);
-                if (string != null && !string.equals("")) {
+                if (!Strings.isNullOrEmpty(string)) {
                     if (getIsCtrlDown()) {
                         invokeLater(() -> {
                             if (!editor.isDisposed()) {
@@ -743,12 +744,12 @@ public class EditorEventManager {
                         });
                     }
                 } else {
-                    LOG.warn("Hover string returned is null for file " + identifier.getUri() + " and pos (" + serverPos
-                            .getLine() + ";" + serverPos.getCharacter() + ")");
+                    LOG.warn(String.format("Hover string returned is null for file %s and pos (%d;%d)",
+                            identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
                 }
             } else {
-                LOG.warn("Hover is null for file " + identifier.getUri() + " and pos (" + serverPos.getLine() + ";"
-                        + serverPos.getCharacter() + ")");
+                LOG.warn(String.format("Hover is null for file %s and pos (%d;%d)",
+                        identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
             }
         } catch (TimeoutException e) {
             LOG.warn(e);

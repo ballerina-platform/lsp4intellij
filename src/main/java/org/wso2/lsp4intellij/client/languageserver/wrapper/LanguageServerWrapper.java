@@ -79,6 +79,7 @@ import org.wso2.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.requests.Timeouts;
+import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
 
@@ -571,13 +572,13 @@ public class LanguageServerWrapper {
                     int response = Messages.showYesNoDialog(String.format(
                             "LanguageServer for definition %s, project %s keeps crashing due to \n%s\n"
                             , serverDefinition.toString(), project.getName(), e.getMessage()),
-                            "Language Server Client Warning", "Keep Connected", "Disconnect", null);
+                            "Language Server Client Warning", "Keep Connected", "Disconnect", PlatformIcons.CHECK_ICON);
                     if (response == Messages.NO) {
-                        int confirm = Messages.showYesNoDialog("All the language server based plugin features will be disabled until the next IDEA restart. " +
+                        int confirm = Messages.showYesNoDialog("All the language server based plugin features will be disabled.\n" +
                                 "Do you wish to continue?", "", PlatformIcons.WARNING_INTRODUCTION_ICON);
                         if (confirm == Messages.YES) {
                             // Disconnects from the language server.
-                            removeServerWrapper();
+                            stop(true);
                         } else {
                             reconnect();
                         }
@@ -594,7 +595,7 @@ public class LanguageServerWrapper {
     private void reconnect() {
         // Need to copy by value since connected editors gets cleared during 'stop()' invocation.
         final Set<String> connected = new HashSet<>(connectedEditors.keySet());
-        stop(false);
+        stop(true);
         for (String uri : connected) {
             connect(uri);
         }
