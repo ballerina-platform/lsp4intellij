@@ -191,6 +191,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
                     }
                     LOG.info("Adding file " + fileName);
                     wrapper.connect(editor);
+                } else {
+                    LOG.warn("Could not find a server definition for " + ext);
                 }
             });
         } else {
@@ -334,11 +336,13 @@ public class IntellijLanguageClient implements ApplicationComponent {
 
     public static void removeWrapper(LanguageServerWrapper wrapper) {
         if (wrapper.getProject() != null) {
-            extToLanguageWrapper.remove(new MutablePair<>(wrapper.getServerDefinition().ext,
-                    FileUtils.pathToUri(wrapper.getProject().getBasePath())));
+            String[] extensions = wrapper.getServerDefinition().ext.split(LanguageServerDefinition.SPLIT_CHAR);
+            for (String ext : extensions) {
+                extToLanguageWrapper.remove(new MutablePair<>(ext,
+                        FileUtils.pathToUri(wrapper.getProject().getBasePath())));
+            }
         } else {
             LOG.error("No attached projects found for wrapper");
-
         }
     }
 
