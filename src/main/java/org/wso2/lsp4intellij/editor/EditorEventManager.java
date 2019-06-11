@@ -93,6 +93,7 @@ import org.eclipse.lsp4j.WillSaveTextDocumentParams;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.actions.LSPReferencesAction;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
@@ -108,8 +109,9 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
-import javax.swing.*;
-import java.awt.*;
+import javax.swing.Icon;
+import java.awt.Cursor;
+import java.awt.Point;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -584,7 +586,7 @@ public class EditorEventManager {
             }
             request.thenAccept(formatting -> {
                 if (formatting != null) {
-                    invokeLater(() -> applyEdit((List<TextEdit>) formatting, "Reformat document"));
+                    invokeLater(() -> applyEdit((List<TextEdit>) formatting, "Reformat document", false));
                 }
             });
         });
@@ -620,7 +622,7 @@ public class EditorEventManager {
                 }
                 invokeLater(() -> {
                     if (!editor.isDisposed()) {
-                        applyEdit((List<TextEdit>) formatting, "Reformat selection");
+                        applyEdit((List<TextEdit>) formatting, "Reformat selection", false);
                     }
                 });
             });
@@ -689,7 +691,7 @@ public class EditorEventManager {
             wrapper.notifySuccess(Timeouts.HOVER);
             if (hover != null) {
                 String string = HoverHandler.getHoverString(hover);
-                if (string != null && !string.equals("")) {
+                if (!Strings.isNullOrEmpty(string)) {
                     if (getIsCtrlDown()) {
                         invokeLater(() -> {
                             if (!editor.isDisposed()) {
@@ -706,12 +708,12 @@ public class EditorEventManager {
                         });
                     }
                 } else {
-                    LOG.warn("Hover string returned is null for file " + identifier.getUri() + " and pos (" + serverPos
-                            .getLine() + ";" + serverPos.getCharacter() + ")");
+                    LOG.warn(String.format("Hover string returned is null for file %s and pos (%d;%d)",
+                            identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
                 }
             } else {
-                LOG.warn("Hover is null for file " + identifier.getUri() + " and pos (" + serverPos.getLine() + ";"
-                        + serverPos.getCharacter() + ")");
+                LOG.warn(String.format("Hover is null for file %s and pos (%d;%d)",
+                        identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
             }
         } catch (TimeoutException e) {
             LOG.warn(e);
@@ -751,10 +753,10 @@ public class EditorEventManager {
                     }
                 }
             }
-        } catch (TimeoutException e) {
+        } catch (TimeoutException | InterruptedException e) {
             LOG.warn(e);
             wrapper.notifyFailure(Timeouts.COMPLETION);
-        } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+        } catch (JsonRpcException | ExecutionException e) {
             LOG.warn(e);
             wrapper.crashed(e);
         } finally {
@@ -877,7 +879,7 @@ public class EditorEventManager {
         return builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
             context.commitDocument();
             invokeLater(() -> {
-                applyEdit(edits, "Completion : " + label);
+                applyEdit(edits, "Completion : " + label, false);
                 if (command != null) {
                     executeCommands(command);
                 }
@@ -885,14 +887,14 @@ public class EditorEventManager {
         });
     }
 
-    boolean applyEdit(TextEdit edit, String name) {
+    boolean applyEdit(TextEdit edit, String name, boolean setCaret) {
         List<TextEdit> textEdits = new ArrayList<>();
         textEdits.add(edit);
-        return applyEdit(textEdits, name);
+        return applyEdit(textEdits, name, setCaret);
     }
 
-    boolean applyEdit(List<TextEdit> edits, String name) {
-        return applyEdit(Integer.MAX_VALUE, edits, name, false);
+    boolean applyEdit(List<TextEdit> edits, String name, boolean setCaret) {
+        return applyEdit(Integer.MAX_VALUE, edits, name, false, setCaret);
     }
 
     /**
@@ -904,8 +906,8 @@ public class EditorEventManager {
      * @param closeAfter will close the file after edits if set to true
      * @return True if the edits were applied, false otherwise
      */
-    boolean applyEdit(int version, List<TextEdit> edits, String name, boolean closeAfter) {
-        Runnable runnable = getEditsRunnable(version, edits, name);
+    boolean applyEdit(int version, List<TextEdit> edits, String name, boolean closeAfter, boolean setCaret) {
+        Runnable runnable = getEditsRunnable(version, edits, name, setCaret);
         writeAction(() -> {
             if (runnable != null) {
                 CommandProcessor.getInstance()
@@ -928,43 +930,66 @@ public class EditorEventManager {
      * @param name    The name of the edit
      * @return The runnable
      */
-    public Runnable getEditsRunnable(int version, Iterable<TextEdit> edits, String name) {
-        if (version >= this.version) {
-            Document document = editor.getDocument();
-            if (document.isWritable()) {
-                return () -> edits.forEach(edit -> {
-                    String text = edit.getNewText();
-                    Range range = edit.getRange();
-                    // LSPPosToOffset() will return -1, if any IndexOutOfBoundException is occurred.
-                    int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
-                    int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
-                    if (text == null || text.isEmpty()) {
-                        document.deleteString(start, end);
-                    } else {
-                        text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
-                        if (end >= 0) {
-                            if (end - start <= 0) {
-                                document.insertString(start, text);
-                            } else {
-                                document.replaceString(start, end, text);
-                            }
-                        } else if (start == 0) {
-                            document.setText(text);
-                        } else if (start > 0) {
-                            document.insertString(start, text);
-                        }
-                        editor.getCaretModel().moveToOffset(start + text.length());
-                    }
-                    saveDocument();
-                });
-            } else {
-                LOG.warn("Document is not writable");
-                return null;
-            }
-        } else {
-            LOG.warn("Edit version " + version + " is older than current version " + this.version);
+    public Runnable getEditsRunnable(int version, List<TextEdit> edits, String name, boolean setCaret) {
+        if (version < this.version) {
+            LOG.warn(String.format("Edit version %d is older than current version %d", version, this.version));
             return null;
         }
+        if (edits == null) {
+            LOG.warn("Received edits list is null.");
+            return null;
+        }
+        Document document = editor.getDocument();
+        if (!document.isWritable()) {
+            LOG.warn("Document is not writable");
+            return null;
+        }
+
+        return () -> {
+            // Creates a sorted edit list based on the insertion position and the edits will be applied from the bottom
+            // to the top of the document. Otherwise all the other edit ranges will be invalid after the very first edit,
+            // since the document is changed.
+            List<LSPTextEdit> lspEdits = new ArrayList<>();
+            edits.forEach(edit -> {
+                String text = edit.getNewText();
+                Range range = edit.getRange();
+
+                if (range != null && !Strings.isNullOrEmpty(text)) {
+                    int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
+                    int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
+                    lspEdits.add(new LSPTextEdit(text, start, end));
+                }
+            });
+
+            // Sort according to the start offset, in descending order.
+            Collections.sort(lspEdits);
+
+            lspEdits.forEach(edit -> {
+                String text = edit.getText();
+                int start = edit.getStartOffset();
+                int end = edit.getEndOffset();
+                if (text == null || text.isEmpty()) {
+                    document.deleteString(start, end);
+                } else {
+                    text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
+                    if (end >= 0) {
+                        if (end - start <= 0) {
+                            document.insertString(start, text);
+                        } else {
+                            document.replaceString(start, end, text);
+                        }
+                    } else if (start == 0) {
+                        document.setText(text);
+                    } else if (start > 0) {
+                        document.insertString(start, text);
+                    }
+                    if (setCaret) {
+                        editor.getCaretModel().moveToOffset(start + text.length());
+                    }
+                }
+                saveDocument();
+            });
+        };
     }
 
     private void executeCommands(Command command) {
@@ -1050,8 +1075,12 @@ public class EditorEventManager {
                 if (isOpen) {
                     LOG.warn("Editor " + editor + " was already open");
                 } else {
+                    final String extension = FileDocumentManager.getInstance()
+                            .getFile(editor.getDocument()).getExtension();
                     requestManager.didOpen(new DidOpenTextDocumentParams(
-                            new TextDocumentItem(identifier.getUri(), wrapper.serverDefinition.id, version++,
+                            new TextDocumentItem(identifier.getUri(),
+                                    wrapper.serverDefinition.languageIdFor(extension),
+                                    version++,
                                     editor.getDocument().getText())));
                     isOpen = true;
                 }
@@ -1146,7 +1175,7 @@ public class EditorEventManager {
                             List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
                             wrapper.notifySuccess(Timeouts.WILLSAVE);
                             if (edits != null) {
-                                invokeLater(() -> applyEdit(edits, "WaitUntil edits"));
+                                invokeLater(() -> applyEdit(edits, "WaitUntil edits", false));
                             }
                         } catch (TimeoutException e) {
                             LOG.warn(e);
@@ -1168,6 +1197,36 @@ public class EditorEventManager {
             LOG.error("Server doesn't support WillSaveWaitUntil");
             needSave = true;
             saveDocument();
+        }
+    }
+
+
+    private class LSPTextEdit implements Comparable<LSPTextEdit> {
+        private String text;
+        private int startOffset;
+        private int endOffset;
+
+        LSPTextEdit(String text, int start, int end) {
+            this.text = text;
+            this.startOffset = start;
+            this.endOffset = end;
+        }
+
+        String getText() {
+            return text;
+        }
+
+        int getStartOffset() {
+            return startOffset;
+        }
+
+        int getEndOffset() {
+            return endOffset;
+        }
+
+        @Override
+        public int compareTo(@NotNull LSPTextEdit te) {
+            return te.getStartOffset() - getStartOffset();
         }
     }
 }
