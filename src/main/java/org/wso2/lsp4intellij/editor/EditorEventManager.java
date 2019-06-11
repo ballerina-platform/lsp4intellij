@@ -990,9 +990,12 @@ public class EditorEventManager {
             edits.forEach(edit -> {
                 String text = edit.getNewText();
                 Range range = edit.getRange();
-                int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
-                int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
-                lspEdits.add(new LSPTextEdit(text, start, end));
+
+                if (range != null && !Strings.isNullOrEmpty(text)) {
+                    int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
+                    int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
+                    lspEdits.add(new LSPTextEdit(text, start, end));
+                }
             });
 
             // Sort according to the start offset, in descending order.
