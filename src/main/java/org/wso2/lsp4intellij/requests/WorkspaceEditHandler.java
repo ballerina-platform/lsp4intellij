@@ -192,7 +192,7 @@ public class WorkspaceEditHandler {
      * @param name
      * @return The runnable containing the edits
      */
-    private static Runnable manageUnopenedEditor(Iterable<TextEdit> edits, String uri, int version,
+    private static Runnable manageUnopenedEditor(List<TextEdit> edits, String uri, int version,
             List<VirtualFile> openedEditors, Project[] curProject, String name) {
         Project[] projects = ProjectManager.getInstance().getOpenProjects();
         //Infer the project from the uri
