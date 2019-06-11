@@ -39,15 +39,16 @@ import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
+import javax.swing.Icon;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
-import javax.swing.*;
 
 public class DefaultLanguageClient implements LanguageClient {
 
@@ -79,9 +80,9 @@ public class DefaultLanguageClient implements LanguageClient {
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
         return CompletableFuture.runAsync(() -> params.getRegistrations().forEach(r -> {
             String id = r.getId();
-            DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
-            Object options = r.getRegisterOptions();
-            registrations.put(id, method);
+            Optional<DynamicRegistrationMethods> method = DynamicRegistrationMethods.forName(r.getMethod());
+            method.ifPresent(dynamicRegistrationMethods -> registrations.put(id, dynamicRegistrationMethods));
+
         }));
     }
 
@@ -89,7 +90,7 @@ public class DefaultLanguageClient implements LanguageClient {
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
         return CompletableFuture.runAsync(() -> params.getUnregisterations().forEach((Unregistration r) -> {
             String id = r.getId();
-            DynamicRegistrationMethods method = DynamicRegistrationMethods.forName(r.getMethod());
+            Optional<DynamicRegistrationMethods> method = DynamicRegistrationMethods.forName(r.getMethod());
             if (registrations.containsKey(id)) {
                 registrations.remove(id);
             } else {
@@ -97,8 +98,8 @@ public class DefaultLanguageClient implements LanguageClient {
                 for (Map.Entry<String, DynamicRegistrationMethods> entry : registrations.entrySet()) {
                     inverted.put(entry.getValue(), entry.getKey());
                 }
-                if (inverted.containsKey(method)) {
-                    registrations.remove(inverted.get(method));
+                if (method.isPresent() && inverted.containsKey(method.get())) {
+                    registrations.remove(inverted.get(method.get()));
                 }
             }
         }));
