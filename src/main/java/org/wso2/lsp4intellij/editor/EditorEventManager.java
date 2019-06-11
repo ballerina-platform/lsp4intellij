@@ -623,7 +623,7 @@ public class EditorEventManager {
             }
             request.thenAccept(formatting -> {
                 if (formatting != null) {
-                    invokeLater(() -> applyEdit((List<TextEdit>) formatting, "Reformat document"));
+                    invokeLater(() -> applyEdit((List<TextEdit>) formatting, "Reformat document", false));
                 }
             });
         });
@@ -659,7 +659,7 @@ public class EditorEventManager {
                 }
                 invokeLater(() -> {
                     if (!editor.isDisposed()) {
-                        applyEdit((List<TextEdit>) formatting, "Reformat selection");
+                        applyEdit((List<TextEdit>) formatting, "Reformat selection", false);
                     }
                 });
             });
@@ -916,7 +916,7 @@ public class EditorEventManager {
         return builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
             context.commitDocument();
             invokeLater(() -> {
-                applyEdit(edits, "Completion : " + label);
+                applyEdit(edits, "Completion : " + label, false);
                 if (command != null) {
                     executeCommands(command);
                 }
@@ -924,14 +924,14 @@ public class EditorEventManager {
         });
     }
 
-    boolean applyEdit(TextEdit edit, String name) {
+    boolean applyEdit(TextEdit edit, String name, boolean setCaret) {
         List<TextEdit> textEdits = new ArrayList<>();
         textEdits.add(edit);
-        return applyEdit(textEdits, name);
+        return applyEdit(textEdits, name, setCaret);
     }
 
-    boolean applyEdit(List<TextEdit> edits, String name) {
-        return applyEdit(Integer.MAX_VALUE, edits, name, false);
+    boolean applyEdit(List<TextEdit> edits, String name, boolean setCaret) {
+        return applyEdit(Integer.MAX_VALUE, edits, name, false, setCaret);
     }
 
     /**
@@ -943,8 +943,8 @@ public class EditorEventManager {
      * @param closeAfter will close the file after edits if set to true
      * @return True if the edits were applied, false otherwise
      */
-    boolean applyEdit(int version, List<TextEdit> edits, String name, boolean closeAfter) {
-        Runnable runnable = getEditsRunnable(version, edits, name);
+    boolean applyEdit(int version, List<TextEdit> edits, String name, boolean closeAfter, boolean setCaret) {
+        Runnable runnable = getEditsRunnable(version, edits, name, setCaret);
         writeAction(() -> {
             if (runnable != null) {
                 CommandProcessor.getInstance()
@@ -967,7 +967,7 @@ public class EditorEventManager {
      * @param name    The name of the edit
      * @return The runnable
      */
-    public Runnable getEditsRunnable(int version, List<TextEdit> edits, String name) {
+    public Runnable getEditsRunnable(int version, List<TextEdit> edits, String name, boolean setCaret) {
         if (version < this.version) {
             LOG.warn(String.format("Edit version %d is older than current version %d", version, this.version));
             return null;
@@ -1017,7 +1017,9 @@ public class EditorEventManager {
                     } else if (start > 0) {
                         document.insertString(start, text);
                     }
-                    editor.getCaretModel().moveToOffset(start + text.length());
+                    if (setCaret) {
+                        editor.getCaretModel().moveToOffset(start + text.length());
+                    }
                 }
                 saveDocument();
             });
@@ -1203,7 +1205,7 @@ public class EditorEventManager {
                             List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
                             wrapper.notifySuccess(Timeouts.WILLSAVE);
                             if (edits != null) {
-                                invokeLater(() -> applyEdit(edits, "WaitUntil edits"));
+                                invokeLater(() -> applyEdit(edits, "WaitUntil edits", false));
                             }
                         } catch (TimeoutException e) {
                             LOG.warn(e);
