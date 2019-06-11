@@ -17,6 +17,8 @@ package org.wso2.lsp4intellij.editor;
 
 import com.google.common.base.Strings;
 import com.intellij.codeInsight.completion.InsertionContext;
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
+import com.intellij.codeInsight.daemon.impl.DaemonCodeAnalyzerEx;
 import com.intellij.codeInsight.daemon.impl.LocalInspectionsPassFactory;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
@@ -54,7 +56,11 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
+import io.reactivex.Flowable;
+import io.reactivex.Observable;
+import io.reactivex.subjects.PublishSubject;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -105,6 +111,7 @@ import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
 import org.wso2.lsp4intellij.requests.HoverHandler;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
+import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
@@ -186,12 +193,13 @@ public class EditorEventManager {
     private boolean mouseInEditor = true;
     private Hint currentHint;
 
-    private final CompletableListValue<Diagnostic> completableListValue = new CompletableListValue<>();
     protected final List<Diagnostic> diagnostics = new ArrayList<>();
 
     private final InspectionManagerEx inspectionManagerEx;
     private final List<LocalInspectionToolWrapper> inspectionToolWrapper;
     private final LocalInspectionsPassFactory inspectionsPassFactory;
+
+    private PublishSubject<Object> diagnosticDeBouncer;
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
@@ -228,6 +236,16 @@ public class EditorEventManager {
         this.inspectionToolWrapper = Collections.singletonList(new LocalInspectionToolWrapper(new LSPInspection()));
         this.inspectionsPassFactory = project.getComponent(LocalInspectionsPassFactory.class);
         this.currentHint = null;
+
+        diagnosticDeBouncer = PublishSubject.create();
+        diagnosticDeBouncer.debounce(1, TimeUnit.SECONDS).subscribe(v -> {
+            computableReadAction(() -> {
+                final PsiFile file = PsiDocumentManager.getInstance(project)
+                        .getCachedPsiFile(editor.getDocument());
+                DaemonCodeAnalyzer.getInstance(project).restart(file);
+                return null;
+            });
+        });
     }
 
     public Project getProject() {
@@ -518,8 +536,6 @@ public class EditorEventManager {
      * @return The current diagnostics highlights
      */
     public List<Diagnostic> getDiagnostics() {
-        diagnostics.clear();
-        diagnostics.addAll(completableListValue.getValue());
         return diagnostics;
     }
 
@@ -530,7 +546,11 @@ public class EditorEventManager {
      */
     public void diagnostics(List<Diagnostic> diagnostics) {
         if (!editor.isDisposed()) {
-            completableListValue.complete(diagnostics);
+            synchronized (this.diagnostics) {
+                this.diagnostics.clear();
+                this.diagnostics.addAll(diagnostics);
+            }
+            diagnosticDeBouncer.onNext(diagnostics);
         }
     }
 
