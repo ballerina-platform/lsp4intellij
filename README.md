@@ -37,7 +37,7 @@ Follow the steps below to use `Lsp4IntelliJ` in your custom language plugin.
 
 ### 1. Add the `lsp4intellij` dependency in the build file of the project.
 
-For instrcutions on addding **Lsp4IntelliJ** as a dependency when using the below build tools, go to **[jitpack/lsp4intellij](https://jitpack.io/#ballerina-platform/lsp4intellij)**.
+For instructions on adding **Lsp4IntelliJ** as a dependency when using the below build tools, go to **[jitpack/lsp4intellij](https://jitpack.io/#ballerina-platform/lsp4intellij)**.
   - gradle
   - maven
   - sbt
