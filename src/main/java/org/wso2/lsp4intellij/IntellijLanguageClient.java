@@ -127,11 +127,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @return True if there is a LanguageServer supporting this extension, false otherwise
      */
     public static boolean isExtensionSupported(String ext) {
-        if (extToServerDefinition.keySet().contains(ext)) {
-            return true;
-        }
         // try to see if the extension matches a extension pattern in the definition map.
-        return extToServerDefinition.keySet().stream().filter(p -> p.endsWith(ext)).findFirst().isPresent();
+        return extToServerDefinition.keySet().stream().anyMatch(p -> p.getLeft().endsWith(ext));
     }
 
     /**
