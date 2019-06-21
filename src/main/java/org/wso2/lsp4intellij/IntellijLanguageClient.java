@@ -127,7 +127,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
      * @return True if there is a LanguageServer supporting this extension, false otherwise
      */
     public static boolean isExtensionSupported(String ext) {
-        return extToServerDefinition.keySet().contains(ext);
+        return extToServerDefinition.keySet().stream().anyMatch(keyMap -> keyMap.getLeft().equals(ext));
     }
 
     /**
