@@ -15,21 +15,20 @@
  */
 package org.wso2.lsp4intellij.contributors.fixes;
 
-import com.intellij.codeInspection.LocalQuickFix;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInsight.intention.IntentionAction;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import org.eclipse.lsp4j.CodeAction;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
-import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 
 import java.util.Collections;
 
-public class LSPCodeActionFix implements LocalQuickFix {
+public class LSPCodeActionFix implements IntentionAction {
 
     private String uri;
     private CodeAction codeAction;
@@ -39,18 +38,12 @@ public class LSPCodeActionFix implements LocalQuickFix {
         this.codeAction = codeAction;
     }
 
+
+    @Nls(capitalization = Nls.Capitalization.Sentence)
+    @NotNull
     @Override
-    public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
-        PsiElement element = descriptor.getPsiElement();
-        if (element instanceof LSPPsiElement) {
-            if (codeAction.getEdit() != null) {
-                WorkspaceEditHandler.applyEdit(codeAction.getEdit(), codeAction.getTitle());
-            }
-            EditorEventManager manager = EditorEventManagerBase.forUri(uri);
-            if (manager != null) {
-                manager.executeCommands(Collections.singletonList(codeAction.getCommand()));
-            }
-        }
+    public String getText() {
+        return codeAction.getTitle();
     }
 
     @Nls
@@ -60,11 +53,24 @@ public class LSPCodeActionFix implements LocalQuickFix {
         return "LSP Fixes";
     }
 
-    @Nls
-    @NotNull
     @Override
-    public String getName() {
-        return codeAction.getTitle();
+    public boolean isAvailable(@NotNull Project project, Editor editor, PsiFile psiFile) {
+        return true;
     }
 
+    @Override
+    public void invoke(@NotNull Project project, Editor editor, PsiFile psiFile) {
+        if (codeAction.getEdit() != null) {
+            WorkspaceEditHandler.applyEdit(codeAction.getEdit(), codeAction.getTitle());
+        }
+        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+        if (manager != null) {
+            manager.executeCommands(Collections.singletonList(codeAction.getCommand()));
+        }
+    }
+
+    @Override
+    public boolean startInWriteAction() {
+        return true;
+    }
 }

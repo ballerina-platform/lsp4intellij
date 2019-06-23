@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.contributors.annotator;
 
+import com.google.common.base.Predicates;
 import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.ExternalAnnotator;
@@ -22,10 +23,16 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
+import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
+import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
+import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
@@ -56,12 +63,16 @@ public class LSPAnnotator extends ExternalAnnotator {
             String uri = FileUtils.VFSToURI(virtualFile);
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
             if (eventManager != null) {
-                createAnnotations(holder, eventManager.getDiagnostics(), eventManager.editor);
+                createAnnotations(file, holder, eventManager);
             }
         }
     }
 
-    private void createAnnotations(AnnotationHolder holder, List<Diagnostic> diagnostics, Editor editor) {
+    private void createAnnotations(PsiFile file, AnnotationHolder holder, EditorEventManager eventManager) {
+        final List<Diagnostic> diagnostics = eventManager.getDiagnostics();
+        final Editor editor = eventManager.editor;
+        final String uri = FileUtils.VFSToURI(file.getVirtualFile());
+
         diagnostics.forEach(d -> {
             final int start = DocumentUtils.LSPPosToOffset(editor, d.getRange().getStart());
             final int end = DocumentUtils.LSPPosToOffset(editor, d.getRange().getEnd());
@@ -70,19 +81,34 @@ public class LSPAnnotator extends ExternalAnnotator {
                 return;
             }
 
+            Annotation annotation;
+            final TextRange textRange = new TextRange(start, end);
             switch (d.getSeverity()) {
                 case Error:
-                    holder.createErrorAnnotation(new TextRange(start, end), d.getMessage());
+                    annotation = holder.createErrorAnnotation(textRange, d.getMessage());
                     break;
                 case Warning:
-                    holder.createWarningAnnotation(new TextRange(start, end), d.getMessage());
+                    annotation = holder.createWarningAnnotation(textRange, d.getMessage());
                     break;
                 case Information:
-                    holder.createInfoAnnotation(new TextRange(start, end), d.getMessage());
+                    annotation = holder.createInfoAnnotation(textRange, d.getMessage());
                     break;
-                case Hint:
-                    holder.createWeakWarningAnnotation(new TextRange(start, end), d.getMessage());
+                default:
+                    annotation = holder.createWeakWarningAnnotation(textRange, d.getMessage());
                     break;
+            }
+
+            final String name = editor.getDocument().getText(textRange);
+            final LSPPsiElement element = new LSPPsiElement(name, editor.getProject(), start, end, file);
+            final List<Either<Command, CodeAction>> codeAction = eventManager.codeAction(element);
+            if (codeAction != null) {
+                codeAction.stream().filter(Predicates.notNull()).forEach(e -> {
+                    if (e.isLeft()) {
+                        annotation.registerFix(new LSPCommandFix(uri, e.getLeft()), textRange);
+                    } else if (e.isRight()) {
+                        annotation.registerFix(new LSPCodeActionFix(uri, e.getRight()), textRange);
+                    }
+                });
             }
         });
     }

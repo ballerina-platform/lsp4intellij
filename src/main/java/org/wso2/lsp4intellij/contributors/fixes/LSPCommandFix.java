@@ -15,20 +15,19 @@
  */
 package org.wso2.lsp4intellij.contributors.fixes;
 
-import com.intellij.codeInspection.LocalQuickFix;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInsight.intention.IntentionAction;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import org.eclipse.lsp4j.Command;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
-import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
 import static java.util.Collections.singletonList;
 
-public class LSPCommandFix implements LocalQuickFix {
+public class LSPCommandFix implements IntentionAction {
 
     private String uri;
     private Command command;
@@ -38,15 +37,12 @@ public class LSPCommandFix implements LocalQuickFix {
         this.command = command;
     }
 
+
+    @Nls(capitalization = Nls.Capitalization.Sentence)
+    @NotNull
     @Override
-    public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
-        PsiElement element = descriptor.getPsiElement();
-        if (element instanceof LSPPsiElement) {
-            EditorEventManager manager = EditorEventManagerBase.forUri(uri);
-            if (manager != null) {
-                manager.executeCommands(singletonList(command));
-            }
-        }
+    public String getText() {
+        return command.getTitle();
     }
 
     @Nls
@@ -56,10 +52,22 @@ public class LSPCommandFix implements LocalQuickFix {
         return "LSP Fixes";
     }
 
-    @NotNull
     @Override
-    public String getName() {
-        return command.getTitle();
+    public boolean isAvailable(@NotNull Project project, Editor editor, PsiFile psiFile) {
+        return false;
+    }
+
+    @Override
+    public void invoke(@NotNull Project project, Editor editor, PsiFile psiFile) {
+        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+        if (manager != null) {
+            manager.executeCommands(singletonList(command));
+        }
+    }
+
+    @Override
+    public boolean startInWriteAction() {
+        return true;
     }
 }
 
