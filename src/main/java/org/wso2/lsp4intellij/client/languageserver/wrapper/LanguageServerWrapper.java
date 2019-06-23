@@ -353,9 +353,10 @@ public class LanguageServerWrapper {
                         }
                         // trigger annotators since the this is the first editor which starts the LS
                         // and annotators are executed before LS is boostrap to provide diagnostics
-                        ApplicationUtils.writeAction(() -> {
+                        ApplicationUtils.computableReadAction(() -> {
                             DaemonCodeAnalyzer.getInstance(project).restart(
                                     PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
+                            return null;
                         });
                     }
                 } catch (Exception e) {
