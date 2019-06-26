@@ -90,6 +90,8 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceContext;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SignatureHelp;
+import org.eclipse.lsp4j.SignatureInformation;
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
@@ -149,12 +151,14 @@ import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
 import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
 import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
 import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
+import static org.wso2.lsp4intellij.requests.Timeouts.SIGNATURE;
 import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
+import static org.wso2.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
 
 /**
  * Class handling events related to an Editor (a Document)
@@ -174,7 +178,6 @@ public class EditorEventManager {
 
     public Editor editor;
     public LanguageServerWrapper wrapper;
-    public List<String> completionTriggers;
     private Project project;
     private RequestManager requestManager;
     private TextDocumentIdentifier identifier;
@@ -183,6 +186,8 @@ public class EditorEventManager {
     private EditorMouseListener mouseListener;
     private EditorMouseMotionListener mouseMotionListener;
 
+    public List<String> completionTriggers;
+    public List<String> signatureTriggers;
     private DidChangeTextDocumentParams changesParams;
     private TextDocumentSyncKind syncKind;
     private volatile boolean needSave = false;
@@ -208,7 +213,6 @@ public class EditorEventManager {
         this.editor = editor;
         this.documentListener = documentListener;
         this.mouseListener = mouseListener;
-        this.mouseListener = mouseListener;
         this.mouseMotionListener = mouseMotionListener;
         this.requestManager = requestManager;
         this.serverOptions = serverOptions;
@@ -222,6 +226,11 @@ public class EditorEventManager {
         this.completionTriggers = (serverOptions.completionOptions != null
                 && serverOptions.completionOptions.getTriggerCharacters() != null) ?
                 serverOptions.completionOptions.getTriggerCharacters() :
+                new ArrayList<>();
+
+        this.signatureTriggers = (serverOptions.signatureHelpOptions != null
+                && serverOptions.signatureHelpOptions.getTriggerCharacters() != null) ?
+                serverOptions.signatureHelpOptions.getTriggerCharacters() :
                 new ArrayList<>();
 
         this.project = editor.getProject();
@@ -259,7 +268,9 @@ public class EditorEventManager {
      * @param c The character just typed
      */
     public void characterTyped(char c) {
-        // Todo - Implement
+        if (signatureTriggers.contains(Character.toString(c))) {
+            signatureHelp();
+        }
     }
 
     /**
@@ -309,7 +320,7 @@ public class EditorEventManager {
                                     setCtrlRange(null);
                                     pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
                                 } else if (getCtrlRange().definitionContainsOffset(offset)) {
-                                    GUIUtils.createAndShowEditorHint(editor, "Click to show usages",
+                                    createAndShowEditorHint(editor, "Click to show usages",
                                             editor.offsetToXY(offset));
                                 } else {
                                     editor.getContentComponent()
@@ -605,6 +616,69 @@ public class EditorEventManager {
     }
 
     /**
+     * Calls signatureHelp at the current editor caret position
+     */
+    public void signatureHelp() {
+        if (editor.isDisposed()) {
+            return;
+        }
+        LogicalPosition lPos = editor.getCaretModel().getCurrentCaret().getLogicalPosition();
+        Point point = editor.logicalPositionToXY(lPos);
+        TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, DocumentUtils.logicalToLSPPos(lPos, editor));
+        pool(() -> {
+            CompletableFuture<SignatureHelp> future = requestManager.signatureHelp(params);
+            if (future == null) {
+                return;
+            }
+            try {
+                SignatureHelp signatureResp = future.get(getTimeout(SIGNATURE), TimeUnit.MILLISECONDS);
+                wrapper.notifySuccess(Timeouts.SIGNATURE);
+                if (signatureResp == null) {
+                    return;
+                }
+                List<SignatureInformation> signatures = signatureResp.getSignatures();
+                if (signatures == null || signatures.isEmpty()) {
+                    return;
+                }
+                int activeSignatureIndex = signatureResp.getActiveSignature();
+                int activeParameterIndex = signatureResp.getActiveParameter();
+                String activeParameter = signatures.get(activeSignatureIndex).getParameters().size() > activeParameterIndex ?
+                        signatures.get(activeSignatureIndex).getParameters().get(activeParameterIndex).getLabel() : "";
+                Either<String, MarkupContent> signatureDescription = signatures.get(activeSignatureIndex).getDocumentation();
+
+                StringBuilder builder = new StringBuilder();
+                builder.append("<html>");
+                if (signatureDescription == null) {
+                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel().
+                            replace(" " + activeParameter, String.format("<font color=\"blue\"> %s</font>",
+                                    activeParameter))).append("</b>");
+                } else if (signatureDescription.isLeft()) {
+                    // Todo - Add parameter Documentation
+                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()
+                            .replace(" " + activeParameter, String.format("<font color=\"blue\"> %s</font>",
+                                    activeParameter))).append("</b>");
+                    builder.append("<div>").append(signatureDescription.getLeft()).append("</div>");
+                } else if (signatureDescription.isRight()) {
+                    // Todo - Add marked content parsing
+                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()).append("</b>");
+                }
+
+                builder.append("</html>");
+                invokeLater(() -> currentHint = createAndShowEditorHint(editor, builder.toString(), point, HintManager.UNDER, HintManager.HIDE_BY_OTHER_HINT));
+
+            } catch (TimeoutException e) {
+                LOG.warn(e);
+                wrapper.notifyFailure(Timeouts.SIGNATURE);
+            } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+                LOG.warn(e);
+                wrapper.crashed(e);
+            } catch (Exception e) {
+                LOG.warn("Internal error occurred when processing signature help");
+            }
+        });
+    }
+
+    /**
      * Reformat the whole document
      */
     public void reformat() {
@@ -732,15 +806,14 @@ public class EditorEventManager {
                     if (getIsCtrlDown()) {
                         invokeLater(() -> {
                             if (!editor.isDisposed()) {
-                                currentHint = GUIUtils
-                                        .createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
+                                currentHint = createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
                             }
                         });
                         // createCtrlRange(serverPos, hover.getRange());
                     } else {
                         invokeLater(() -> {
                             if (!editor.isDisposed()) {
-                                currentHint = GUIUtils.createAndShowEditorHint(editor, string, point);
+                                currentHint = createAndShowEditorHint(editor, string, point);
                             }
                         });
                     }
