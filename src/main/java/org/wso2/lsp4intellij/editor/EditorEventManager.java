@@ -294,50 +294,53 @@ public class EditorEventManager {
      * @param e the event
      */
     public void mouseMoved(EditorMouseEvent e) {
-        if (e.getEditor() == editor) {
-            Language language = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()).getLanguage();
-            if ((LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() || language
-                    .equals(PlainTextLanguage.INSTANCE)) && (getIsCtrlDown() || EditorSettingsExternalizable
-                    .getInstance().isShowQuickDocOnMouseOverElement())) {
-                long curTime = System.nanoTime();
-                if (predTime == (-1L) || ctrlTime == (-1L)) {
-                    predTime = curTime;
-                    ctrlTime = curTime;
-                } else {
-                    LogicalPosition lPos = getPos(e);
-                    if (lPos != null) {
-                        if (!getIsKeyPressed() || getIsCtrlDown()) {
-                            int offset = editor.logicalPositionToOffset(lPos);
-                            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRES) {
-                                if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
-                                    if (currentHint != null) {
-                                        currentHint.hide();
-                                    }
-                                    currentHint = null;
-                                    if (getCtrlRange() != null) {
-                                        getCtrlRange().dispose();
-                                    }
-                                    setCtrlRange(null);
-                                    pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
-                                } else if (getCtrlRange().definitionContainsOffset(offset)) {
-                                    createAndShowEditorHint(editor, "Click to show usages",
-                                            editor.offsetToXY(offset));
-                                } else {
-                                    editor.getContentComponent()
-                                            .setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                                }
-                                ctrlTime = curTime;
-                            } else {
-                                scheduleDocumentation(curTime, lPos, e.getMouseEvent().getPoint());
-                            }
-
-                        }
-                    }
-                    predTime = curTime;
-                }
-            }
-        } else {
+        if (e.getEditor() != editor) {
             LOG.error("Wrong editor for EditorEventManager");
+            return;
+        }
+
+        Language language = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()).getLanguage();
+        if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !language
+                .equals(PlainTextLanguage.INSTANCE)) || (!getIsCtrlDown() && !EditorSettingsExternalizable
+                .getInstance().isShowQuickDocOnMouseOverElement())) {
+            return;
+        }
+
+        long curTime = System.nanoTime();
+        if (predTime == (-1L) || ctrlTime == (-1L)) {
+            predTime = curTime;
+            ctrlTime = curTime;
+        } else {
+            LogicalPosition lPos = getPos(e);
+
+            if (lPos == null || getIsKeyPressed() && !getIsCtrlDown()) {
+                return;
+            }
+
+            int offset = editor.logicalPositionToOffset(lPos);
+            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRES) {
+                if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
+                    if (currentHint != null) {
+                        currentHint.hide();
+                    }
+                    currentHint = null;
+                    if (getCtrlRange() != null) {
+                        getCtrlRange().dispose();
+                    }
+                    setCtrlRange(null);
+                    pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
+                } else if (getCtrlRange().definitionContainsOffset(offset)) {
+                    createAndShowEditorHint(editor, "Click to show usages",
+                            editor.offsetToXY(offset));
+                } else {
+                    editor.getContentComponent()
+                            .setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                }
+                ctrlTime = curTime;
+            } else {
+                scheduleDocumentation(curTime, lPos, e.getMouseEvent().getPoint());
+            }
+            predTime = curTime;
         }
     }
 
@@ -880,7 +883,7 @@ public class EditorEventManager {
      * @param item The CompletionItem
      * @return The corresponding LookupElement
      */
-    private LookupElement createLookupItem(CompletionItem item) {
+    public LookupElement createLookupItem(CompletionItem item) {
         Command command = item.getCommand();
         Object data = item.getData();
         String detail = item.getDetail();
@@ -919,7 +922,7 @@ public class EditorEventManager {
             lookupElementBuilder = lookupElementBuilder
                     .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
                         context.commitDocument();
-                        invokeLater(() -> executeCommands(command));
+                        invokeLater(() -> executeCommands(Collections.singletonList(command)));
                     });
         }
 
@@ -991,7 +994,7 @@ public class EditorEventManager {
             invokeLater(() -> {
                 applyEdit(edits, "Completion : " + label, false);
                 if (command != null) {
-                    executeCommands(command);
+                    executeCommands(Collections.singletonList(command));
                 }
             });
         });
@@ -1102,12 +1105,6 @@ public class EditorEventManager {
         };
     }
 
-    private void executeCommands(Command command) {
-        List<Command> commands = new ArrayList<>();
-        commands.add(command);
-        executeCommands(commands);
-    }
-
     /**
      * Sends commands to execute to the server and applies the changes returned if the future returns a WorkspaceEdit
      *
@@ -1115,25 +1112,26 @@ public class EditorEventManager {
      */
     public void executeCommands(List<Command> commands) {
         pool(() -> {
-            if (!editor.isDisposed()) {
-                commands.stream().map(c -> {
-                    ExecuteCommandParams params = new ExecuteCommandParams();
-                    params.setArguments(c.getArguments());
-                    params.setCommand(c.getCommand());
-                    return requestManager.executeCommand(params);
-                }).filter(Objects::nonNull).forEach(f -> {
-                    try {
-                        f.get(getTimeout(EXECUTE_COMMAND), TimeUnit.MILLISECONDS);
-                        wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
-                    } catch (TimeoutException te) {
-                        LOG.warn(te);
-                        wrapper.notifyFailure(Timeouts.EXECUTE_COMMAND);
-                    } catch (JsonRpcException | ExecutionException | InterruptedException e) {
-                        LOG.warn(e);
-                        wrapper.crashed(e);
-                    }
-                });
+            if (editor.isDisposed()) {
+                return;
             }
+            commands.stream().map(c -> {
+                ExecuteCommandParams params = new ExecuteCommandParams();
+                params.setArguments(c.getArguments());
+                params.setCommand(c.getCommand());
+                return requestManager.executeCommand(params);
+            }).filter(Objects::nonNull).forEach(f -> {
+                try {
+                    f.get(getTimeout(EXECUTE_COMMAND), TimeUnit.MILLISECONDS);
+                    wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
+                } catch (TimeoutException te) {
+                    LOG.warn(te);
+                    wrapper.notifyFailure(Timeouts.EXECUTE_COMMAND);
+                } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+                    LOG.warn(e);
+                    wrapper.crashed(e);
+                }
+            });
         });
     }
 
@@ -1181,19 +1179,18 @@ public class EditorEventManager {
 
     public void documentOpened() {
         pool(() -> {
-            if (!editor.isDisposed()) {
-                if (isOpen) {
-                    LOG.warn("Editor " + editor + " was already open");
-                } else {
-                    final String extension = FileDocumentManager.getInstance()
-                            .getFile(editor.getDocument()).getExtension();
-                    requestManager.didOpen(new DidOpenTextDocumentParams(
-                            new TextDocumentItem(identifier.getUri(),
-                                    wrapper.serverDefinition.languageIdFor(extension),
-                                    version++,
-                                    editor.getDocument().getText())));
-                    isOpen = true;
-                }
+            if (editor.isDisposed()) {
+                return;
+            }
+            if (isOpen) {
+                LOG.warn("Editor " + editor + " was already open");
+            } else {
+                final String extension = FileDocumentManager.getInstance().getFile(editor.getDocument()).getExtension();
+                requestManager.didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
+                        wrapper.serverDefinition.languageIdFor(extension),
+                        version++,
+                        editor.getDocument().getText())));
+                isOpen = true;
             }
         });
     }
@@ -1247,8 +1244,7 @@ public class EditorEventManager {
     public void documentSaved() {
         pool(() -> {
             if (!editor.isDisposed()) {
-                DidSaveTextDocumentParams params = new DidSaveTextDocumentParams(identifier,
-                        editor.getDocument().getText());
+                DidSaveTextDocumentParams params = new DidSaveTextDocumentParams(identifier, editor.getDocument().getText());
                 requestManager.didSave(params);
             }
         });
@@ -1276,31 +1272,32 @@ public class EditorEventManager {
     private void willSaveWaitUntil() {
         if (wrapper.isWillSaveWaitUntil()) {
             pool(() -> {
-                if (!editor.isDisposed()) {
-                    WillSaveTextDocumentParams params = new WillSaveTextDocumentParams(identifier,
-                            TextDocumentSaveReason.Manual);
-                    CompletableFuture<List<TextEdit>> future = requestManager.willSaveWaitUntil(params);
-                    if (future != null) {
-                        try {
-                            List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
-                            wrapper.notifySuccess(Timeouts.WILLSAVE);
-                            if (edits != null) {
-                                invokeLater(() -> applyEdit(edits, "WaitUntil edits", false));
-                            }
-                        } catch (TimeoutException e) {
-                            LOG.warn(e);
-                            wrapper.notifyFailure(Timeouts.WILLSAVE);
-                        } catch (JsonRpcException | ExecutionException | InterruptedException e) {
-                            LOG.warn(e);
-                            wrapper.crashed(e);
-                        } finally {
-                            needSave = true;
-                            saveDocument();
+                if (editor.isDisposed()) {
+                    return;
+                }
+                WillSaveTextDocumentParams params = new WillSaveTextDocumentParams(identifier,
+                        TextDocumentSaveReason.Manual);
+                CompletableFuture<List<TextEdit>> future = requestManager.willSaveWaitUntil(params);
+                if (future != null) {
+                    try {
+                        List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
+                        wrapper.notifySuccess(Timeouts.WILLSAVE);
+                        if (edits != null) {
+                            invokeLater(() -> applyEdit(edits, "WaitUntil edits", false));
                         }
-                    } else {
+                    } catch (TimeoutException e) {
+                        LOG.warn(e);
+                        wrapper.notifyFailure(Timeouts.WILLSAVE);
+                    } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+                        LOG.warn(e);
+                        wrapper.crashed(e);
+                    } finally {
                         needSave = true;
                         saveDocument();
                     }
+                } else {
+                    needSave = true;
+                    saveDocument();
                 }
             });
         } else {
