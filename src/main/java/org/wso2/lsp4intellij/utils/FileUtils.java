@@ -35,6 +35,7 @@ import com.intellij.testFramework.LightVirtualFileBase;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.IntellijLanguageClient;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -251,7 +252,7 @@ public class FileUtils {
             return false;
         }
 
-        return true;
+        return IntellijLanguageClient.isExtensionSupported(file);
     }
 
     /**

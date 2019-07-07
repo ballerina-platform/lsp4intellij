@@ -43,7 +43,6 @@ import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
-import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.List;
 
@@ -130,12 +129,12 @@ public class LSPRenameHandler implements RenameHandler {
         if (psiElement instanceof PsiFile || psiElement instanceof LSPPsiElement) {
             return true;
         } else {
-            return psiElement == null && IntellijLanguageClient.isExtensionSupported(FileUtils.extFromPsiFile(psiFile));
+            return psiElement == null && IntellijLanguageClient.isExtensionSupported(psiFile.getVirtualFile());
         }
     }
 
     private MemberInplaceRenamer createMemberRenamer(PsiElement element, PsiNameIdentifierOwner elementToRename,
-            Editor editor) {
+                                                     Editor editor) {
         return new LSPInplaceRenamer((PsiNamedElement) element, elementToRename, editor);
     }
 

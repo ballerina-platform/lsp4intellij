@@ -123,11 +123,12 @@ public class IntellijLanguageClient implements ApplicationComponent {
     }
 
     /**
-     * @param ext An extension
+     * @param virtualFile The virtual file instance to be validated
      * @return True if there is a LanguageServer supporting this extension, false otherwise
      */
-    public static boolean isExtensionSupported(String ext) {
-        return extToServerDefinition.keySet().stream().anyMatch(keyMap -> keyMap.getLeft().equals(ext));
+    public static boolean isExtensionSupported(VirtualFile virtualFile) {
+        return extToServerDefinition.keySet().stream().anyMatch(keyMap ->
+                keyMap.getLeft().equals(virtualFile.getExtension()) || (virtualFile.getName().matches(keyMap.getLeft())));
     }
 
     /**

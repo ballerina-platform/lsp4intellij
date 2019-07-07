@@ -33,7 +33,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.intellij.lang.annotations.Pattern;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
@@ -42,23 +41,22 @@ import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
+import javax.swing.JComponent;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.*;
 
 /**
- * Triggered by {@link EditorEventManager#diagnostics} to run the local inspection tool manually.
+ * Triggered by {@link EditorEventManager#diagnostics(List)} to run the local inspection tool manually.
  */
 public class LSPInspection extends LocalInspectionTool implements DumbAware {
 
     @Nullable
     @Override
     public ProblemDescriptor[] checkFile(@NotNull PsiFile file, @NotNull InspectionManager manager,
-            boolean isOnTheFly) {
+                                         boolean isOnTheFly) {
 
         VirtualFile virtualFile = file.getVirtualFile();
-        if (FileUtils.isFileSupported(virtualFile) &&
-                IntellijLanguageClient.isExtensionSupported(virtualFile.getExtension())) {
+        if (FileUtils.isFileSupported(virtualFile)) {
             String uri = FileUtils.VFSToURI(virtualFile);
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
             if (eventManager != null) {
@@ -80,7 +78,7 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
      * Looks at the diagnostics, creates dummy PsiElement for each, create descriptor using it
      */
     private ProblemDescriptor[] descriptorsForManager(String uri, EditorEventManager m, PsiFile file,
-            InspectionManager manager, boolean isOnTheFly) {
+                                                      InspectionManager manager, boolean isOnTheFly) {
 
         List<ProblemDescriptor> descriptors = new ArrayList<>();
         if (!m.editor.isDisposed()) {
@@ -128,18 +126,15 @@ public class LSPInspection extends LocalInspectionTool implements DumbAware {
                     fixes.addAll(commands);
                     fixes.addAll(codeActions);
                     try {
-                        descriptors.add(manager
-                                .createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
-                                        fixes.toArray(new LocalQuickFix[fixes.size()])));
+                        descriptors.add(manager.createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly,
+                                fixes.toArray(new LocalQuickFix[fixes.size()])));
                     } catch (Exception ignored) {
                         // Occurred only at plugin start, due to the dummy inspection tool.
                         // Todo
                     }
                 } else {
                     try {
-                        descriptors.add(manager
-                                .createProblemDescriptor(element, (TextRange) null, message, highlightType,
-                                        isOnTheFly));
+                        descriptors.add(manager.createProblemDescriptor(element, (TextRange) null, message, highlightType, isOnTheFly));
                     } catch (Exception ignored) {
                         // Occurred only at plugin start, due to the dummy inspection tool.
                         // Todo
