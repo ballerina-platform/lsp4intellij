@@ -237,7 +237,7 @@ public class FileUtils {
     }
 
     /**
-     * Checks if the file instance is supported by this LS client library.
+     * Checks if the given virtual file instance is supported by this LS client library.
      */
     public static boolean isFileSupported(@Nullable VirtualFile file) {
         if (file == null) {
@@ -248,7 +248,7 @@ public class FileUtils {
             return false;
         }
 
-        if (file.getUrl().startsWith("jar:")) {
+        if (file.getUrl().isEmpty() || file.getUrl().startsWith("jar:")) {
             return false;
         }
 
