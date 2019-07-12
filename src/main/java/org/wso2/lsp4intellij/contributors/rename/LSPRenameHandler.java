@@ -130,21 +130,21 @@ public class LSPRenameHandler implements RenameHandler {
         if (psiElement instanceof PsiFile || psiElement instanceof LSPPsiElement) {
             return true;
         } else {
-            return psiElement == null && IntellijLanguageClient.isExtensionSupported(FileUtils.extFromPsiFile(psiFile));
+            return psiElement != null && IntellijLanguageClient.isExtensionSupported(FileUtils.extFromPsiFile(psiFile));
         }
     }
 
     private MemberInplaceRenamer createMemberRenamer(PsiElement element, PsiNameIdentifierOwner elementToRename,
-            Editor editor) {
+                                                     Editor editor) {
         return new LSPInplaceRenamer((PsiNamedElement) element, elementToRename, editor);
     }
 
     private void performDialogRename(Editor editor) {
         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
-            String renameTo = Messages
-                    .showInputDialog(editor.getProject(), "Enter new name: ", "Rename", Messages.getQuestionIcon(), "",
-                            new NonEmptyInputValidator());
+            String renameTo = Messages.showInputDialog(
+                    editor.getProject(), "Enter new name: ", "Rename", Messages.getQuestionIcon(), "",
+                    new NonEmptyInputValidator());
             if (renameTo != null && !renameTo.equals("")) {
                 manager.rename(renameTo);
             }
