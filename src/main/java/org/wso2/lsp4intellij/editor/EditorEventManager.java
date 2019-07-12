@@ -653,12 +653,12 @@ public class EditorEventManager {
                 builder.append("<html>");
                 if (signatureDescription == null) {
                     builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel().
-                            replace(" " + activeParameter, String.format("<font color=\"blue\"> %s</font>",
+                            replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
                                     activeParameter))).append("</b>");
                 } else if (signatureDescription.isLeft()) {
                     // Todo - Add parameter Documentation
                     builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()
-                            .replace(" " + activeParameter, String.format("<font color=\"blue\"> %s</font>",
+                            .replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
                                     activeParameter))).append("</b>");
                     builder.append("<div>").append(signatureDescription.getLeft()).append("</div>");
                 } else if (signatureDescription.isRight()) {
