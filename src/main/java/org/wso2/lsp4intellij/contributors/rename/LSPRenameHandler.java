@@ -141,9 +141,9 @@ public class LSPRenameHandler implements RenameHandler {
     private void performDialogRename(Editor editor) {
         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
-            String renameTo = Messages
-                    .showInputDialog(editor.getProject(), "Enter new name: ", "Rename", Messages.getQuestionIcon(), "",
-                            new NonEmptyInputValidator());
+            String renameTo = Messages.showInputDialog(
+                    editor.getProject(), "Enter new name: ", "Rename", Messages.getQuestionIcon(), "",
+                    new NonEmptyInputValidator());
             if (renameTo != null && !renameTo.equals("")) {
                 manager.rename(renameTo);
             }
