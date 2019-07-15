@@ -44,7 +44,7 @@ public class LSPReformatAction extends ReformatCodeAction implements DumbAware {
         }
         PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
         if (LanguageFormatting.INSTANCE.allForLanguage(file.getLanguage()).isEmpty() && IntellijLanguageClient
-                .isExtensionSupported(file.getVirtualFile().getExtension())) {
+                .isExtensionSupported(file.getVirtualFile())) {
             ReformatHandler.reformatFile(editor);
         } else {
             super.actionPerformed(e);

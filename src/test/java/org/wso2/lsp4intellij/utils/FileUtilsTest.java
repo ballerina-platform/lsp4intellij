@@ -179,8 +179,7 @@ public class FileUtilsTest {
     Assert.assertFalse(FileUtils.isFileSupported(null));
     Assert.assertFalse(FileUtils.isFileSupported(new BinaryLightVirtualFile()));
     Assert.assertFalse(FileUtils.isFileSupported(virtualFile1));
-
-    Assert.assertTrue(FileUtils.isFileSupported(virtualFile2));
+    Assert.assertFalse(FileUtils.isFileSupported(virtualFile2));
   }
 
   @PrepareForTest(FileDocumentManager.class)
