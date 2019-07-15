@@ -133,7 +133,7 @@ public class FileEventManager {
         changedConfiguration(uri, projectUri, typ, null);
     }
 
-    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ, LanguageServerWrapper wrapper) {
+    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ, LanguageServerWrapper targetWrapper) {
         ApplicationUtils.pool(() -> {
             List<FileEvent> event = new ArrayList<>();
             event.add(new FileEvent(uri, typ));
@@ -142,10 +142,10 @@ public class FileEventManager {
             if (wrappers == null) {
                 return;
             }
-            for (LanguageServerWrapper w : wrappers) {
-                if (w != wrapper && w.getRequestManager() != null
-                        && w.getStatus() == ServerStatus.INITIALIZED) {
-                    w.getRequestManager().didChangeWatchedFiles(params);
+            for (LanguageServerWrapper wrapper : wrappers) {
+                if (wrapper != targetWrapper && wrapper.getRequestManager() != null
+                        && wrapper.getStatus() == ServerStatus.INITIALIZED) {
+                    wrapper.getRequestManager().didChangeWatchedFiles(params);
                 }
             }
         });
