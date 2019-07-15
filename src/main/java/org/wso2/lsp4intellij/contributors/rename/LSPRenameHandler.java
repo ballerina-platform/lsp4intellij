@@ -129,7 +129,7 @@ public class LSPRenameHandler implements RenameHandler {
         if (psiElement instanceof PsiFile || psiElement instanceof LSPPsiElement) {
             return true;
         } else {
-            return psiElement == null && IntellijLanguageClient.isExtensionSupported(psiFile.getVirtualFile());
+            return psiElement != null && IntellijLanguageClient.isExtensionSupported(psiFile.getVirtualFile());
         }
     }
 
