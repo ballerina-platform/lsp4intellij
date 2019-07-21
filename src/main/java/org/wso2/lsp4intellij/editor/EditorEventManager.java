@@ -691,7 +691,8 @@ public class EditorEventManager {
             }
             DocumentFormattingParams params = new DocumentFormattingParams();
             params.setTextDocument(identifier);
-            FormattingOptions options = new FormattingOptions();
+            // must set tabSize and inserSpaces, or the request cann't be resolved normally, modified by yanpu 20190720
+            FormattingOptions options = new FormattingOptions(4, true);
             params.setOptions(options);
 
             CompletableFuture<List<? extends TextEdit>> request = requestManager.formatting(params);
@@ -723,7 +724,8 @@ public class EditorEventManager {
             Position endPos = DocumentUtils.offsetToLSPPos(editor, end);
             params.setRange(new Range(startingPos, endPos));
             // Todo - Make Formatting Options configurable
-            FormattingOptions options = new FormattingOptions();
+            // must set tabSize and inserSpaces, or the request cann't be resolved normally, modified by yanpu 20190720
+            FormattingOptions options = new FormattingOptions(4, true);
             params.setOptions(options);
 
             CompletableFuture<List<? extends TextEdit>> request = requestManager.rangeFormatting(params);
