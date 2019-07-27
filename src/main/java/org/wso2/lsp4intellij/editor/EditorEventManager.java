@@ -17,6 +17,7 @@ package org.wso2.lsp4intellij.editor;
 
 import com.google.common.base.Strings;
 import com.intellij.codeInsight.completion.InsertionContext;
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.codeInsight.daemon.impl.LocalInspectionsPassFactory;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
@@ -54,6 +55,7 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
@@ -521,6 +523,17 @@ public class EditorEventManager {
             synchronized (this.diagnostics) {
                 this.diagnostics.clear();
                 this.diagnostics.addAll(diagnostics);
+
+                if(!diagnostics.isEmpty()) {
+                    computableReadAction(() -> {
+                        final PsiFile file = PsiDocumentManager.getInstance(project)
+                                .getCachedPsiFile(editor.getDocument());
+                        LOG.debug("Triggering force full DaemonCodeAnalyzer execution.");
+                        DaemonCodeAnalyzer.getInstance(project).restart(file);
+                        return null;
+                    });
+                }
+
             }
         }
     }
