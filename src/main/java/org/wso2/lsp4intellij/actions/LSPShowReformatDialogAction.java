@@ -66,7 +66,8 @@ public class LSPShowReformatDialogAction extends ShowReformatFileDialog implemen
                         }
                     }
                 } else {
-                    super.actionPerformed(e);
+                    // if user chose cancel , the dialog in super.actionPerformed(e) will show again
+                    // super.actionPerformed(e);
                 }
             } else {
                 super.actionPerformed(e);
