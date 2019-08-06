@@ -45,7 +45,12 @@ public class LSPReformatAction extends ReformatCodeAction implements DumbAware {
         PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
         if (LanguageFormatting.INSTANCE.allForLanguage(file.getLanguage()).isEmpty() && IntellijLanguageClient
                 .isExtensionSupported(file.getVirtualFile())) {
-            ReformatHandler.reformatFile(editor);
+            // if editor hasSelection, only reformat selection, not reformat the whole file
+            if (editor.getSelectionModel().hasSelection()) {
+                ReformatHandler.reformatSelection(editor);
+            } else {
+                ReformatHandler.reformatFile(editor);
+            }
         } else {
             super.actionPerformed(e);
         }
