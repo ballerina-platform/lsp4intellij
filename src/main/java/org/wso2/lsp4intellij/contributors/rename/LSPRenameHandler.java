@@ -98,7 +98,7 @@ public class LSPRenameHandler implements RenameHandler {
                 }
             } else {
                 InplaceRefactoring inplaceRefactoring = editor.getUserData(InplaceRefactoring.INPLACE_RENAMER);
-                if (inplaceRefactoring != null && (inplaceRefactoring instanceof MemberInplaceRenamer)) {
+                if ((inplaceRefactoring instanceof MemberInplaceRenamer)) {
                     TemplateState templateState = TemplateManagerImpl
                             .getTemplateState(InjectedLanguageUtil.getTopLevelEditor(editor));
                     if (templateState != null) {
@@ -129,7 +129,7 @@ public class LSPRenameHandler implements RenameHandler {
         if (psiElement instanceof PsiFile || psiElement instanceof LSPPsiElement) {
             return true;
         } else {
-            return psiElement != null && IntellijLanguageClient.isExtensionSupported(psiFile.getVirtualFile());
+            return IntellijLanguageClient.isExtensionSupported(psiFile.getVirtualFile());
         }
     }
 
