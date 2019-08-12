@@ -61,6 +61,9 @@ public class FileEventManager {
      * @param file The file
      */
     public static void fileChanged(VirtualFile file) {
+        if (!FileUtils.isFileSupported(file)) {
+            return;
+        }
         String uri = FileUtils.VFSToURI(file);
         if (uri != null) {
             EditorEventManager manager = EditorEventManagerBase.forUri(uri);
@@ -90,33 +93,14 @@ public class FileEventManager {
      * @param file The file
      */
     public static void fileDeleted(VirtualFile file) {
+        if (!FileUtils.isFileSupported(file)) {
+            return;
+        }
         String uri = FileUtils.VFSToURI(file);
         if (uri != null) {
             FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
                     FileUtils.projectToUri(p), FileChangeType.Deleted));
         }
-    }
-
-    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ) {
-        changedConfiguration(uri, projectUri, typ, null);
-    }
-
-    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ, LanguageServerWrapper wrapper) {
-
-        ApplicationUtils.pool(() -> {
-            List<FileEvent> event = new ArrayList<>();
-            event.add(new FileEvent(uri, typ));
-            DidChangeWatchedFilesParams params = new DidChangeWatchedFilesParams(event);
-            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(projectUri);
-            if (wrappers != null) {
-                for (LanguageServerWrapper w : wrappers) {
-                    if (w != wrapper && w.getRequestManager() != null
-                        && w.getStatus() == ServerStatus.INITIALIZED) {
-                        w.getRequestManager().didChangeWatchedFiles(params);
-                    }
-                }
-            }
-        });
     }
 
     /**
@@ -135,10 +119,35 @@ public class FileEventManager {
      * @param file The file
      */
     public static void fileCreated(VirtualFile file) {
+        if (!FileUtils.isFileSupported(file)) {
+            return;
+        }
         String uri = FileUtils.VFSToURI(file);
         if (uri != null) {
             FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
                     FileUtils.projectToUri(p), FileChangeType.Created));
         }
+    }
+
+    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ) {
+        changedConfiguration(uri, projectUri, typ, null);
+    }
+
+    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ, LanguageServerWrapper targetWrapper) {
+        ApplicationUtils.pool(() -> {
+            List<FileEvent> event = new ArrayList<>();
+            event.add(new FileEvent(uri, typ));
+            DidChangeWatchedFilesParams params = new DidChangeWatchedFilesParams(event);
+            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(projectUri);
+            if (wrappers == null) {
+                return;
+            }
+            for (LanguageServerWrapper wrapper : wrappers) {
+                if (wrapper != targetWrapper && wrapper.getRequestManager() != null
+                        && wrapper.getStatus() == ServerStatus.INITIALIZED) {
+                    wrapper.getRequestManager().didChangeWatchedFiles(params);
+                }
+            }
+        });
     }
 }
