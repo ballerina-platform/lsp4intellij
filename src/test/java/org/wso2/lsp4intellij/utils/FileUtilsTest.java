@@ -45,7 +45,7 @@ public class FileUtilsTest {
   public void testEditorFromVirtualFile() {
     VirtualFile file = PowerMockito.mock(VirtualFile.class);
     Project project = PowerMockito.mock(Project.class);
-    
+
     Editor editor = PowerMockito.mock(Editor.class);
     TextEditor textEditor = PowerMockito.mock(TextEditor.class);
     PowerMockito.when(textEditor.getEditor()).thenReturn(editor);
@@ -69,9 +69,9 @@ public class FileUtilsTest {
     PowerMockito.mockStatic(LocalFileSystem.class);
     PowerMockito.when(LocalFileSystem.getInstance()).thenReturn(localFileSystem);
     PowerMockito.when(LocalFileSystem.getInstance().findFileByIoFile(Mockito.any()))
-        .thenReturn(new BinaryLightVirtualFile());
+        .thenReturn(new BinaryLightVirtualFile("testFile"));
 
-    Assert.assertEquals(new BinaryLightVirtualFile().toString(),
+    Assert.assertEquals(new BinaryLightVirtualFile("testFile").toString(),
         FileUtils.virtualFileFromURI("file://foobar").toString());
   }
 
@@ -124,9 +124,9 @@ public class FileUtilsTest {
     PowerMockito.mockStatic(LocalFileSystem.class);
     PowerMockito.when(LocalFileSystem.getInstance()).thenReturn(localFileSystem);
     PowerMockito.when(LocalFileSystem.getInstance().findFileByIoFile(Mockito.any()))
-        .thenReturn(new BinaryLightVirtualFile());
+        .thenReturn(new BinaryLightVirtualFile("testFile"));
 
-    Assert.assertEquals(new BinaryLightVirtualFile().toString(),
+    Assert.assertEquals(new BinaryLightVirtualFile("testFile").toString(),
         FileUtils.URIToVFS("file://foobar").toString());
   }
 
@@ -177,7 +177,7 @@ public class FileUtilsTest {
     PowerMockito.when(virtualFile2.getUrl()).thenReturn("");
 
     Assert.assertFalse(FileUtils.isFileSupported(null));
-    Assert.assertFalse(FileUtils.isFileSupported(new BinaryLightVirtualFile()));
+    Assert.assertFalse(FileUtils.isFileSupported(new BinaryLightVirtualFile("testFile")));
     Assert.assertFalse(FileUtils.isFileSupported(virtualFile1));
     Assert.assertFalse(FileUtils.isFileSupported(virtualFile2));
   }
