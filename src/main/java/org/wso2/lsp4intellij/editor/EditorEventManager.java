@@ -18,13 +18,10 @@ package org.wso2.lsp4intellij.editor;
 import com.google.common.base.Strings;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
-import com.intellij.codeInsight.daemon.impl.LocalInspectionsPassFactory;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInspection.ex.InspectionManagerEx;
-import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
 import com.intellij.lang.Language;
 import com.intellij.lang.LanguageDocumentation;
 import com.intellij.openapi.actionSystem.ActionManager;
@@ -110,7 +107,6 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
-import javax.swing.Icon;
 import java.awt.Cursor;
 import java.awt.Point;
 import java.io.File;
@@ -126,6 +122,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import javax.swing.Icon;
 
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.HOVER_TIME_THRES;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.POPUP_THRES;
@@ -188,11 +186,12 @@ public class EditorEventManager {
     private Hint currentHint;
 
     protected final List<Diagnostic> diagnostics = new ArrayList<>();
+    private volatile boolean diagnosticsLock = true;
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
-                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager, ServerOptions serverOptions,
-                              LanguageServerWrapper wrapper) {
+                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager,
+                              ServerOptions serverOptions, LanguageServerWrapper wrapper) {
 
         this.editor = editor;
         this.documentListener = documentListener;
@@ -509,8 +508,13 @@ public class EditorEventManager {
     /**
      * @return The current diagnostics highlights
      */
-    public List<Diagnostic> getDiagnostics() {
-        return diagnostics;
+    public synchronized List<Diagnostic> getDiagnostics() {
+        this.diagnosticsLock = true;
+        return this.diagnostics;
+    }
+
+    public synchronized boolean getDiagnosticsLock() {
+        return this.diagnosticsLock;
     }
 
     /**
@@ -519,22 +523,25 @@ public class EditorEventManager {
      * @param diagnostics The diagnostics to apply from the server
      */
     public void diagnostics(List<Diagnostic> diagnostics) {
-        if (!editor.isDisposed()) {
-            synchronized (this.diagnostics) {
-                this.diagnostics.clear();
-                this.diagnostics.addAll(diagnostics);
 
-                if(!diagnostics.isEmpty()) {
-                    computableReadAction(() -> {
-                        final PsiFile file = PsiDocumentManager.getInstance(project)
-                                .getCachedPsiFile(editor.getDocument());
-                        LOG.debug("Triggering force full DaemonCodeAnalyzer execution.");
-                        DaemonCodeAnalyzer.getInstance(project).restart(file);
-                        return null;
-                    });
-                }
+        // If both of the old diagnostics and the received diagnostics are empty, we can simply return without
+        // re-triggering the annotator.
+        if (editor.isDisposed() || (this.diagnostics.isEmpty() && diagnostics.isEmpty())) {
+            return;
+        }
 
-            }
+        synchronized (this.diagnostics) {
+            this.diagnostics.clear();
+            this.diagnostics.addAll(diagnostics);
+
+            computableReadAction(() -> {
+                final PsiFile file = PsiDocumentManager.getInstance(project)
+                        .getCachedPsiFile(editor.getDocument());
+                LOG.debug("Triggering force full DaemonCodeAnalyzer execution.");
+                diagnosticsLock = false;
+                DaemonCodeAnalyzer.getInstance(project).restart(file);
+                return null;
+            });
         }
     }
 
