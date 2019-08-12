@@ -59,7 +59,7 @@ public class LSPAnnotator extends ExternalAnnotator {
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
 
             // If the diagnostics list is locked, we need to skip annotating the file.
-            if (eventManager == null || eventManager.getDiagnosticsLock()) {
+            if (eventManager == null || eventManager.isDiagnosticsLocked()) {
                 return null;
             }
             return RESULT;
@@ -82,7 +82,7 @@ public class LSPAnnotator extends ExternalAnnotator {
             String uri = FileUtils.VFSToURI(virtualFile);
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
 
-            if (eventManager == null || eventManager.getDiagnosticsLock()) {
+            if (eventManager == null || eventManager.isDiagnosticsLocked()) {
                 return;
             }
             try {

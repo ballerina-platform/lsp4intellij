@@ -513,7 +513,7 @@ public class EditorEventManager {
         return this.diagnostics;
     }
 
-    public synchronized boolean getDiagnosticsLock() {
+    public synchronized boolean isDiagnosticsLocked() {
         return this.diagnosticsLock;
     }
 
