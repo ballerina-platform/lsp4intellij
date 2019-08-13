@@ -72,7 +72,6 @@ import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.Hover;
-import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.Position;
@@ -109,7 +108,6 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
-import javax.swing.Icon;
 import java.awt.Cursor;
 import java.awt.Point;
 import java.io.File;
@@ -125,6 +123,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import javax.swing.Icon;
 
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.HOVER_TIME_THRES;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.POPUP_THRES;
@@ -229,18 +229,22 @@ public class EditorEventManager {
         this.currentHint = null;
     }
 
+    @SuppressWarnings("unused")
     public Project getProject() {
         return project;
     }
 
+    @SuppressWarnings("unused")
     public RequestManager getRequestManager() {
         return requestManager;
     }
 
+    @SuppressWarnings("unused")
     public TextDocumentIdentifier getIdentifier() {
         return identifier;
     }
 
+    @SuppressWarnings("unused")
     public DidChangeTextDocumentParams getChangesParams() {
         return changesParams;
     }
@@ -261,7 +265,6 @@ public class EditorEventManager {
      */
     public void mouseEntered() {
         mouseInEditor = true;
-
     }
 
     /**
@@ -277,12 +280,17 @@ public class EditorEventManager {
      * @param e the event
      */
     public void mouseMoved(EditorMouseEvent e) {
+
         if (e.getEditor() != editor) {
             LOG.error("Wrong editor for EditorEventManager");
             return;
         }
 
-        Language language = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()).getLanguage();
+        PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
+        if (psiFile == null) {
+            return;
+        }
+        Language language = psiFile.getLanguage();
         if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !language
                 .equals(PlainTextLanguage.INSTANCE)) || (!getIsCtrlDown() && !EditorSettingsExternalizable
                 .getInstance().isShowQuickDocOnMouseOverElement())) {
@@ -484,7 +492,7 @@ public class EditorEventManager {
                         String uri = FileUtils.sanitizeURI(l.getUri());
                         VirtualFile file = FileUtils.virtualFileFromURI(uri);
                         Editor curEditor = FileUtils.editorFromUri(uri, project);
-                        if (curEditor == null) {
+                        if (curEditor == null && file != null) {
                             OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
                             curEditor = computableWriteAction(
                                     () -> FileEditorManager.getInstance(project).openTextEditor(descriptor, false));
@@ -550,6 +558,9 @@ public class EditorEventManager {
             computableReadAction(() -> {
                 final PsiFile file = PsiDocumentManager.getInstance(project)
                         .getCachedPsiFile(editor.getDocument());
+                if (file == null) {
+                    return null;
+                }
                 LOG.debug("Triggering force full DaemonCodeAnalyzer execution.");
                 diagnosticsLock = false;
                 DaemonCodeAnalyzer.getInstance(project).restart(file);
@@ -776,30 +787,32 @@ public class EditorEventManager {
         try {
             Hover hover = request.get(getTimeout(HOVER), TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.HOVER);
-            if (hover != null) {
-                String string = HoverHandler.getHoverString(hover);
-                if (!Strings.isNullOrEmpty(string)) {
-                    if (getIsCtrlDown()) {
-                        invokeLater(() -> {
-                            if (!editor.isDisposed()) {
-                                currentHint = createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
-                            }
-                        });
-                        // createCtrlRange(serverPos, hover.getRange());
-                    } else {
-                        invokeLater(() -> {
-                            if (!editor.isDisposed()) {
-                                currentHint = createAndShowEditorHint(editor, string, point);
-                            }
-                        });
-                    }
-                } else {
-                    LOG.warn(String.format("Hover string returned is null for file %s and pos (%d;%d)",
-                            identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
-                }
-            } else {
-                LOG.warn(String.format("Hover is null for file %s and pos (%d;%d)",
+
+            if (hover == null) {
+                LOG.warn(String.format("Hover is null for file %s and pos (%d;%d)", identifier.getUri(),
+                        serverPos.getLine(), serverPos.getCharacter()));
+                return;
+            }
+
+            String string = HoverHandler.getHoverString(hover);
+            if (Strings.isNullOrEmpty(string)) {
+                LOG.warn(String.format("Hover string returned is null for file %s and pos (%d;%d)",
                         identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
+                return;
+            }
+
+            if (getIsCtrlDown()) {
+                invokeLater(() -> {
+                    if (!editor.isDisposed()) {
+                        currentHint = createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
+                    }
+                });
+            } else {
+                invokeLater(() -> {
+                    if (!editor.isDisposed()) {
+                        currentHint = createAndShowEditorHint(editor, string, point);
+                    }
+                });
             }
         } catch (TimeoutException e) {
             LOG.warn(e);
@@ -820,22 +833,29 @@ public class EditorEventManager {
         List<LookupElement> lookupItems = new ArrayList<>();
         CompletableFuture<Either<List<CompletionItem>, CompletionList>> request = requestManager
                 .completion(new CompletionParams(identifier, pos));
-
         if (request == null) {
             return lookupItems;
         }
+
         try {
             Either<List<CompletionItem>, CompletionList> res = request
                     .get(getTimeout(COMPLETION), TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.COMPLETION);
-            if (res != null) {
-                if (res.getLeft() != null) {
-                    for (CompletionItem item : res.getLeft()) {
-                        lookupItems.add(createLookupItem(item));
+            if (res == null) {
+                return lookupItems;
+            }
+            if (res.getLeft() != null) {
+                for (CompletionItem item : res.getLeft()) {
+                    LookupElement lookupElement = createLookupItem(item);
+                    if (lookupElement != null) {
+                        lookupItems.add(lookupElement);
                     }
-                } else if (res.getRight() != null) {
-                    for (CompletionItem item : res.getRight().getItems()) {
-                        lookupItems.add(createLookupItem(item));
+                }
+            } else if (res.getRight() != null) {
+                for (CompletionItem item : res.getRight().getItems()) {
+                    LookupElement lookupElement = createLookupItem(item);
+                    if (lookupElement != null) {
+                        lookupItems.add(lookupElement);
                     }
                 }
             }
@@ -858,32 +878,32 @@ public class EditorEventManager {
      */
     public LookupElement createLookupItem(CompletionItem item) {
         Command command = item.getCommand();
-        Object data = item.getData();
         String detail = item.getDetail();
-        Either<String, MarkupContent> doc = item.getDocumentation();
-        String filterText = item.getFilterText();
         String insertText = item.getInsertText();
-        InsertTextFormat insertFormat = item.getInsertTextFormat();
         CompletionItemKind kind = item.getKind();
         String label = item.getLabel();
         TextEdit textEdit = item.getTextEdit();
         List<TextEdit> addTextEdits = item.getAdditionalTextEdits();
-        String sortText = item.getSortText();
-        String presentableText = (label != null && label != "") ? label : (insertText != null) ? insertText : "";
+        String presentableText = !Strings.isNullOrEmpty(label) ? label : (insertText != null) ? insertText : "";
         String tailText = (detail != null) ? detail : "";
         LSPIconProvider iconProvider = GUIUtils.getIconProviderFor(wrapper.getServerDefinition());
         Icon icon = iconProvider.getCompletionIcon(kind);
         LookupElementBuilder lookupElementBuilder;
 
+        String lookupString = null;
         if (textEdit != null) {
-            lookupElementBuilder = LookupElementBuilder.create(textEdit.getNewText());
+            lookupString = textEdit.getNewText();
         } else if (!Strings.isNullOrEmpty(insertText)) {
-            lookupElementBuilder = LookupElementBuilder.create(insertText);
+            lookupString = insertText;
         } else if (!Strings.isNullOrEmpty(label)) {
-            lookupElementBuilder = LookupElementBuilder.create(label);
-        } else {
-            return LookupElementBuilder.create((String) null);
+            lookupString = label;
         }
+        if (Strings.isNullOrEmpty(lookupString)) {
+            return null;
+        }
+        // Fixes IDEA internal assertion failure in windows.
+        lookupString = lookupString.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
+        lookupElementBuilder = LookupElementBuilder.create(lookupString);
 
         if (textEdit != null) {
             if (addTextEdits != null) {
@@ -951,17 +971,15 @@ public class EditorEventManager {
             return null;
         } else {
             int minY = doc.getLineStartOffset(editorPos.line) - (editorPos.line > 0 ?
-                    doc.getLineEndOffset(editorPos.line - 1) :
-                    0);
+                    doc.getLineEndOffset(editorPos.line - 1) : 0);
             int maxY = doc.getLineEndOffset(editorPos.line) - (editorPos.line > 0 ?
-                    doc.getLineEndOffset(editorPos.line - 1) :
-                    0);
+                    doc.getLineEndOffset(editorPos.line - 1) : 0);
             return (editorPos.column > minY && editorPos.column < maxY) ? editorPos : null;
         }
     }
 
-    private LookupElementBuilder setInsertHandler(LookupElementBuilder builder, List<TextEdit> edits, Command command,
-                                                  String label) {
+    protected LookupElementBuilder setInsertHandler(LookupElementBuilder builder, List<TextEdit> edits, Command command,
+                                                    String label) {
         return builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
             context.commitDocument();
             invokeLater(() -> {
@@ -971,12 +989,6 @@ public class EditorEventManager {
                 }
             });
         });
-    }
-
-    boolean applyEdit(TextEdit edit, String name, boolean setCaret) {
-        List<TextEdit> textEdits = new ArrayList<>();
-        textEdits.add(edit);
-        return applyEdit(textEdits, name, setCaret);
     }
 
     boolean applyEdit(List<TextEdit> edits, String name, boolean setCaret) {
@@ -1054,7 +1066,7 @@ public class EditorEventManager {
                 String text = edit.getText();
                 int start = edit.getStartOffset();
                 int end = edit.getEndOffset();
-                if (text == null || text.isEmpty()) {
+                if (Strings.isNullOrEmpty(text)) {
                     document.deleteString(start, end);
                 } else {
                     text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
