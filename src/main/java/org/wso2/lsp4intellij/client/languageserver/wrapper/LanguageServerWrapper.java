@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.wrapper;
 
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditor;
@@ -23,6 +24,7 @@ import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.psi.PsiDocumentManager;
 import com.intellij.remoteServer.util.CloudNotifier;
 import com.intellij.util.PlatformIcons;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -79,6 +81,7 @@ import org.wso2.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.requests.Timeouts;
+import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
 
@@ -348,6 +351,13 @@ public class LanguageServerWrapper {
                         for (Editor ed : toConnect) {
                             connect(ed);
                         }
+                        // trigger annotators since the this is the first editor which starts the LS
+                        // and annotators are executed before LS is boostrap to provide diagnostics
+                        ApplicationUtils.computableReadAction(() -> {
+                            DaemonCodeAnalyzer.getInstance(project).restart(
+                                    PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
+                            return null;
+                        });
                     }
                 } catch (Exception e) {
                     LOG.error(e);

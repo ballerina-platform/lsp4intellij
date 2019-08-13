@@ -111,7 +111,8 @@ With plugin.xml containing;
        
   2. Add the following extensions to get the relevant features as listed below.
   
-        - Code completion
+        - Code completion (You can replace the `language` attribute if you already have your own
+            [custom language implementations](https://www.jetbrains.org/intellij/sdk/docs/tutorials/custom_language_support/language_and_filetype.html#define-a-language))
             ```xml
             <extensions defaultExtensionNs="com.intellij">
                 <completion.contributor implementationClass="org.wso2.lsp4intellij.contributors.LSPCompletionContributor"
@@ -127,13 +128,11 @@ With plugin.xml containing;
                        use-shortcut-of="ShowReformatFileDialog" overrides="true" text="Show Reformat File Dialog"/>
             </actions>
             ```
-        - Diagnostics and code actions
+        - Diagnostics and code actions (You can replace the `language` attribute if you already have your own
+          [custom language implementations](https://www.jetbrains.org/intellij/sdk/docs/tutorials/custom_language_support/language_and_filetype.html#define-a-language))
             ```xml
             <extensions defaultExtensionNs="com.intellij">
-               <localInspection displayName="LSP"
-                                shortName="LSP"
-                                enabledByDefault="true"
-                                implementationClass="org.wso2.lsp4intellij.contributors.inspection.DummyLSPInspection"/>
+               <externalAnnotator id="LSPAnnotator" language="TEXT" implementationClass="org.wso2.lsp4intellij.contributors.annotator.LSPAnnotator"/>
             </extensions>
             ```
         - Find Usages 
@@ -159,7 +158,14 @@ With plugin.xml containing;
                 <renamePsiElementProcessor implementation="org.wso2.lsp4intellij.contributors.rename
                  .LSPRenameProcessor" id="LSPRenameProcessor" order="first"/>
             </extensions>
-            ```  
+            ```
+        - Signature Help
+            ```xml
+            <extensions defaultExtensionNs="com.intellij">
+                <typedHandler implementation="org.wso2.lsp4intellij.editor.listeners.LSPTypedHandler"
+                              id="LSPTypedHandler"/>
+            </extensions>
+            ```
         
    > **Note:** You do not need any additional configurations for the other features.
       

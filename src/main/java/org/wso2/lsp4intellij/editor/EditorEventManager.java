@@ -16,19 +16,12 @@
 package org.wso2.lsp4intellij.editor;
 
 import com.google.common.base.Strings;
-import com.intellij.codeHighlighting.Pass;
-import com.intellij.codeHighlighting.TextEditorHighlightingPass;
 import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.daemon.impl.HighlightInfoProcessor;
-import com.intellij.codeInsight.daemon.impl.LocalInspectionsPass;
-import com.intellij.codeInsight.daemon.impl.LocalInspectionsPassFactory;
-import com.intellij.codeInsight.daemon.impl.UpdateHighlightersUtil;
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInspection.ex.InspectionManagerEx;
-import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
 import com.intellij.lang.Language;
 import com.intellij.lang.LanguageDocumentation;
 import com.intellij.openapi.actionSystem.ActionManager;
@@ -51,9 +44,6 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.PlainTextLanguage;
-import com.intellij.openapi.progress.EmptyProgressIndicator;
-import com.intellij.openapi.progress.ProgressManager;
-import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
@@ -110,7 +100,6 @@ import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
-import org.wso2.lsp4intellij.contributors.inspection.LSPInspection;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
 import org.wso2.lsp4intellij.requests.HoverHandler;
@@ -201,14 +190,12 @@ public class EditorEventManager {
     private Hint currentHint;
 
     protected final List<Diagnostic> diagnostics = new ArrayList<>();
-    private final InspectionManagerEx inspectionManagerEx;
-    private final List<LocalInspectionToolWrapper> inspectionToolWrapper;
-    private final LocalInspectionsPassFactory inspectionsPassFactory;
+    private volatile boolean diagnosticsLock = true;
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
-                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager, ServerOptions serverOptions,
-                              LanguageServerWrapper wrapper) {
+                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager,
+                              ServerOptions serverOptions, LanguageServerWrapper wrapper) {
 
         this.editor = editor;
         this.documentListener = documentListener;
@@ -239,10 +226,6 @@ public class EditorEventManager {
         EditorEventManagerBase.editorToManager.put(editor, this);
         changesParams.getTextDocument().setUri(identifier.getUri());
 
-        // Inspections
-        this.inspectionManagerEx = (InspectionManagerEx) InspectionManagerEx.getInstance(project);
-        this.inspectionToolWrapper = Collections.singletonList(new LocalInspectionToolWrapper(new LSPInspection()));
-        this.inspectionsPassFactory = project.getComponent(LocalInspectionsPassFactory.class);
         this.currentHint = null;
     }
 
@@ -538,8 +521,13 @@ public class EditorEventManager {
     /**
      * @return The current diagnostics highlights
      */
-    public List<Diagnostic> getDiagnostics() {
-        return diagnostics;
+    public synchronized List<Diagnostic> getDiagnostics() {
+        this.diagnosticsLock = true;
+        return this.diagnostics;
+    }
+
+    public synchronized boolean isDiagnosticsLocked() {
+        return this.diagnosticsLock;
     }
 
     /**
@@ -548,41 +536,26 @@ public class EditorEventManager {
      * @param diagnostics The diagnostics to apply from the server
      */
     public void diagnostics(List<Diagnostic> diagnostics) {
-        if (!editor.isDisposed()) {
-            synchronized (this.diagnostics) {
-                this.diagnostics.clear();
-                this.diagnostics.addAll(diagnostics);
-            }
-            // Forcefully triggers local inspection tool.
-            runInspection();
-        }
-    }
 
-    /**
-     * Triggers local inspections for a given PSI file.
-     */
-    private void runInspection() {
-        PsiFile psiFile = computableReadAction(
-                () -> PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
-        Document document = PsiDocumentManager.getInstance(project).getDocument(psiFile);
-        if (document == null) {
+        // If both of the old diagnostics and the received diagnostics are empty, we can simply return without
+        // re-triggering the annotator.
+        if (editor.isDisposed() || (this.diagnostics.isEmpty() && diagnostics.isEmpty())) {
             return;
         }
 
-        DumbService.getInstance(project).smartInvokeLater(() -> {
-            TextEditorHighlightingPass highlightingPass = this.inspectionsPassFactory
-                    .createMainHighlightingPass(psiFile, document, HighlightInfoProcessor.getEmpty());
-            if (highlightingPass instanceof LocalInspectionsPass) {
-                ProgressManager.getInstance().runProcess(() -> {
-                    ((LocalInspectionsPass) highlightingPass)
-                            .doInspectInBatch(inspectionManagerEx.createNewGlobalContext(false), inspectionManagerEx,
-                                    inspectionToolWrapper);
-                    UpdateHighlightersUtil
-                            .setHighlightersToEditor(psiFile.getProject(), document, 0, document.getTextLength(),
-                                    highlightingPass.getInfos(), null, Pass.WHOLE_FILE_LOCAL_INSPECTIONS);
-                }, new EmptyProgressIndicator());
-            }
-        });
+        synchronized (this.diagnostics) {
+            this.diagnostics.clear();
+            this.diagnostics.addAll(diagnostics);
+
+            computableReadAction(() -> {
+                final PsiFile file = PsiDocumentManager.getInstance(project)
+                        .getCachedPsiFile(editor.getDocument());
+                LOG.debug("Triggering force full DaemonCodeAnalyzer execution.");
+                diagnosticsLock = false;
+                DaemonCodeAnalyzer.getInstance(project).restart(file);
+                return null;
+            });
+        }
     }
 
     /**
