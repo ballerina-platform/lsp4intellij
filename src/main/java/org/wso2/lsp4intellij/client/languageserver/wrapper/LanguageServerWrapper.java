@@ -371,24 +371,6 @@ public class LanguageServerWrapper {
         }
     }
 
-    /**
-     * Disconnects an editor from the LanguageServer
-     *
-     * @param uri The uri of the editor
-     */
-    private void disconnect(String uri) {
-        EditorEventManager manager = connectedEditors.remove(uri);
-        if (manager != null) {
-            manager.removeListeners();
-            manager.documentClosed();
-            uriToLanguageServerWrapper.remove(new ImmutablePair<>(uri, FileUtils.projectToUri(project)));
-        }
-
-        if (connectedEditors.isEmpty()) {
-            stop(true);
-        }
-    }
-
     /*
      * The shutdown request is sent from the client to the server. It asks the server to shut down, but to not exit \
      * (otherwise the response might not be delivered correctly to the client).
@@ -422,7 +404,7 @@ public class LanguageServerWrapper {
                 serverDefinition.stop(rootPath);
             }
             for (Map.Entry<String, EditorEventManager> ed : connectedEditors.entrySet()) {
-                disconnect(ed.getKey());
+                disconnect(ed.getValue().editor);
             }
             languageServer = null;
             setStatus(STOPPED);
@@ -632,7 +614,17 @@ public class LanguageServerWrapper {
      * @param editor The editor
      */
     public void disconnect(Editor editor) {
-        disconnect(FileUtils.editorToURIString(editor));
+        EditorEventManager manager = connectedEditors.remove(FileUtils.editorToURIString(editor));
+        if (manager != null) {
+            manager.removeListeners();
+            manager.documentClosed();
+            uriToLanguageServerWrapper.remove(new ImmutablePair<>(FileUtils.editorToURIString(editor),
+                    FileUtils.editorToProjectFolderUri(editor)));
+        }
+
+        if (connectedEditors.isEmpty()) {
+            stop(true);
+        }
     }
 
     private void removeServerWrapper() {

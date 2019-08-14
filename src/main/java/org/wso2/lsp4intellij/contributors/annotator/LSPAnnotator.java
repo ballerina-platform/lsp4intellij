@@ -38,6 +38,7 @@ import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
+import java.util.ConcurrentModificationException;
 import java.util.List;
 
 public class LSPAnnotator extends ExternalAnnotator {
@@ -46,7 +47,25 @@ public class LSPAnnotator extends ExternalAnnotator {
     @Nullable
     @Override
     public Object collectInformation(@NotNull PsiFile file, @NotNull Editor editor, boolean hasErrors) {
-        return RESULT;
+
+        try {
+            VirtualFile virtualFile = file.getVirtualFile();
+
+            // If the file is not supported, we skips the annotation by returning null.
+            if (!FileUtils.isFileSupported(virtualFile) || !IntellijLanguageClient.isExtensionSupported(virtualFile)) {
+                return null;
+            }
+            String uri = FileUtils.VFSToURI(virtualFile);
+            EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
+
+            // If the diagnostics list is locked, we need to skip annotating the file.
+            if (eventManager == null || eventManager.isDiagnosticsLocked()) {
+                return null;
+            }
+            return RESULT;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Nullable
@@ -57,13 +76,19 @@ public class LSPAnnotator extends ExternalAnnotator {
 
     @Override
     public void apply(@NotNull PsiFile file, Object annotationResult, @NotNull AnnotationHolder holder) {
+
         VirtualFile virtualFile = file.getVirtualFile();
-        if (FileUtils.isFileSupported(virtualFile) &&
-                IntellijLanguageClient.isExtensionSupported(virtualFile.getExtension())) {
+        if (FileUtils.isFileSupported(virtualFile) && IntellijLanguageClient.isExtensionSupported(virtualFile)) {
             String uri = FileUtils.VFSToURI(virtualFile);
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
-            if (eventManager != null) {
+
+            if (eventManager == null || eventManager.isDiagnosticsLocked()) {
+                return;
+            }
+            try {
                 createAnnotations(file, holder, eventManager);
+            } catch (ConcurrentModificationException e) {
+                // Todo
             }
         }
     }

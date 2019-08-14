@@ -43,7 +43,6 @@ import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
-import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.List;
 
@@ -99,7 +98,7 @@ public class LSPRenameHandler implements RenameHandler {
                 }
             } else {
                 InplaceRefactoring inplaceRefactoring = editor.getUserData(InplaceRefactoring.INPLACE_RENAMER);
-                if (inplaceRefactoring != null && (inplaceRefactoring instanceof MemberInplaceRenamer)) {
+                if ((inplaceRefactoring instanceof MemberInplaceRenamer)) {
                     TemplateState templateState = TemplateManagerImpl
                             .getTemplateState(InjectedLanguageUtil.getTopLevelEditor(editor));
                     if (templateState != null) {
@@ -130,21 +129,21 @@ public class LSPRenameHandler implements RenameHandler {
         if (psiElement instanceof PsiFile || psiElement instanceof LSPPsiElement) {
             return true;
         } else {
-            return psiElement == null && IntellijLanguageClient.isExtensionSupported(FileUtils.extFromPsiFile(psiFile));
+            return IntellijLanguageClient.isExtensionSupported(psiFile.getVirtualFile());
         }
     }
 
     private MemberInplaceRenamer createMemberRenamer(PsiElement element, PsiNameIdentifierOwner elementToRename,
-            Editor editor) {
+                                                     Editor editor) {
         return new LSPInplaceRenamer((PsiNamedElement) element, elementToRename, editor);
     }
 
     private void performDialogRename(Editor editor) {
         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
-            String renameTo = Messages
-                    .showInputDialog(editor.getProject(), "Enter new name: ", "Rename", Messages.getQuestionIcon(), "",
-                            new NonEmptyInputValidator());
+            String renameTo = Messages.showInputDialog(
+                    editor.getProject(), "Enter new name: ", "Rename", Messages.getQuestionIcon(), "",
+                    new NonEmptyInputValidator());
             if (renameTo != null && !renameTo.equals("")) {
                 manager.rename(renameTo);
             }

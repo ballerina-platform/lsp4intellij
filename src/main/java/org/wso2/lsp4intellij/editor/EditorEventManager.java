@@ -18,13 +18,10 @@ package org.wso2.lsp4intellij.editor;
 import com.google.common.base.Strings;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
-import com.intellij.codeInsight.daemon.impl.LocalInspectionsPassFactory;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInspection.ex.InspectionManagerEx;
-import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
 import com.intellij.lang.Language;
 import com.intellij.lang.LanguageDocumentation;
 import com.intellij.openapi.actionSystem.ActionManager;
@@ -83,6 +80,8 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceContext;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SignatureHelp;
+import org.eclipse.lsp4j.SignatureInformation;
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
@@ -141,12 +140,14 @@ import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
 import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
 import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
 import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
+import static org.wso2.lsp4intellij.requests.Timeouts.SIGNATURE;
 import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
+import static org.wso2.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
 
 /**
  * Class handling events related to an Editor (a Document)
@@ -166,7 +167,6 @@ public class EditorEventManager {
 
     public Editor editor;
     public LanguageServerWrapper wrapper;
-    public List<String> completionTriggers;
     private Project project;
     private RequestManager requestManager;
     private TextDocumentIdentifier identifier;
@@ -175,6 +175,8 @@ public class EditorEventManager {
     private EditorMouseListener mouseListener;
     private EditorMouseMotionListener mouseMotionListener;
 
+    public List<String> completionTriggers;
+    public List<String> signatureTriggers;
     private DidChangeTextDocumentParams changesParams;
     private TextDocumentSyncKind syncKind;
     private volatile boolean needSave = false;
@@ -188,15 +190,15 @@ public class EditorEventManager {
     private Hint currentHint;
 
     protected final List<Diagnostic> diagnostics = new ArrayList<>();
+    private volatile boolean diagnosticsLock = true;
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
-                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager, ServerOptions serverOptions,
-                              LanguageServerWrapper wrapper) {
+                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager,
+                              ServerOptions serverOptions, LanguageServerWrapper wrapper) {
 
         this.editor = editor;
         this.documentListener = documentListener;
-        this.mouseListener = mouseListener;
         this.mouseListener = mouseListener;
         this.mouseMotionListener = mouseMotionListener;
         this.requestManager = requestManager;
@@ -211,6 +213,11 @@ public class EditorEventManager {
         this.completionTriggers = (serverOptions.completionOptions != null
                 && serverOptions.completionOptions.getTriggerCharacters() != null) ?
                 serverOptions.completionOptions.getTriggerCharacters() :
+                new ArrayList<>();
+
+        this.signatureTriggers = (serverOptions.signatureHelpOptions != null
+                && serverOptions.signatureHelpOptions.getTriggerCharacters() != null) ?
+                serverOptions.signatureHelpOptions.getTriggerCharacters() :
                 new ArrayList<>();
 
         this.project = editor.getProject();
@@ -244,7 +251,9 @@ public class EditorEventManager {
      * @param c The character just typed
      */
     public void characterTyped(char c) {
-        // Todo - Implement
+        if (signatureTriggers.contains(Character.toString(c))) {
+            signatureHelp();
+        }
     }
 
     /**
@@ -268,50 +277,53 @@ public class EditorEventManager {
      * @param e the event
      */
     public void mouseMoved(EditorMouseEvent e) {
-        if (e.getEditor() == editor) {
-            Language language = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()).getLanguage();
-            if ((LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() || language
-                    .equals(PlainTextLanguage.INSTANCE)) && (getIsCtrlDown() || EditorSettingsExternalizable
-                    .getInstance().isShowQuickDocOnMouseOverElement())) {
-                long curTime = System.nanoTime();
-                if (predTime == (-1L) || ctrlTime == (-1L)) {
-                    predTime = curTime;
-                    ctrlTime = curTime;
-                } else {
-                    LogicalPosition lPos = getPos(e);
-                    if (lPos != null) {
-                        if (!getIsKeyPressed() || getIsCtrlDown()) {
-                            int offset = editor.logicalPositionToOffset(lPos);
-                            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRES) {
-                                if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
-                                    if (currentHint != null) {
-                                        currentHint.hide();
-                                    }
-                                    currentHint = null;
-                                    if (getCtrlRange() != null) {
-                                        getCtrlRange().dispose();
-                                    }
-                                    setCtrlRange(null);
-                                    pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
-                                } else if (getCtrlRange().definitionContainsOffset(offset)) {
-                                    GUIUtils.createAndShowEditorHint(editor, "Click to show usages",
-                                            editor.offsetToXY(offset));
-                                } else {
-                                    editor.getContentComponent()
-                                            .setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                                }
-                                ctrlTime = curTime;
-                            } else {
-                                scheduleDocumentation(curTime, lPos, e.getMouseEvent().getPoint());
-                            }
-
-                        }
-                    }
-                    predTime = curTime;
-                }
-            }
-        } else {
+        if (e.getEditor() != editor) {
             LOG.error("Wrong editor for EditorEventManager");
+            return;
+        }
+
+        Language language = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()).getLanguage();
+        if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !language
+                .equals(PlainTextLanguage.INSTANCE)) || (!getIsCtrlDown() && !EditorSettingsExternalizable
+                .getInstance().isShowQuickDocOnMouseOverElement())) {
+            return;
+        }
+
+        long curTime = System.nanoTime();
+        if (predTime == (-1L) || ctrlTime == (-1L)) {
+            predTime = curTime;
+            ctrlTime = curTime;
+        } else {
+            LogicalPosition lPos = getPos(e);
+
+            if (lPos == null || getIsKeyPressed() && !getIsCtrlDown()) {
+                return;
+            }
+
+            int offset = editor.logicalPositionToOffset(lPos);
+            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRES) {
+                if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
+                    if (currentHint != null) {
+                        currentHint.hide();
+                    }
+                    currentHint = null;
+                    if (getCtrlRange() != null) {
+                        getCtrlRange().dispose();
+                    }
+                    setCtrlRange(null);
+                    pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
+                } else if (getCtrlRange().definitionContainsOffset(offset)) {
+                    createAndShowEditorHint(editor, "Click to show usages",
+                            editor.offsetToXY(offset));
+                } else {
+                    editor.getContentComponent()
+                            .setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                }
+                ctrlTime = curTime;
+            } else {
+                scheduleDocumentation(curTime, lPos, e.getMouseEvent().getPoint());
+            }
+            predTime = curTime;
         }
     }
 
@@ -509,8 +521,13 @@ public class EditorEventManager {
     /**
      * @return The current diagnostics highlights
      */
-    public List<Diagnostic> getDiagnostics() {
-        return diagnostics;
+    public synchronized List<Diagnostic> getDiagnostics() {
+        this.diagnosticsLock = true;
+        return this.diagnostics;
+    }
+
+    public synchronized boolean isDiagnosticsLocked() {
+        return this.diagnosticsLock;
     }
 
     /**
@@ -519,22 +536,25 @@ public class EditorEventManager {
      * @param diagnostics The diagnostics to apply from the server
      */
     public void diagnostics(List<Diagnostic> diagnostics) {
-        if (!editor.isDisposed()) {
-            synchronized (this.diagnostics) {
-                this.diagnostics.clear();
-                this.diagnostics.addAll(diagnostics);
 
-                if(!diagnostics.isEmpty()) {
-                    computableReadAction(() -> {
-                        final PsiFile file = PsiDocumentManager.getInstance(project)
-                                .getCachedPsiFile(editor.getDocument());
-                        LOG.debug("Triggering force full DaemonCodeAnalyzer execution.");
-                        DaemonCodeAnalyzer.getInstance(project).restart(file);
-                        return null;
-                    });
-                }
+        // If both of the old diagnostics and the received diagnostics are empty, we can simply return without
+        // re-triggering the annotator.
+        if (editor.isDisposed() || (this.diagnostics.isEmpty() && diagnostics.isEmpty())) {
+            return;
+        }
 
-            }
+        synchronized (this.diagnostics) {
+            this.diagnostics.clear();
+            this.diagnostics.addAll(diagnostics);
+
+            computableReadAction(() -> {
+                final PsiFile file = PsiDocumentManager.getInstance(project)
+                        .getCachedPsiFile(editor.getDocument());
+                LOG.debug("Triggering force full DaemonCodeAnalyzer execution.");
+                diagnosticsLock = false;
+                DaemonCodeAnalyzer.getInstance(project).restart(file);
+                return null;
+            });
         }
     }
 
@@ -569,6 +589,69 @@ public class EditorEventManager {
             }
         }
         return null;
+    }
+
+    /**
+     * Calls signatureHelp at the current editor caret position
+     */
+    public void signatureHelp() {
+        if (editor.isDisposed()) {
+            return;
+        }
+        LogicalPosition lPos = editor.getCaretModel().getCurrentCaret().getLogicalPosition();
+        Point point = editor.logicalPositionToXY(lPos);
+        TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, DocumentUtils.logicalToLSPPos(lPos, editor));
+        pool(() -> {
+            CompletableFuture<SignatureHelp> future = requestManager.signatureHelp(params);
+            if (future == null) {
+                return;
+            }
+            try {
+                SignatureHelp signatureResp = future.get(getTimeout(SIGNATURE), TimeUnit.MILLISECONDS);
+                wrapper.notifySuccess(Timeouts.SIGNATURE);
+                if (signatureResp == null) {
+                    return;
+                }
+                List<SignatureInformation> signatures = signatureResp.getSignatures();
+                if (signatures == null || signatures.isEmpty()) {
+                    return;
+                }
+                int activeSignatureIndex = signatureResp.getActiveSignature();
+                int activeParameterIndex = signatureResp.getActiveParameter();
+                String activeParameter = signatures.get(activeSignatureIndex).getParameters().size() > activeParameterIndex ?
+                        signatures.get(activeSignatureIndex).getParameters().get(activeParameterIndex).getLabel() : "";
+                Either<String, MarkupContent> signatureDescription = signatures.get(activeSignatureIndex).getDocumentation();
+
+                StringBuilder builder = new StringBuilder();
+                builder.append("<html>");
+                if (signatureDescription == null) {
+                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel().
+                            replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
+                                    activeParameter))).append("</b>");
+                } else if (signatureDescription.isLeft()) {
+                    // Todo - Add parameter Documentation
+                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()
+                            .replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
+                                    activeParameter))).append("</b>");
+                    builder.append("<div>").append(signatureDescription.getLeft()).append("</div>");
+                } else if (signatureDescription.isRight()) {
+                    // Todo - Add marked content parsing
+                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()).append("</b>");
+                }
+
+                builder.append("</html>");
+                invokeLater(() -> currentHint = createAndShowEditorHint(editor, builder.toString(), point, HintManager.UNDER, HintManager.HIDE_BY_OTHER_HINT));
+
+            } catch (TimeoutException e) {
+                LOG.warn(e);
+                wrapper.notifyFailure(Timeouts.SIGNATURE);
+            } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+                LOG.warn(e);
+                wrapper.crashed(e);
+            } catch (Exception e) {
+                LOG.warn("Internal error occurred when processing signature help");
+            }
+        });
     }
 
     /**
@@ -699,15 +782,14 @@ public class EditorEventManager {
                     if (getIsCtrlDown()) {
                         invokeLater(() -> {
                             if (!editor.isDisposed()) {
-                                currentHint = GUIUtils
-                                        .createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
+                                currentHint = createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
                             }
                         });
                         // createCtrlRange(serverPos, hover.getRange());
                     } else {
                         invokeLater(() -> {
                             if (!editor.isDisposed()) {
-                                currentHint = GUIUtils.createAndShowEditorHint(editor, string, point);
+                                currentHint = createAndShowEditorHint(editor, string, point);
                             }
                         });
                     }
@@ -774,7 +856,7 @@ public class EditorEventManager {
      * @param item The CompletionItem
      * @return The corresponding LookupElement
      */
-    private LookupElement createLookupItem(CompletionItem item) {
+    public LookupElement createLookupItem(CompletionItem item) {
         Command command = item.getCommand();
         Object data = item.getData();
         String detail = item.getDetail();
@@ -813,7 +895,7 @@ public class EditorEventManager {
             lookupElementBuilder = lookupElementBuilder
                     .withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
                         context.commitDocument();
-                        invokeLater(() -> executeCommands(command));
+                        invokeLater(() -> executeCommands(Collections.singletonList(command)));
                     });
         }
 
@@ -885,7 +967,7 @@ public class EditorEventManager {
             invokeLater(() -> {
                 applyEdit(edits, "Completion : " + label, false);
                 if (command != null) {
-                    executeCommands(command);
+                    executeCommands(Collections.singletonList(command));
                 }
             });
         });
@@ -996,12 +1078,6 @@ public class EditorEventManager {
         };
     }
 
-    private void executeCommands(Command command) {
-        List<Command> commands = new ArrayList<>();
-        commands.add(command);
-        executeCommands(commands);
-    }
-
     /**
      * Sends commands to execute to the server and applies the changes returned if the future returns a WorkspaceEdit
      *
@@ -1009,25 +1085,26 @@ public class EditorEventManager {
      */
     public void executeCommands(List<Command> commands) {
         pool(() -> {
-            if (!editor.isDisposed()) {
-                commands.stream().map(c -> {
-                    ExecuteCommandParams params = new ExecuteCommandParams();
-                    params.setArguments(c.getArguments());
-                    params.setCommand(c.getCommand());
-                    return requestManager.executeCommand(params);
-                }).filter(Objects::nonNull).forEach(f -> {
-                    try {
-                        f.get(getTimeout(EXECUTE_COMMAND), TimeUnit.MILLISECONDS);
-                        wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
-                    } catch (TimeoutException te) {
-                        LOG.warn(te);
-                        wrapper.notifyFailure(Timeouts.EXECUTE_COMMAND);
-                    } catch (JsonRpcException | ExecutionException | InterruptedException e) {
-                        LOG.warn(e);
-                        wrapper.crashed(e);
-                    }
-                });
+            if (editor.isDisposed()) {
+                return;
             }
+            commands.stream().map(c -> {
+                ExecuteCommandParams params = new ExecuteCommandParams();
+                params.setArguments(c.getArguments());
+                params.setCommand(c.getCommand());
+                return requestManager.executeCommand(params);
+            }).filter(Objects::nonNull).forEach(f -> {
+                try {
+                    f.get(getTimeout(EXECUTE_COMMAND), TimeUnit.MILLISECONDS);
+                    wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
+                } catch (TimeoutException te) {
+                    LOG.warn(te);
+                    wrapper.notifyFailure(Timeouts.EXECUTE_COMMAND);
+                } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+                    LOG.warn(e);
+                    wrapper.crashed(e);
+                }
+            });
         });
     }
 
@@ -1075,19 +1152,18 @@ public class EditorEventManager {
 
     public void documentOpened() {
         pool(() -> {
-            if (!editor.isDisposed()) {
-                if (isOpen) {
-                    LOG.warn("Editor " + editor + " was already open");
-                } else {
-                    final String extension = FileDocumentManager.getInstance()
-                            .getFile(editor.getDocument()).getExtension();
-                    requestManager.didOpen(new DidOpenTextDocumentParams(
-                            new TextDocumentItem(identifier.getUri(),
-                                    wrapper.serverDefinition.languageIdFor(extension),
-                                    version++,
-                                    editor.getDocument().getText())));
-                    isOpen = true;
-                }
+            if (editor.isDisposed()) {
+                return;
+            }
+            if (isOpen) {
+                LOG.warn("Editor " + editor + " was already open");
+            } else {
+                final String extension = FileDocumentManager.getInstance().getFile(editor.getDocument()).getExtension();
+                requestManager.didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
+                        wrapper.serverDefinition.languageIdFor(extension),
+                        version++,
+                        editor.getDocument().getText())));
+                isOpen = true;
             }
         });
     }
@@ -1141,8 +1217,7 @@ public class EditorEventManager {
     public void documentSaved() {
         pool(() -> {
             if (!editor.isDisposed()) {
-                DidSaveTextDocumentParams params = new DidSaveTextDocumentParams(identifier,
-                        editor.getDocument().getText());
+                DidSaveTextDocumentParams params = new DidSaveTextDocumentParams(identifier, editor.getDocument().getText());
                 requestManager.didSave(params);
             }
         });
@@ -1170,31 +1245,32 @@ public class EditorEventManager {
     private void willSaveWaitUntil() {
         if (wrapper.isWillSaveWaitUntil()) {
             pool(() -> {
-                if (!editor.isDisposed()) {
-                    WillSaveTextDocumentParams params = new WillSaveTextDocumentParams(identifier,
-                            TextDocumentSaveReason.Manual);
-                    CompletableFuture<List<TextEdit>> future = requestManager.willSaveWaitUntil(params);
-                    if (future != null) {
-                        try {
-                            List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
-                            wrapper.notifySuccess(Timeouts.WILLSAVE);
-                            if (edits != null) {
-                                invokeLater(() -> applyEdit(edits, "WaitUntil edits", false));
-                            }
-                        } catch (TimeoutException e) {
-                            LOG.warn(e);
-                            wrapper.notifyFailure(Timeouts.WILLSAVE);
-                        } catch (JsonRpcException | ExecutionException | InterruptedException e) {
-                            LOG.warn(e);
-                            wrapper.crashed(e);
-                        } finally {
-                            needSave = true;
-                            saveDocument();
+                if (editor.isDisposed()) {
+                    return;
+                }
+                WillSaveTextDocumentParams params = new WillSaveTextDocumentParams(identifier,
+                        TextDocumentSaveReason.Manual);
+                CompletableFuture<List<TextEdit>> future = requestManager.willSaveWaitUntil(params);
+                if (future != null) {
+                    try {
+                        List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
+                        wrapper.notifySuccess(Timeouts.WILLSAVE);
+                        if (edits != null) {
+                            invokeLater(() -> applyEdit(edits, "WaitUntil edits", false));
                         }
-                    } else {
+                    } catch (TimeoutException e) {
+                        LOG.warn(e);
+                        wrapper.notifyFailure(Timeouts.WILLSAVE);
+                    } catch (JsonRpcException | ExecutionException | InterruptedException e) {
+                        LOG.warn(e);
+                        wrapper.crashed(e);
+                    } finally {
                         needSave = true;
                         saveDocument();
                     }
+                } else {
+                    needSave = true;
+                    saveDocument();
                 }
             });
         } else {

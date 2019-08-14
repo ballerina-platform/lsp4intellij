@@ -35,6 +35,7 @@ import com.intellij.testFramework.LightVirtualFileBase;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.IntellijLanguageClient;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -236,7 +237,7 @@ public class FileUtils {
     }
 
     /**
-     * Checks if the file instance is supported by this LS client library.
+     * Checks if the given virtual file instance is supported by this LS client library.
      */
     public static boolean isFileSupported(@Nullable VirtualFile file) {
         if (file == null) {
@@ -247,11 +248,11 @@ public class FileUtils {
             return false;
         }
 
-        if (file.getUrl().startsWith("jar:")) {
+        if (file.getUrl().isEmpty() || file.getUrl().startsWith("jar:")) {
             return false;
         }
 
-        return true;
+        return IntellijLanguageClient.isExtensionSupported(file);
     }
 
     /**
