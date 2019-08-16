@@ -374,7 +374,8 @@ public class EditorEventManager {
                     LOG.warn("Syntax Exception occurred for uri: " + locUri);
                 }
                 if (file != null) {
-                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+                    final Position start = loc.getRange().getStart();
+                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, start.getLine(), start.getCharacter());
                     writeAction(() -> {
                         Editor newEditor = FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
                         int startOffset = DocumentUtils.LSPPosToOffset(newEditor, loc.getRange().getStart());
@@ -485,7 +486,7 @@ public class EditorEventManager {
                         VirtualFile file = FileUtils.virtualFileFromURI(uri);
                         Editor curEditor = FileUtils.editorFromUri(uri, project);
                         if (curEditor == null) {
-                            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+                            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, start.getLine(), start.getCharacter());
                             curEditor = computableWriteAction(
                                     () -> FileEditorManager.getInstance(project).openTextEditor(descriptor, false));
                             openedEditors.add(file);
