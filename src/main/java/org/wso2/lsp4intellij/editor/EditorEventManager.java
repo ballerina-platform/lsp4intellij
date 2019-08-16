@@ -375,17 +375,9 @@ public class EditorEventManager {
                 }
                 if (file != null) {
                     final Position start = loc.getRange().getStart();
-                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, start.getLine(), start.getCharacter());
+                    final OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, start.getLine(), start.getCharacter());
                     writeAction(() -> {
-                        Editor newEditor = FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
-                        int startOffset = DocumentUtils.LSPPosToOffset(newEditor, loc.getRange().getStart());
-                        if (newEditor != null) {
-                            newEditor.getCaretModel().getCurrentCaret().moveToOffset(startOffset);
-                            newEditor.getSelectionModel().setSelection(startOffset,
-                                    DocumentUtils.LSPPosToOffset(newEditor, loc.getRange().getEnd()));
-                        } else {
-                            LOG.warn("editor is null");
-                        }
+                        FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
                     });
                 } else {
                     LOG.warn("Empty file for " + locUri);
