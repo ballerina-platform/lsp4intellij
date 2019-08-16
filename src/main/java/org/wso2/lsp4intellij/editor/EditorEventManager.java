@@ -118,7 +118,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -126,9 +125,6 @@ import java.util.concurrent.TimeoutException;
 
 import javax.swing.Icon;
 
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.HOVER_TIME_THRES;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.POPUP_THRES;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.SCHEDULE_THRES;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
@@ -328,8 +324,6 @@ public class EditorEventManager {
                             .setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 }
                 ctrlTime = curTime;
-            } else {
-                scheduleDocumentation(curTime, lPos, e.getMouseEvent().getPoint());
             }
             predTime = curTime;
         }
@@ -641,10 +635,11 @@ public class EditorEventManager {
                                     activeParameter))).append("</b>");
                 } else if (signatureDescription.isLeft()) {
                     // Todo - Add parameter Documentation
+                    String descriptionLeft = signatureDescription.getLeft().replace(System.lineSeparator(), "<br />");
                     builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()
                             .replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
                                     activeParameter))).append("</b>");
-                    builder.append("<div>").append(signatureDescription.getLeft()).append("</div>");
+                    builder.append("<div>").append(descriptionLeft).append("</div>");
                 } else if (signatureDescription.isRight()) {
                     // Todo - Add marked content parsing
                     builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()).append("</b>");
@@ -925,35 +920,6 @@ public class EditorEventManager {
 
         return lookupElementBuilder.withPresentableText(presentableText).withTypeText(tailText, true).withIcon(icon)
                 .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
-    }
-
-    /**
-     * Schedule the documentation using the Timer
-     *
-     * @param time      The current time
-     * @param editorPos The position in the editor
-     * @param point     The point where to show the doc
-     */
-    private void scheduleDocumentation(Long time, LogicalPosition editorPos, Point point) {
-        if (editorPos == null || (time - predTime <= SCHEDULE_THRES)) {
-            return;
-        }
-        try {
-            hoverThread.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    long curTime = System.nanoTime();
-                    if (!editor.isDisposed() && (System.nanoTime() - predTime > HOVER_TIME_THRES) && mouseInEditor
-                            && editor.getContentComponent().hasFocus() && (!getIsKeyPressed() || getIsCtrlDown())) {
-                        requestAndShowDoc(curTime, editorPos, point);
-                    }
-                }
-            }, POPUP_THRES);
-        } catch (Exception e) {
-            hoverThread = new Timer("Hover", true); //Restart Timer if it crashes
-            LOG.warn(e);
-            LOG.warn("Hover timer reset");
-        }
     }
 
     /**
