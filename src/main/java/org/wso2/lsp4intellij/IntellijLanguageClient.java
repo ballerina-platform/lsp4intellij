@@ -32,8 +32,8 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import org.wso2.lsp4intellij.editor.listeners.EditorListener;
-import org.wso2.lsp4intellij.editor.listeners.FileDocumentManagerListenerImpl;
+import org.wso2.lsp4intellij.editor.listeners.LSPEditorListener;
+import org.wso2.lsp4intellij.editor.listeners.LSPFileDocumentManagerListener;
 import org.wso2.lsp4intellij.editor.listeners.VFSListener;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.requests.Timeout;
@@ -61,10 +61,10 @@ public class IntellijLanguageClient implements ApplicationComponent {
     @Override
     public void initComponent() {
         // LSPState.getInstance.getState(); //Need that to trigger loadState
-        EditorFactory.getInstance().addEditorFactoryListener(new EditorListener(), Disposer.newDisposable());
+        EditorFactory.getInstance().addEditorFactoryListener(new LSPEditorListener(), Disposer.newDisposable());
         VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
         ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
-                new FileDocumentManagerListenerImpl());
+                new LSPFileDocumentManagerListener());
         LOG.info("Language Client init finished");
     }
 

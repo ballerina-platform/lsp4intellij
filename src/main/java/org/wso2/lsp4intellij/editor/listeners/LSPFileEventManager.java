@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wso2.lsp4intellij.requests;
+package org.wso2.lsp4intellij.editor.listeners;
 
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vfs.VirtualFileMoveEvent;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.FileChangeType;
 import org.eclipse.lsp4j.FileEvent;
@@ -33,7 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-public class FileEventManager {
+class LSPFileEventManager {
 
     /**
      * Indicates that a document will be saved
@@ -81,10 +83,40 @@ public class FileEventManager {
     /**
      * Called when a file is moved. Notifies the server if this file was watched.
      *
-     * @param file The file
+     * @param event The file move event
      */
-    public static void fileMoved(VirtualFile file) {
+    public static void fileMoved(VirtualFileMoveEvent event) {
+        VirtualFile file = event.getFile();
+        if (!FileUtils.isFileSupported(file)) {
+            return;
+        }
 
+        String newFileUri = FileUtils.VFSToURI(file);
+        String oldParentUri = FileUtils.VFSToURI(event.getOldParent());
+        if (newFileUri == null || oldParentUri == null) {
+            return;
+        }
+        String oldFileUri = String.format("%s/%s", oldParentUri, event.getFileName());
+
+        // Notifies the language server.
+        FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
+                FileUtils.projectToUri(p), FileChangeType.Deleted));
+        FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(newFileUri,
+                FileUtils.projectToUri(p), FileChangeType.Created));
+
+        FileUtils.findProjectsFor(file).forEach(p -> {
+            // Detaches old file from the wrappers.
+            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(FileUtils.projectToUri(p));
+            if (wrappers != null) {
+                wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
+            }
+            // Re-open file to so that the new editor will be connected to the language server.
+            FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
+            ApplicationUtils.invokeLater(() -> {
+                fileEditorManager.closeFile(file);
+                fileEditorManager.openFile(file, true);
+            });
+        });
     }
 
     /**

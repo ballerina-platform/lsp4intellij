@@ -112,6 +112,9 @@ import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
 import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
 import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
+import static org.wso2.lsp4intellij.utils.FileUtils.editorToProjectFolderUri;
+import static org.wso2.lsp4intellij.utils.FileUtils.editorToURIString;
+import static org.wso2.lsp4intellij.utils.FileUtils.sanitizeURI;
 
 /**
  * The implementation of a LanguageServerWrapper (specific to a serverDefinition and a project)
@@ -155,6 +158,10 @@ public class LanguageServerWrapper {
         this.extManager = extManager;
     }
 
+    public Map<String, EditorEventManager> getConnectedEditors() {
+        return connectedEditors;
+    }
+
     /**
      * @param uri     A file uri
      * @param project The related project
@@ -169,8 +176,8 @@ public class LanguageServerWrapper {
      * @return The wrapper for the given editor, or None
      */
     public static LanguageServerWrapper forEditor(Editor editor) {
-        return uriToLanguageServerWrapper.get(new MutablePair<>(FileUtils.editorToURIString(editor),
-                FileUtils.editorToProjectFolderUri(editor)));
+        return uriToLanguageServerWrapper.get(new MutablePair<>(editorToURIString(editor),
+                editorToProjectFolderUri(editor)));
     }
 
     public LanguageServerDefinition getServerDefinition() {
@@ -283,8 +290,8 @@ public class LanguageServerWrapper {
             return;
         }
 
-        String uri = FileUtils.editorToURIString(editor);
-        uriToLanguageServerWrapper.put(new MutablePair<>(uri, FileUtils.editorToProjectFolderUri(editor)), this);
+        String uri = editorToURIString(editor);
+        uriToLanguageServerWrapper.put(new MutablePair<>(uri, editorToProjectFolderUri(editor)), this);
         if (connectedEditors.containsKey(uri)) {
             return;
         }
@@ -596,7 +603,7 @@ public class LanguageServerWrapper {
         List<String> connected = new ArrayList<>();
         connectedEditors.keySet().forEach(s -> {
             try {
-                connected.add(new URI(FileUtils.sanitizeURI(s)).toString());
+                connected.add(new URI(sanitizeURI(s)).toString());
             } catch (URISyntaxException e) {
                 LOG.warn(e);
             }
@@ -614,14 +621,31 @@ public class LanguageServerWrapper {
      * @param editor The editor
      */
     public void disconnect(Editor editor) {
-        EditorEventManager manager = connectedEditors.remove(FileUtils.editorToURIString(editor));
+        EditorEventManager manager = connectedEditors.remove(editorToURIString(editor));
         if (manager != null) {
             manager.removeListeners();
             manager.documentClosed();
-            uriToLanguageServerWrapper.remove(new ImmutablePair<>(FileUtils.editorToURIString(editor),
-                    FileUtils.editorToProjectFolderUri(editor)));
+            uriToLanguageServerWrapper.remove(new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
         }
 
+        if (connectedEditors.isEmpty()) {
+            stop(true);
+        }
+    }
+
+    /**
+     * Disconnects an editor from the LanguageServer
+     *
+     * @param uri        The file uri
+     * @param projectUri The project root uri
+     */
+    public void disconnect(String uri, String projectUri) {
+        EditorEventManager manager = connectedEditors.remove(sanitizeURI(uri));
+        if (manager != null) {
+            manager.removeListeners();
+            manager.documentClosed();
+            uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
+        }
         if (connectedEditors.isEmpty()) {
             stop(true);
         }
