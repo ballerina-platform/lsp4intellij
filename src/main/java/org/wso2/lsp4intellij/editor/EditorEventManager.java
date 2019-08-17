@@ -376,17 +376,10 @@ public class EditorEventManager {
                     LOG.warn("Syntax Exception occurred for uri: " + locUri);
                 }
                 if (file != null) {
-                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+                    final Position start = loc.getRange().getStart();
+                    final OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, start.getLine(), start.getCharacter());
                     writeAction(() -> {
-                        Editor newEditor = FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
-                        int startOffset = DocumentUtils.LSPPosToOffset(newEditor, loc.getRange().getStart());
-                        if (newEditor != null) {
-                            newEditor.getCaretModel().getCurrentCaret().moveToOffset(startOffset);
-                            newEditor.getSelectionModel().setSelection(startOffset,
-                                    DocumentUtils.LSPPosToOffset(newEditor, loc.getRange().getEnd()));
-                        } else {
-                            LOG.warn("editor is null");
-                        }
+                        FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
                     });
                 } else {
                     LOG.warn("Empty file for " + locUri);
@@ -487,7 +480,7 @@ public class EditorEventManager {
                         VirtualFile file = FileUtils.virtualFileFromURI(uri);
                         Editor curEditor = FileUtils.editorFromUri(uri, project);
                         if (curEditor == null && file != null) {
-                            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+                            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, start.getLine(), start.getCharacter());
                             curEditor = computableWriteAction(
                                     () -> FileEditorManager.getInstance(project).openTextEditor(descriptor, false));
                             openedEditors.add(file);
