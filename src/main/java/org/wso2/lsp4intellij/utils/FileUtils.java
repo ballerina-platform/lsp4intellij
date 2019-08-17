@@ -263,19 +263,19 @@ public class FileUtils {
     }
 
     /**
-     * Find projects which contains the given file. This search among all open projects.
+     * Find projects which contains the given file. This search runs among all open projects.
      */
     @NotNull
     public static Set<Project> findProjectsFor(@NotNull VirtualFile file) {
         return Arrays.stream(ProjectManager.getInstance().getOpenProjects())
-                .flatMap(p -> Arrays.stream(searchFiles(file, p)))
+                .flatMap(p -> Arrays.stream(searchFiles(file.getName(), p)))
                 .filter(f -> f.getVirtualFile().getPath().equals(file.getPath()))
                 .map(PsiElement::getProject)
                 .collect(Collectors.toSet());
     }
 
-    private static PsiFile[] searchFiles(VirtualFile file, Project p) {
+    public static PsiFile[] searchFiles(String fileName, Project p) {
         return computableReadAction(() ->
-                FilenameIndex.getFilesByName(p, file.getName(), GlobalSearchScope.projectScope(p)));
+                FilenameIndex.getFilesByName(p, fileName, GlobalSearchScope.projectScope(p)));
     }
 }
