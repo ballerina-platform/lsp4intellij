@@ -124,7 +124,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                         actions.add(new ShowConnectedFiles());
                     }
                     actions.add(new ShowTimeouts());
-                    if (wrapper.isResettable()) {
+                    if (wrapper.isRestartable()) {
                         actions.add(new Restart());
                     }
 
