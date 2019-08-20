@@ -219,7 +219,7 @@ public class LanguageServerWrapper {
                 }
             } catch (TimeoutException e) {
                 notifyFailure(INIT);
-                String msg = String.format("%s \n not initialized after %ds \n Check settings",
+                String msg = String.format("%s \n is not initialized after %d seconds",
                         serverDefinition.toString(), getTimeout(INIT) / 1000);
                 LOG.warn(msg, e);
                 invokeLater(() -> {
@@ -673,20 +673,21 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Is the langauge server in a state where it can be resettable. Normally language server is
-     * resettable if it has timedout or has a startup error.
+     * Is the language server in a state where it can be restartable. Normally language server is
+     * restartable if it has timeout or has a startup error.
      */
-    public boolean isResettable() {
+    public boolean isRestartable() {
         return status == STOPPED && (alreadyShownTimeout || alreadyShownCrash);
     }
 
     /**
      * Reset language server wrapper state so it can be started again if it was failed earlier.
      */
-    public void reset() {
-        if (isResettable()) {
+    public void restart() {
+        if (isRestartable()) {
             alreadyShownCrash = false;
             alreadyShownTimeout = false;
+            IntellijLanguageClient.restart(project);
         }
     }
 }

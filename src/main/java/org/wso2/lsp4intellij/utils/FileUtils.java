@@ -42,7 +42,9 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -63,6 +65,23 @@ public class FileUtils {
 
     public static String extFromPsiFile(PsiFile psiFile) {
         return psiFile.getVirtualFile().getExtension();
+    }
+
+    public static List<Editor> getAllOpenedEditors(Project project) {
+        return computableReadAction(() -> {
+            List<Editor> editors = new ArrayList<>();
+            FileEditor[] allEditors = FileEditorManager.getInstance(project).getAllEditors();
+            for (FileEditor fEditor : allEditors) {
+                if (fEditor instanceof TextEditor) {
+                    Editor editor = ((TextEditor) fEditor).getEditor();
+                    if (editor.isDisposed() || !isEditorSupported(editor)) {
+                        continue;
+                    }
+                    editors.add(editor);
+                }
+            }
+            return editors;
+        });
     }
 
     public static Editor editorFromPsiFile(PsiFile psiFile) {

@@ -23,6 +23,7 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
@@ -38,16 +39,18 @@ import org.wso2.lsp4intellij.editor.listeners.VFSListener;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 
 public class IntellijLanguageClient implements ApplicationComponent {
 
@@ -91,8 +94,10 @@ public class IntellijLanguageClient implements ApplicationComponent {
         if (definition != null) {
             if (project != null) {
                 processDefinition(definition, FileUtils.projectToUri(project));
+                restart(project);
             } else {
                 processDefinition(definition, "");
+                restart();
             }
             LOG.info("Added definition for " + definition);
         } else {
@@ -150,7 +155,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
         }
         String projectUri = FileUtils.projectToUri(project);
         if (projectUri != null) {
-            ApplicationUtils.pool(() -> {
+            pool(() -> {
                 String ext = file.getExtension();
                 final String fileName = file.getName();
                 LOG.info("Opened " + fileName);
@@ -232,13 +237,40 @@ public class IntellijLanguageClient implements ApplicationComponent {
             return;
         }
 
-        ApplicationUtils.pool(() -> {
+        pool(() -> {
             LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
             if (serverWrapper != null) {
                 LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
                 serverWrapper.disconnect(editor);
             }
         });
+    }
+
+
+    /**
+     * This can be used to instantly apply a language server definition without restarting the IDE.
+     */
+    public static void restart() {
+        Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
+        for (Project project : openProjects) {
+            restart(project);
+        }
+    }
+
+    /**
+     * This can be used to instantly apply a project-specific language server definition without restarting the
+     * project/IDE.
+     *
+     * @param project The project instance which need to be restarted
+     */
+    public static void restart(Project project) {
+        try {
+            List<Editor> allOpenedEditors = FileUtils.getAllOpenedEditors(project);
+            allOpenedEditors.forEach(IntellijLanguageClient::editorClosed);
+            allOpenedEditors.forEach(IntellijLanguageClient::editorOpened);
+        } catch (Exception e) {
+            LOG.warn(String.format("Refreshing project: %s is failed due to: ", project.getName()), e);
+        }
     }
 
     /**
