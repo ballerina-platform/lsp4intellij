@@ -125,7 +125,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                     }
                     actions.add(new ShowTimeouts());
                     if (wrapper.isResettable()) {
-                        actions.add(new Reset());
+                        actions.add(new Restart());
                     }
 
                     String title = "Server actions";
@@ -185,15 +185,15 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                 }
             }
 
-            class Reset extends AnAction implements DumbAware {
+            class Restart extends AnAction implements DumbAware {
 
-                Reset() {
-                    super("&Reset", "Reset the server so it can be started again.", null);
+                Restart() {
+                    super("&Restart", "Restarts the language server.", null);
                 }
 
                 @Override
                 public void actionPerformed(@NotNull AnActionEvent anActionEvent) {
-                    wrapper.reset();
+                    wrapper.restart();
                 }
 
             }

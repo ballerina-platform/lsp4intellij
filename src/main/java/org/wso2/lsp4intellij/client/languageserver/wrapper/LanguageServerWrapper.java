@@ -649,8 +649,8 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Is the langauge server in a state where it can be resettable. Normally language server is
-     * resettable if it has timedout or has a startup error.
+     * Is the language server in a state where it can be resettable. Normally language server is
+     * resettable if it has timeout or has a startup error.
      */
     public boolean isResettable() {
         return status == STOPPED && (alreadyShownTimeout || alreadyShownCrash);
@@ -659,10 +659,11 @@ public class LanguageServerWrapper {
     /**
      * Reset language server wrapper state so it can be started again if it was failed earlier.
      */
-    public void reset() {
+    public void restart() {
         if (isResettable()) {
             alreadyShownCrash = false;
             alreadyShownTimeout = false;
+            IntellijLanguageClient.restart(project);
         }
     }
 }
