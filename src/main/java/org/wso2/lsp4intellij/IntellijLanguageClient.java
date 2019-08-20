@@ -267,7 +267,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
         try {
             List<Editor> allOpenedEditors = FileUtils.getAllOpenedEditors(project);
             allOpenedEditors.forEach(IntellijLanguageClient::editorClosed);
-            allOpenedEditors.forEach(IntellijLanguageClient::editorClosed);
+            allOpenedEditors.forEach(IntellijLanguageClient::editorOpened);
         } catch (Exception e) {
             LOG.warn(String.format("Refreshing project: %s is failed due to: ", project.getName()), e);
         }

@@ -212,7 +212,7 @@ public class LanguageServerWrapper {
                 }
             } catch (TimeoutException e) {
                 notifyFailure(INIT);
-                String msg = String.format("%s \n not initialized after %ds \n Check settings",
+                String msg = String.format("%s \n is not initialized after %d seconds",
                         serverDefinition.toString(), getTimeout(INIT) / 1000);
                 LOG.warn(msg, e);
                 invokeLater(() -> {
