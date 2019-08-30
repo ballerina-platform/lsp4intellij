@@ -15,7 +15,6 @@
  */
 package org.wso2.lsp4intellij.editor;
 
-import com.google.common.base.Strings;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.codeInsight.hint.HintManager;
@@ -54,6 +53,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -783,7 +783,7 @@ public class EditorEventManager {
             }
 
             String string = HoverHandler.getHoverString(hover);
-            if (Strings.isNullOrEmpty(string)) {
+            if (StringUtils.isEmpty(string)) {
                 LOG.warn(String.format("Hover string returned is null for file %s and pos (%d;%d)",
                         identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
                 return;
@@ -872,7 +872,7 @@ public class EditorEventManager {
         String label = item.getLabel();
         TextEdit textEdit = item.getTextEdit();
         List<TextEdit> addTextEdits = item.getAdditionalTextEdits();
-        String presentableText = !Strings.isNullOrEmpty(label) ? label : (insertText != null) ? insertText : "";
+        String presentableText = StringUtils.isNotEmpty(label) ? label : (insertText != null) ? insertText : "";
         String tailText = (detail != null) ? detail : "";
         LSPIconProvider iconProvider = GUIUtils.getIconProviderFor(wrapper.getServerDefinition());
         Icon icon = iconProvider.getCompletionIcon(kind);
@@ -881,12 +881,12 @@ public class EditorEventManager {
         String lookupString = null;
         if (textEdit != null) {
             lookupString = textEdit.getNewText();
-        } else if (!Strings.isNullOrEmpty(insertText)) {
+        } else if (StringUtils.isNotEmpty(insertText)) {
             lookupString = insertText;
-        } else if (!Strings.isNullOrEmpty(label)) {
+        } else if (StringUtils.isNotEmpty(label)) {
             lookupString = label;
         }
-        if (Strings.isNullOrEmpty(lookupString)) {
+        if (StringUtils.isEmpty(lookupString)) {
             return null;
         }
         // Fixes IDEA internal assertion failure in windows.
@@ -1011,7 +1011,7 @@ public class EditorEventManager {
                 String text = edit.getNewText();
                 Range range = edit.getRange();
 
-                if (range != null && !Strings.isNullOrEmpty(text)) {
+                if (range != null && StringUtils.isNotEmpty(text)) {
                     int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
                     int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
                     lspEdits.add(new LSPTextEdit(text, start, end));
@@ -1025,7 +1025,7 @@ public class EditorEventManager {
                 String text = edit.getText();
                 int start = edit.getStartOffset();
                 int end = edit.getEndOffset();
-                if (Strings.isNullOrEmpty(text)) {
+                if (StringUtils.isEmpty(text)) {
                     document.deleteString(start, end);
                 } else {
                     text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
