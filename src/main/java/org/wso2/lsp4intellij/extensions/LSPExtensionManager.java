@@ -27,7 +27,7 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequest
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
+import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 
 public interface LSPExtensionManager {
 
