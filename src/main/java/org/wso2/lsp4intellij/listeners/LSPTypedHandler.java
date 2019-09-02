@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wso2.lsp4intellij.editor.listeners;
+package org.wso2.lsp4intellij.listeners;
 
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate;
 import com.intellij.openapi.editor.Editor;
@@ -25,7 +25,7 @@ import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 /**
  * This class notifies an EditorEventManager that a character has been typed in the editor
  */
-class LSPTypedHandler extends TypedHandlerDelegate {
+public class LSPTypedHandler extends TypedHandlerDelegate {
 
     @Override
     public Result charTyped(char c, Project project, Editor editor, PsiFile file) {
