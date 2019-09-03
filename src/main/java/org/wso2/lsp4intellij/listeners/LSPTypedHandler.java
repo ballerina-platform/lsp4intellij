@@ -19,8 +19,10 @@ import com.intellij.codeInsight.editorActions.TypedHandlerDelegate;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiFile;
+import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
+import org.wso2.lsp4intellij.utils.FileUtils;
 
 /**
  * This class notifies an EditorEventManager that a character has been typed in the editor
@@ -28,7 +30,11 @@ import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 public class LSPTypedHandler extends TypedHandlerDelegate {
 
     @Override
-    public Result charTyped(char c, Project project, Editor editor, PsiFile file) {
+    public Result charTyped(char c, Project project, @NotNull Editor editor, @NotNull PsiFile file) {
+        if (!FileUtils.isFileSupported(file.getVirtualFile())) {
+            return Result.CONTINUE;
+        }
+
         EditorEventManager eventManager = EditorEventManagerBase.forEditor(editor);
         if (eventManager != null) {
             eventManager.characterTyped(c);
