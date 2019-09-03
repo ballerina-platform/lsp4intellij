@@ -162,7 +162,7 @@ With plugin.xml containing;
         - Signature Help
             ```xml
             <extensions defaultExtensionNs="com.intellij">
-                <typedHandler implementation="org.wso2.lsp4intellij.editor.listeners.LSPTypedHandler"
+                <typedHandler implementation="org.wso2.lsp4intellij.listeners.LSPTypedHandler"
                               id="LSPTypedHandler"/>
             </extensions>
             ```

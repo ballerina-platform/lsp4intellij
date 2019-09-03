@@ -33,14 +33,16 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import org.wso2.lsp4intellij.editor.listeners.LSPEditorListener;
-import org.wso2.lsp4intellij.editor.listeners.LSPFileDocumentManagerListener;
-import org.wso2.lsp4intellij.editor.listeners.VFSListener;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
+import org.wso2.lsp4intellij.listeners.LSPEditorListener;
+import org.wso2.lsp4intellij.listeners.LSPFileDocumentManagerListener;
+import org.wso2.lsp4intellij.listeners.LSPProjectManagerListener;
+import org.wso2.lsp4intellij.listeners.VFSListener;
 import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -63,12 +65,21 @@ public class IntellijLanguageClient implements ApplicationComponent {
 
     @Override
     public void initComponent() {
-        // LSPState.getInstance.getState(); //Need that to trigger loadState
-        EditorFactory.getInstance().addEditorFactoryListener(new LSPEditorListener(), Disposer.newDisposable());
-        VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
-        ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
-                new LSPFileDocumentManagerListener());
-        LOG.info("Language Client init finished");
+        try {
+            // Adds project listener.
+            ApplicationManager.getApplication().getMessageBus().connect().subscribe(ProjectManager.TOPIC,
+                    new LSPProjectManagerListener());
+            // Adds editor listener.
+            EditorFactory.getInstance().addEditorFactoryListener(new LSPEditorListener(), Disposer.newDisposable());
+            // Adds VFS listener.
+            VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
+            // Adds document event listener.
+            ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
+                    new LSPFileDocumentManagerListener());
+            LOG.info("IntelliJ Language Client initialized successfully");
+        } catch (Exception e) {
+            LOG.warn("Fatal error occurred when initializing IntelliJ language client.", e);
+        }
     }
 
     /**
@@ -330,8 +341,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
         if (wrapper.getProject() != null) {
             String[] extensions = wrapper.getServerDefinition().ext.split(LanguageServerDefinition.SPLIT_CHAR);
             for (String ext : extensions) {
-                extToLanguageWrapper.remove(new MutablePair<>(ext,
-                        FileUtils.projectToUri(wrapper.getProject())));
+                extToLanguageWrapper.remove(new MutablePair<>(ext, FileUtils
+                        .pathToUri(new File(wrapper.getProjectRootPath()).getAbsolutePath())));
             }
         } else {
             LOG.error("No attached projects found for wrapper");
@@ -347,5 +358,10 @@ public class IntellijLanguageClient implements ApplicationComponent {
         final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient.getProjectToLanguageWrappers()
                 .get(FileUtils.projectToUri(project));
         serverWrappers.forEach(s -> s.getRequestManager().didChangeConfiguration(params));
+    }
+
+    @Override
+    public void disposeComponent() {
+        // Todo
     }
 }

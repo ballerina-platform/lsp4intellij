@@ -76,10 +76,10 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequest
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.listeners.DocumentListenerImpl;
-import org.wso2.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
-import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
+import org.wso2.lsp4intellij.listeners.DocumentListenerImpl;
+import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
+import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
@@ -129,7 +129,7 @@ public class LanguageServerWrapper {
     public LanguageServerDefinition serverDefinition;
     private Project project;
     private final HashSet<Editor> toConnect = new HashSet<>();
-    private String rootPath;
+    private String projectRootPath;
     private final Map<String, EditorEventManager> connectedEditors = new ConcurrentHashMap<>();
     private LSPServerStatusWidget statusWidget;
     private int crashCount = 0;
@@ -153,7 +153,9 @@ public class LanguageServerWrapper {
                                  LSPExtensionManager extManager) {
         this.serverDefinition = serverDefinition;
         this.project = project;
-        this.rootPath = project.getBasePath();
+        // We need to keep the project rootPath in addition to the project instance, since we cannot get the project
+        // base path if the project is disposed.
+        this.projectRootPath = project.getBasePath();
         this.statusWidget = LSPServerStatusWidget.createWidgetFor(this);
         this.extManager = extManager;
     }
@@ -182,6 +184,10 @@ public class LanguageServerWrapper {
 
     public LanguageServerDefinition getServerDefinition() {
         return serverDefinition;
+    }
+
+    public String getProjectRootPath() {
+        return projectRootPath;
     }
 
     /**
@@ -408,7 +414,7 @@ public class LanguageServerWrapper {
                 launcherFuture = null;
             }
             if (serverDefinition != null) {
-                serverDefinition.stop(rootPath);
+                serverDefinition.stop(projectRootPath);
             }
             for (Map.Entry<String, EditorEventManager> ed : connectedEditors.entrySet()) {
                 disconnect(ed.getValue().editor);
@@ -447,7 +453,7 @@ public class LanguageServerWrapper {
         if (status == STOPPED && !alreadyShownCrash && !alreadyShownTimeout) {
             setStatus(STARTING);
             try {
-                Pair<InputStream, OutputStream> streams = serverDefinition.start(rootPath);
+                Pair<InputStream, OutputStream> streams = serverDefinition.start(projectRootPath);
                 InputStream inputStream = streams.getKey();
                 OutputStream outputStream = streams.getValue();
                 InitializeParams initParams = getInitParams();
@@ -474,7 +480,7 @@ public class LanguageServerWrapper {
 
                 initializeFuture = languageServer.initialize(initParams).thenApply(res -> {
                     initializeResult = res;
-                    LOG.info("Got initializeResult for " + serverDefinition + " ; " + rootPath);
+                    LOG.info("Got initializeResult for " + serverDefinition + " ; " + projectRootPath);
                     if (extManager != null) {
                         requestManager = extManager.getExtendedRequestManagerFor(this, languageServer, client, res.getCapabilities());
                         if (requestManager == null) {
@@ -502,7 +508,7 @@ public class LanguageServerWrapper {
 
     private InitializeParams getInitParams() {
         InitializeParams initParams = new InitializeParams();
-        initParams.setRootUri(FileUtils.pathToUri(rootPath));
+        initParams.setRootUri(FileUtils.pathToUri(projectRootPath));
         //TODO update capabilities when implemented
         WorkspaceClientCapabilities workspaceClientCapabilities = new WorkspaceClientCapabilities();
         workspaceClientCapabilities.setApplyEdit(true);
@@ -651,7 +657,7 @@ public class LanguageServerWrapper {
         }
     }
 
-    private void removeServerWrapper() {
+    public void removeServerWrapper() {
         stop(true);
         removeWidget();
         IntellijLanguageClient.removeWrapper(this);

@@ -13,22 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wso2.lsp4intellij.editor.listeners;
+package org.wso2.lsp4intellij.listeners;
 
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiFile;
+import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
+import org.wso2.lsp4intellij.utils.FileUtils;
 
 /**
  * This class notifies an EditorEventManager that a character has been typed in the editor
  */
-class LSPTypedHandler extends TypedHandlerDelegate {
+public class LSPTypedHandler extends TypedHandlerDelegate {
 
     @Override
-    public Result charTyped(char c, Project project, Editor editor, PsiFile file) {
+    public Result charTyped(char c, Project project, @NotNull Editor editor, @NotNull PsiFile file) {
+        if (!FileUtils.isFileSupported(file.getVirtualFile())) {
+            return Result.CONTINUE;
+        }
+
         EditorEventManager eventManager = EditorEventManagerBase.forEditor(editor);
         if (eventManager != null) {
             eventManager.characterTyped(c);
