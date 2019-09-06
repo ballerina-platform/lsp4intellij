@@ -23,13 +23,13 @@ import com.intellij.codeInsight.completion.CompletionType;
 import com.intellij.openapi.application.ex.ApplicationUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.ElementPattern;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
-import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Position;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
@@ -52,15 +52,15 @@ class LSPCompletionContributor extends CompletionContributor {
                         Editor editor = parameters.getEditor();
                         int offset = parameters.getOffset();
                         Position serverPos = DocumentUtils.offsetToLSPPos(editor, offset);
-                        Iterable<CompletionItem> toAdd;
 
                         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
-
                         if (manager != null) {
                             result.addAllElements(manager.completion(serverPos));
                         }
                         return null;
                     }, ProgressIndicatorProvider.getGlobalProgressIndicator());
+                } catch (ProcessCanceledException ignored) {
+                    // ProcessCanceledException can be ignored.
                 } catch (Exception e) {
                     LOG.warn("LSP Completions ended with an error", e);
                 }

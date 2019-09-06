@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wso2.lsp4intellij.editor.listeners;
+package org.wso2.lsp4intellij.listeners;
 
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileCopyEvent;
@@ -22,7 +22,6 @@ import com.intellij.openapi.vfs.VirtualFileListener;
 import com.intellij.openapi.vfs.VirtualFileMoveEvent;
 import com.intellij.openapi.vfs.VirtualFilePropertyEvent;
 import org.jetbrains.annotations.NotNull;
-import org.wso2.lsp4intellij.requests.FileEventManager;
 
 public class VFSListener implements VirtualFileListener {
 
@@ -35,7 +34,7 @@ public class VFSListener implements VirtualFileListener {
     @Override
     public void propertyChanged(@NotNull VirtualFilePropertyEvent event) {
         if (event.getPropertyName().equals(VirtualFile.PROP_NAME)) {
-            FileEventManager.fileRenamed((String) event.getOldValue(), (String) event.getNewValue());
+            LSPFileEventManager.fileRenamed((String) event.getOldValue(), (String) event.getNewValue());
         }
     }
 
@@ -46,7 +45,7 @@ public class VFSListener implements VirtualFileListener {
      */
     @Override
     public void contentsChanged(@NotNull VirtualFileEvent event) {
-        FileEventManager.fileChanged(event.getFile());
+        LSPFileEventManager.fileChanged(event.getFile());
     }
 
     /**
@@ -56,7 +55,7 @@ public class VFSListener implements VirtualFileListener {
      */
     @Override
     public void fileDeleted(@NotNull VirtualFileEvent event) {
-        FileEventManager.fileDeleted(event.getFile());
+        LSPFileEventManager.fileDeleted(event.getFile());
     }
 
     /**
@@ -66,7 +65,7 @@ public class VFSListener implements VirtualFileListener {
      */
     @Override
     public void fileMoved(@NotNull VirtualFileMoveEvent event) {
-        FileEventManager.fileMoved(event.getFile());
+        LSPFileEventManager.fileMoved(event);
     }
 
     /**
@@ -86,7 +85,7 @@ public class VFSListener implements VirtualFileListener {
      */
     @Override
     public void fileCreated(@NotNull VirtualFileEvent event) {
-        FileEventManager.fileCreated(event.getFile());
+        LSPFileEventManager.fileCreated(event.getFile());
     }
 
     /**

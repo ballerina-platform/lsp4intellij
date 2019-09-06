@@ -13,19 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wso2.lsp4intellij.editor.listeners;
+package org.wso2.lsp4intellij.listeners;
 
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
-import org.wso2.lsp4intellij.requests.FileEventManager;
 
-public class FileDocumentManagerListenerImpl implements FileDocumentManagerListener {
+public class LSPFileDocumentManagerListener implements FileDocumentManagerListener {
 
     @Override
     public void beforeDocumentSaving(@NotNull Document document) {
-        FileEventManager.willSave(document);
+        LSPFileEventManager.willSave(document);
     }
 
     @Override
@@ -35,7 +34,7 @@ public class FileDocumentManagerListenerImpl implements FileDocumentManagerListe
 
     @Override
     public void beforeAllDocumentsSaving() {
-        FileEventManager.willSaveAllDocuments();
+        LSPFileEventManager.willSaveAllDocuments();
     }
 
     @Override

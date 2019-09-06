@@ -76,10 +76,10 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequest
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
-import org.wso2.lsp4intellij.editor.listeners.DocumentListenerImpl;
-import org.wso2.lsp4intellij.editor.listeners.EditorMouseListenerImpl;
-import org.wso2.lsp4intellij.editor.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
+import org.wso2.lsp4intellij.listeners.DocumentListenerImpl;
+import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
+import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
@@ -112,6 +112,9 @@ import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
 import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
 import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
+import static org.wso2.lsp4intellij.utils.FileUtils.editorToProjectFolderUri;
+import static org.wso2.lsp4intellij.utils.FileUtils.editorToURIString;
+import static org.wso2.lsp4intellij.utils.FileUtils.sanitizeURI;
 
 /**
  * The implementation of a LanguageServerWrapper (specific to a serverDefinition and a project)
@@ -126,7 +129,7 @@ public class LanguageServerWrapper {
     public LanguageServerDefinition serverDefinition;
     private Project project;
     private final HashSet<Editor> toConnect = new HashSet<>();
-    private String rootPath;
+    private String projectRootPath;
     private final Map<String, EditorEventManager> connectedEditors = new ConcurrentHashMap<>();
     private LSPServerStatusWidget statusWidget;
     private int crashCount = 0;
@@ -150,9 +153,15 @@ public class LanguageServerWrapper {
                                  LSPExtensionManager extManager) {
         this.serverDefinition = serverDefinition;
         this.project = project;
-        this.rootPath = project.getBasePath();
+        // We need to keep the project rootPath in addition to the project instance, since we cannot get the project
+        // base path if the project is disposed.
+        this.projectRootPath = project.getBasePath();
         this.statusWidget = LSPServerStatusWidget.createWidgetFor(this);
         this.extManager = extManager;
+    }
+
+    public Map<String, EditorEventManager> getConnectedEditors() {
+        return connectedEditors;
     }
 
     /**
@@ -169,12 +178,16 @@ public class LanguageServerWrapper {
      * @return The wrapper for the given editor, or None
      */
     public static LanguageServerWrapper forEditor(Editor editor) {
-        return uriToLanguageServerWrapper.get(new MutablePair<>(FileUtils.editorToURIString(editor),
-                FileUtils.editorToProjectFolderUri(editor)));
+        return uriToLanguageServerWrapper.get(new MutablePair<>(editorToURIString(editor),
+                editorToProjectFolderUri(editor)));
     }
 
     public LanguageServerDefinition getServerDefinition() {
         return serverDefinition;
+    }
+
+    public String getProjectRootPath() {
+        return projectRootPath;
     }
 
     /**
@@ -212,7 +225,7 @@ public class LanguageServerWrapper {
                 }
             } catch (TimeoutException e) {
                 notifyFailure(INIT);
-                String msg = String.format("%s \n not initialized after %ds \n Check settings",
+                String msg = String.format("%s \n is not initialized after %d seconds",
                         serverDefinition.toString(), getTimeout(INIT) / 1000);
                 LOG.warn(msg, e);
                 invokeLater(() -> {
@@ -283,8 +296,8 @@ public class LanguageServerWrapper {
             return;
         }
 
-        String uri = FileUtils.editorToURIString(editor);
-        uriToLanguageServerWrapper.put(new MutablePair<>(uri, FileUtils.editorToProjectFolderUri(editor)), this);
+        String uri = editorToURIString(editor);
+        uriToLanguageServerWrapper.put(new MutablePair<>(uri, editorToProjectFolderUri(editor)), this);
         if (connectedEditors.containsKey(uri)) {
             return;
         }
@@ -401,7 +414,7 @@ public class LanguageServerWrapper {
                 launcherFuture = null;
             }
             if (serverDefinition != null) {
-                serverDefinition.stop(rootPath);
+                serverDefinition.stop(projectRootPath);
             }
             for (Map.Entry<String, EditorEventManager> ed : connectedEditors.entrySet()) {
                 disconnect(ed.getValue().editor);
@@ -440,7 +453,7 @@ public class LanguageServerWrapper {
         if (status == STOPPED && !alreadyShownCrash && !alreadyShownTimeout) {
             setStatus(STARTING);
             try {
-                Pair<InputStream, OutputStream> streams = serverDefinition.start(rootPath);
+                Pair<InputStream, OutputStream> streams = serverDefinition.start(projectRootPath);
                 InputStream inputStream = streams.getKey();
                 OutputStream outputStream = streams.getValue();
                 InitializeParams initParams = getInitParams();
@@ -467,7 +480,7 @@ public class LanguageServerWrapper {
 
                 initializeFuture = languageServer.initialize(initParams).thenApply(res -> {
                     initializeResult = res;
-                    LOG.info("Got initializeResult for " + serverDefinition + " ; " + rootPath);
+                    LOG.info("Got initializeResult for " + serverDefinition + " ; " + projectRootPath);
                     if (extManager != null) {
                         requestManager = extManager.getExtendedRequestManagerFor(this, languageServer, client, res.getCapabilities());
                         if (requestManager == null) {
@@ -495,7 +508,7 @@ public class LanguageServerWrapper {
 
     private InitializeParams getInitParams() {
         InitializeParams initParams = new InitializeParams();
-        initParams.setRootUri(FileUtils.pathToUri(rootPath));
+        initParams.setRootUri(FileUtils.pathToUri(projectRootPath));
         //TODO update capabilities when implemented
         WorkspaceClientCapabilities workspaceClientCapabilities = new WorkspaceClientCapabilities();
         workspaceClientCapabilities.setApplyEdit(true);
@@ -596,7 +609,7 @@ public class LanguageServerWrapper {
         List<String> connected = new ArrayList<>();
         connectedEditors.keySet().forEach(s -> {
             try {
-                connected.add(new URI(FileUtils.sanitizeURI(s)).toString());
+                connected.add(new URI(sanitizeURI(s)).toString());
             } catch (URISyntaxException e) {
                 LOG.warn(e);
             }
@@ -614,12 +627,11 @@ public class LanguageServerWrapper {
      * @param editor The editor
      */
     public void disconnect(Editor editor) {
-        EditorEventManager manager = connectedEditors.remove(FileUtils.editorToURIString(editor));
+        EditorEventManager manager = connectedEditors.remove(editorToURIString(editor));
         if (manager != null) {
             manager.removeListeners();
             manager.documentClosed();
-            uriToLanguageServerWrapper.remove(new ImmutablePair<>(FileUtils.editorToURIString(editor),
-                    FileUtils.editorToProjectFolderUri(editor)));
+            uriToLanguageServerWrapper.remove(new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
         }
 
         if (connectedEditors.isEmpty()) {
@@ -627,7 +639,25 @@ public class LanguageServerWrapper {
         }
     }
 
-    private void removeServerWrapper() {
+    /**
+     * Disconnects an editor from the LanguageServer
+     *
+     * @param uri        The file uri
+     * @param projectUri The project root uri
+     */
+    public void disconnect(String uri, String projectUri) {
+        EditorEventManager manager = connectedEditors.remove(sanitizeURI(uri));
+        if (manager != null) {
+            manager.removeListeners();
+            manager.documentClosed();
+            uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
+        }
+        if (connectedEditors.isEmpty()) {
+            stop(true);
+        }
+    }
+
+    public void removeServerWrapper() {
         stop(true);
         removeWidget();
         IntellijLanguageClient.removeWrapper(this);
@@ -649,20 +679,21 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Is the langauge server in a state where it can be resettable. Normally language server is
-     * resettable if it has timedout or has a startup error.
+     * Is the language server in a state where it can be restartable. Normally language server is
+     * restartable if it has timeout or has a startup error.
      */
-    public boolean isResettable() {
+    public boolean isRestartable() {
         return status == STOPPED && (alreadyShownTimeout || alreadyShownCrash);
     }
 
     /**
      * Reset language server wrapper state so it can be started again if it was failed earlier.
      */
-    public void reset() {
-        if (isResettable()) {
+    public void restart() {
+        if (isRestartable()) {
             alreadyShownCrash = false;
             alreadyShownTimeout = false;
+            IntellijLanguageClient.restart(project);
         }
     }
 }

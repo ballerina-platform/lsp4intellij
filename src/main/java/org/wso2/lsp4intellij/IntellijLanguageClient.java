@@ -23,6 +23,7 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
@@ -32,22 +33,26 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import org.wso2.lsp4intellij.editor.listeners.EditorListener;
-import org.wso2.lsp4intellij.editor.listeners.FileDocumentManagerListenerImpl;
-import org.wso2.lsp4intellij.editor.listeners.VFSListener;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
+import org.wso2.lsp4intellij.listeners.LSPEditorListener;
+import org.wso2.lsp4intellij.listeners.LSPFileDocumentManagerListener;
+import org.wso2.lsp4intellij.listeners.LSPProjectManagerListener;
+import org.wso2.lsp4intellij.listeners.VFSListener;
 import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 
 public class IntellijLanguageClient implements ApplicationComponent {
 
@@ -60,12 +65,21 @@ public class IntellijLanguageClient implements ApplicationComponent {
 
     @Override
     public void initComponent() {
-        // LSPState.getInstance.getState(); //Need that to trigger loadState
-        EditorFactory.getInstance().addEditorFactoryListener(new EditorListener(), Disposer.newDisposable());
-        VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
-        ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
-                new FileDocumentManagerListenerImpl());
-        LOG.info("Language Client init finished");
+        try {
+            // Adds project listener.
+            ApplicationManager.getApplication().getMessageBus().connect().subscribe(ProjectManager.TOPIC,
+                    new LSPProjectManagerListener());
+            // Adds editor listener.
+            EditorFactory.getInstance().addEditorFactoryListener(new LSPEditorListener(), Disposer.newDisposable());
+            // Adds VFS listener.
+            VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
+            // Adds document event listener.
+            ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
+                    new LSPFileDocumentManagerListener());
+            LOG.info("IntelliJ Language Client initialized successfully");
+        } catch (Exception e) {
+            LOG.warn("Fatal error occurred when initializing IntelliJ language client.", e);
+        }
     }
 
     /**
@@ -91,8 +105,10 @@ public class IntellijLanguageClient implements ApplicationComponent {
         if (definition != null) {
             if (project != null) {
                 processDefinition(definition, FileUtils.projectToUri(project));
+                restart(project);
             } else {
                 processDefinition(definition, "");
+                restart();
             }
             LOG.info("Added definition for " + definition);
         } else {
@@ -150,7 +166,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
         }
         String projectUri = FileUtils.projectToUri(project);
         if (projectUri != null) {
-            ApplicationUtils.pool(() -> {
+            pool(() -> {
                 String ext = file.getExtension();
                 final String fileName = file.getName();
                 LOG.info("Opened " + fileName);
@@ -232,13 +248,40 @@ public class IntellijLanguageClient implements ApplicationComponent {
             return;
         }
 
-        ApplicationUtils.pool(() -> {
+        pool(() -> {
             LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
             if (serverWrapper != null) {
                 LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
                 serverWrapper.disconnect(editor);
             }
         });
+    }
+
+
+    /**
+     * This can be used to instantly apply a language server definition without restarting the IDE.
+     */
+    public static void restart() {
+        Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
+        for (Project project : openProjects) {
+            restart(project);
+        }
+    }
+
+    /**
+     * This can be used to instantly apply a project-specific language server definition without restarting the
+     * project/IDE.
+     *
+     * @param project The project instance which need to be restarted
+     */
+    public static void restart(Project project) {
+        try {
+            List<Editor> allOpenedEditors = FileUtils.getAllOpenedEditors(project);
+            allOpenedEditors.forEach(IntellijLanguageClient::editorClosed);
+            allOpenedEditors.forEach(IntellijLanguageClient::editorOpened);
+        } catch (Exception e) {
+            LOG.warn(String.format("Refreshing project: %s is failed due to: ", project.getName()), e);
+        }
     }
 
     /**
@@ -298,8 +341,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
         if (wrapper.getProject() != null) {
             String[] extensions = wrapper.getServerDefinition().ext.split(LanguageServerDefinition.SPLIT_CHAR);
             for (String ext : extensions) {
-                extToLanguageWrapper.remove(new MutablePair<>(ext,
-                        FileUtils.projectToUri(wrapper.getProject())));
+                extToLanguageWrapper.remove(new MutablePair<>(ext, FileUtils
+                        .pathToUri(new File(wrapper.getProjectRootPath()).getAbsolutePath())));
             }
         } else {
             LOG.error("No attached projects found for wrapper");
@@ -315,5 +358,10 @@ public class IntellijLanguageClient implements ApplicationComponent {
         final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient.getProjectToLanguageWrappers()
                 .get(FileUtils.projectToUri(project));
         serverWrappers.forEach(s -> s.getRequestManager().didChangeConfiguration(params));
+    }
+
+    @Override
+    public void disposeComponent() {
+        // Todo
     }
 }

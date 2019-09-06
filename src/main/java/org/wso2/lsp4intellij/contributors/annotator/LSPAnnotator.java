@@ -15,7 +15,6 @@
  */
 package org.wso2.lsp4intellij.contributors.annotator;
 
-import com.google.common.base.Predicates;
 import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.ExternalAnnotator;
@@ -40,6 +39,7 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.ConcurrentModificationException;
 import java.util.List;
+import java.util.Objects;
 
 public class LSPAnnotator extends ExternalAnnotator {
     private static final Object RESULT = new Object();
@@ -127,7 +127,7 @@ public class LSPAnnotator extends ExternalAnnotator {
             final LSPPsiElement element = new LSPPsiElement(name, editor.getProject(), start, end, file);
             final List<Either<Command, CodeAction>> codeAction = eventManager.codeAction(element);
             if (codeAction != null) {
-                codeAction.stream().filter(Predicates.notNull()).forEach(e -> {
+                codeAction.stream().filter(Objects::nonNull).forEach(e -> {
                     if (e.isLeft()) {
                         annotation.registerFix(new LSPCommandFix(uri, e.getLeft()), textRange);
                     } else if (e.isRight()) {
