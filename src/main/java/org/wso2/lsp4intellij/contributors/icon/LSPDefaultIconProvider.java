@@ -25,7 +25,8 @@ import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServ
 
 import java.util.HashMap;
 import java.util.Map;
-import javax.swing.*;
+
+import javax.swing.Icon;
 
 public class LSPDefaultIconProvider extends LSPIconProvider {
 
@@ -35,65 +36,74 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
 
     public static Icon getCompletionIcon(CompletionItemKind kind) {
 
+        if (kind == null) {
+            return null;
+        }
+
         switch (kind) {
-        case Class:
-            return Nodes.Class;
-        case Color:
-            return null;
-        case Constructor:
-            return null;
-        case Enum:
-            return Nodes.Class;
-        case Field:
-            return Nodes.Field;
-        case File:
-            return AllIcons.FileTypes.Any_type;
-        case Function:
-            return Nodes.Function;
-        case Interface:
-            return Nodes.Interface;
-        case Keyword:
-            return Nodes.UpLevel;
-        case Method:
-            return Nodes.Method;
-        case Module:
-            return Nodes.Module;
-        case Property:
-            return Nodes.Property;
-        case Reference:
-            return Nodes.MethodReference;
-        case Snippet:
-            return Nodes.Static;
-        case Text:
-            return AllIcons.FileTypes.Text;
-        case Unit:
-            return Nodes.Artifact;
-        case Value:
-            return Nodes.DataSource;
-        case Variable:
-            return Nodes.Variable;
-        default:
-            return null;
+            case Class:
+                return Nodes.Class;
+            case Color:
+                return null;
+            case Constructor:
+                return null;
+            case Enum:
+                return Nodes.Class;
+            case Field:
+                return Nodes.Field;
+            case File:
+                return AllIcons.FileTypes.Any_type;
+            case Function:
+                return Nodes.Function;
+            case Interface:
+                return Nodes.Interface;
+            case Keyword:
+                return Nodes.UpLevel;
+            case Method:
+                return Nodes.Method;
+            case Module:
+                return Nodes.Module;
+            case Property:
+                return Nodes.Property;
+            case Reference:
+                return Nodes.MethodReference;
+            case Snippet:
+                return Nodes.Static;
+            case Text:
+                return AllIcons.FileTypes.Text;
+            case Unit:
+                return Nodes.Artifact;
+            case Value:
+                return Nodes.DataSource;
+            case Variable:
+                return Nodes.Variable;
+            default:
+                return null;
         }
     }
 
     public static Icon getSymbolIcon(SymbolKind kind) {
+
+        if (kind == null) {
+            return null;
+        }
+
         switch (kind) {
-        case Field:
-        case EnumMember:
-            return Nodes.Field;
-        case Method:
-            return Nodes.Method;
-        case Variable:
-            return Nodes.Variable;
-        case Class:
-            return Nodes.Class;
-        case Constructor:
-            return Nodes.ClassInitializer;
-        case Enum:
-            return Nodes.Enum;
-        default:
-            return Nodes.Tag;
+            case Field:
+            case EnumMember:
+                return Nodes.Field;
+            case Method:
+                return Nodes.Method;
+            case Variable:
+                return Nodes.Variable;
+            case Class:
+                return Nodes.Class;
+            case Constructor:
+                return Nodes.ClassInitializer;
+            case Enum:
+                return Nodes.Enum;
+            default:
+                return Nodes.Tag;
         }
     }
 
