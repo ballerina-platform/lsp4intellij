@@ -24,6 +24,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import java.util.Objects;
 
 /**
  * LSP implementation of NavigationItem for intellij
@@ -50,6 +51,21 @@ public class LSPNavigationItem extends OpenFileDescriptor implements NavigationI
     @Override
     public ItemPresentation getPresentation() {
         return presentation;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(obj instanceof LSPNavigationItem) {
+            LSPNavigationItem other = (LSPNavigationItem) obj;
+            return this.getLine() == other.getLine() && this.getColumn() == other.getColumn() &&
+                    Objects.equals(this.getName(), other.getName());
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(this.getLine(), this.getColumn(), this.getName());
     }
 
     private class LSPItemPresentation implements ItemPresentation {
