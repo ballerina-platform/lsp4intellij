@@ -8,6 +8,7 @@ plugins {
     id 'maven'
     id 'com.jfrog.bintray' version '1.8.4'
     id 'maven-publish'
+    id 'com.palantir.git-version' version '0.12.2'
 }
 
 repositories {
@@ -15,7 +16,7 @@ repositories {
 }
 
 group = "org.wso2.lsp4intellij"
-version = "8.0.1-SNAPSHOT"
+version = versionDetails().gitHash
 def bintrayVersion = project.version.toString().replace('-', '.')
 def CI_JOB = Boolean.valueOf(System.getenv("CI_JOB"))
 
