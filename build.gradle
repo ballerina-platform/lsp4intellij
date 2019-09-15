@@ -5,7 +5,6 @@ plugins {
     id 'net.researchgate.release' version '2.6.0'
     id "com.gradle.plugin-publish" version "0.10.1"
     id 'signing'
-    id 'maven'
     id 'com.jfrog.bintray' version '1.8.4'
     id 'maven-publish'
     id 'com.palantir.git-version' version '0.12.2'
