@@ -17,12 +17,13 @@ repositories {
 group = "org.wso2.lsp4intellij"
 version = "8.0.1-SNAPSHOT"
 def bintrayVersion = project.version.toString().replace('-', '.')
+def CI_JOB = Boolean.valueOf(System.getenv("CI_JOB"))
 
 intellij {
     type 'IC'
     updateSinceUntilBuild false
-    localPath Boolean.valueOf("ci_job") ? '' : '/opt/ideaIC-2019'
-    version Boolean.valueOf("ci_job") ? '2017.3' : ''
+    localPath CI_JOB ? '' : '/opt/ideaIC-2019'
+    version CI_JOB ? '2017.3' : ''
 }
 
 dependencies {
