@@ -17,7 +17,6 @@ repositories {
 
 group = "org.wso2.lsp4intellij"
 version = versionDetails().gitHash
-def bintrayVersion = project.version.toString().replace('-', '.')
 def CI_JOB = Boolean.valueOf(System.getenv("CI_JOB"))
 
 intellij {
@@ -92,7 +91,7 @@ bintray {
         userOrg = System.getenv("BINTRAY_USER")
         vcsUrl = 'https://github.com/gayanper/lsp4intellij'
         version {
-            name = bintrayVersion
+            name = project.version
         }
     }
     publications = ['lsp4intellijBintray']
@@ -104,7 +103,7 @@ publishing {
             from components.java
             groupId project.group
             artifactId 'lsp4intellij'
-            version bintrayVersion
+            version project.version
         }
     }
 }
