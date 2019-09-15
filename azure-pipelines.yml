@@ -4,7 +4,7 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/java
 
 trigger:
-- master
+- fork-publish
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -20,4 +20,4 @@ steps:
     jdkArchitectureOption: 'x64'
     publishJUnitResults: false
     testResultsFiles: '**/TEST-*.xml'
-    tasks: 'build'
+    tasks: 'bintrayUpload'
