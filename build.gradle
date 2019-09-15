@@ -6,6 +6,8 @@ plugins {
     id "com.gradle.plugin-publish" version "0.10.1"
     id 'signing'
     id 'maven'
+    id 'com.jfrog.bintray' version '1.8.4'
+    id 'maven-publish'
 }
 
 repositories {
@@ -14,6 +16,7 @@ repositories {
 
 group = "org.wso2.lsp4intellij"
 version = "8.0.1-SNAPSHOT"
+def bintrayVersion = project.version.toString().replace('-', '.')
 
 intellij {
     type 'IC'
@@ -70,3 +73,34 @@ release {
         signTag = false
     }
 }
+
+bintray {
+    user = System.getenv("BINTRAY_USER")
+    key = System.getenv("BINTRAY_API_KEY")
+    publish = true
+    override = true
+    pkg {
+        repo = 'maven'
+        name = 'lsp4intellij'
+        licenses = ['Apache-2.0']
+        userOrg = System.getenv("BINTRAY_USER")
+        vcsUrl = 'https://github.com/gayanper/lsp4intellij'
+        version {
+            name = bintrayVersion
+            released = new Date(2050, 12, 31)
+        }
+    }
+    publications = ['lsp4intellijBintray']
+}
+
+publishing {
+    publications {
+        lsp4intellijBintray(MavenPublication) {
+            from components.java
+            groupId project.group
+            artifactId 'lsp4intellij'
+            version bintrayVersion
+        }
+    }
+}
+
