@@ -11,6 +11,9 @@ pool:
 
 steps:
 - task: Gradle@2
+  env:
+    BINTRAY_USER: $(BINTRAY_USER)
+    BINTRAY_API_KEY: $(BINTRAY_API_KEY)
   inputs:
     workingDirectory: ''
     gradleWrapperFile: 'gradlew'
