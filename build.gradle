@@ -21,7 +21,8 @@ def bintrayVersion = project.version.toString().replace('-', '.')
 intellij {
     type 'IC'
     updateSinceUntilBuild false
-    localPath '/opt/ideaIC-2019'
+    localPath Boolean.valueOf("ci_job") ? '' : '/opt/ideaIC-2019'
+    version Boolean.valueOf("ci_job") ? '2017.3' : ''
 }
 
 dependencies {
