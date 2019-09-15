@@ -93,7 +93,6 @@ bintray {
         vcsUrl = 'https://github.com/gayanper/lsp4intellij'
         version {
             name = bintrayVersion
-            released = new Date(2050, 12, 31)
         }
     }
     publications = ['lsp4intellijBintray']
