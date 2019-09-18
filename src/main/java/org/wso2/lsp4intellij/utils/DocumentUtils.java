@@ -108,6 +108,10 @@ public class DocumentUtils {
     public static int LSPPosToOffset(Editor editor, Position pos) {
         return computableReadAction(() -> {
             try {
+                if (editor.isDisposed()) {
+                    return -1;
+                }
+
                 Document doc = editor.getDocument();
                 int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()));
                 String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
