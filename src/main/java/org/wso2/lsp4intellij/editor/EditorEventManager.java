@@ -121,7 +121,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -170,17 +169,15 @@ public class EditorEventManager {
     private Project project;
     private RequestManager requestManager;
     private TextDocumentIdentifier identifier;
-    private ServerOptions serverOptions;
     private DocumentListener documentListener;
     private EditorMouseListener mouseListener;
     private EditorMouseMotionListener mouseMotionListener;
 
     public List<String> completionTriggers;
-    public List<String> signatureTriggers;
+    private List<String> signatureTriggers;
     private DidChangeTextDocumentParams changesParams;
     private TextDocumentSyncKind syncKind;
     private volatile boolean needSave = false;
-    private Timer hoverThread = new Timer("Hover", true);
     private int version = -1;
     private long predTime = -1L;
     private long ctrlTime = -1L;
@@ -189,7 +186,7 @@ public class EditorEventManager {
     private boolean mouseInEditor = true;
     private Hint currentHint;
 
-    protected final List<Diagnostic> diagnostics = new ArrayList<>();
+    private final List<Diagnostic> diagnostics = new ArrayList<>();
     private AnnotationHolder anonHolder;
     private List<Annotation> annotations = new ArrayList<>();
     private volatile boolean diagnosticSyncRequired = true;
@@ -205,7 +202,6 @@ public class EditorEventManager {
         this.mouseListener = mouseListener;
         this.mouseMotionListener = mouseMotionListener;
         this.requestManager = requestManager;
-        this.serverOptions = serverOptions;
         this.wrapper = wrapper;
 
         this.identifier = new TextDocumentIdentifier(FileUtils.editorToURIString(editor));
@@ -322,7 +318,7 @@ public class EditorEventManager {
                         getCtrlRange().dispose();
                     }
                     setCtrlRange(null);
-                    pool(() -> requestAndShowDoc(curTime, lPos, e.getMouseEvent().getPoint()));
+                    pool(() -> requestAndShowDoc(lPos, e.getMouseEvent().getPoint()));
                 } else if (getCtrlRange().definitionContainsOffset(offset)) {
                     createAndShowEditorHint(editor, "Click to show usages",
                             editor.offsetToXY(offset));
@@ -461,6 +457,10 @@ public class EditorEventManager {
                                     () -> FileEditorManager.getInstance(project).openTextEditor(descriptor, false));
                             openedEditors.add(file);
                         }
+                        if (curEditor == null) {
+                            LOG.warn("Error occurred in LSP references.");
+                            return;
+                        }
                         int logicalStart = DocumentUtils.LSPPosToOffset(curEditor, start);
                         int logicalEnd = DocumentUtils.LSPPosToOffset(curEditor, end);
                         String name = curEditor.getDocument().getText(new TextRange(logicalStart, logicalEnd));
@@ -549,6 +549,7 @@ public class EditorEventManager {
      * @param offset The cursor position(offset) which should be evaluated for code action request.
      * @return The list of commands, or null if none are given / the request times out
      */
+    @SuppressWarnings("WeakerAccess")
     public List<Either<Command, CodeAction>> codeAction(int offset) {
         CodeActionParams params = new CodeActionParams();
         params.setTextDocument(identifier);
@@ -590,6 +591,7 @@ public class EditorEventManager {
     /**
      * Calls signatureHelp at the current editor caret position
      */
+    @SuppressWarnings("WeakerAccess")
     public void signatureHelp() {
         if (editor.isDisposed()) {
             return;
@@ -750,7 +752,7 @@ public class EditorEventManager {
             LogicalPosition caretPos = editor.getCaretModel().getLogicalPosition();
             Point pointPos = editor.logicalPositionToXY(caretPos);
             long currentTime = System.nanoTime();
-            pool(() -> requestAndShowDoc(currentTime, caretPos, pointPos));
+            pool(() -> requestAndShowDoc(caretPos, pointPos));
             predTime = currentTime;
         } else {
             LOG.warn("Not same editor!");
@@ -760,11 +762,10 @@ public class EditorEventManager {
     /**
      * Gets the hover request and shows it
      *
-     * @param curTime   The current time
      * @param editorPos The editor position
      * @param point     The point at which to show the hint
      */
-    private void requestAndShowDoc(long curTime, LogicalPosition editorPos, Point point) {
+    private void requestAndShowDoc(LogicalPosition editorPos, Point point) {
         Position serverPos = computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
         CompletableFuture<Hover> request = requestManager.hover(new TextDocumentPositionParams(identifier, serverPos));
         if (request == null) {
@@ -816,6 +817,7 @@ public class EditorEventManager {
      * @return The suggestions
      */
     public Iterable<? extends LookupElement> completion(Position pos) {
+
         List<LookupElement> lookupItems = new ArrayList<>();
         CompletableFuture<Either<List<CompletionItem>, CompletionList>> request = requestManager
                 .completion(new CompletionParams(identifier, pos));
@@ -824,8 +826,7 @@ public class EditorEventManager {
         }
 
         try {
-            Either<List<CompletionItem>, CompletionList> res = request
-                    .get(getTimeout(COMPLETION), TimeUnit.MILLISECONDS);
+            Either<List<CompletionItem>, CompletionList> res = request.get(getTimeout(COMPLETION), TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.COMPLETION);
             if (res == null) {
                 return lookupItems;
@@ -862,6 +863,7 @@ public class EditorEventManager {
      * @param item The CompletionItem
      * @return The corresponding LookupElement
      */
+    @SuppressWarnings("WeakerAccess")
     public LookupElement createLookupItem(CompletionItem item) {
         Command command = item.getCommand();
         String detail = item.getDetail();
@@ -873,7 +875,7 @@ public class EditorEventManager {
         String presentableText = StringUtils.isNotEmpty(label) ? label : (insertText != null) ? insertText : "";
         String tailText = (detail != null) ? detail : "";
         LSPIconProvider iconProvider = GUIUtils.getIconProviderFor(wrapper.getServerDefinition());
-        Icon icon = iconProvider.getCompletionIcon(kind);
+        Icon icon = LSPIconProvider.getCompletionIcon(kind);
         LookupElementBuilder lookupElementBuilder;
 
         String lookupString = null;
@@ -969,8 +971,10 @@ public class EditorEventManager {
                         .executeCommand(project, runnable, name, "LSPPlugin", editor.getDocument());
             }
             if (closeAfter) {
-                FileEditorManager.getInstance(project).closeFile(
-                        PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()).getVirtualFile());
+                PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
+                if (file != null) {
+                    FileEditorManager.getInstance(project).closeFile(file.getVirtualFile());
+                }
             }
         });
         return runnable != null;
