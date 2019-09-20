@@ -33,6 +33,7 @@ import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.jetbrains.annotations.NotNull;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
@@ -47,6 +48,7 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 
@@ -58,6 +60,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
     private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
     private static Map<Pair<String, String>, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
     private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
+
+    private static final Predicate<LanguageServerWrapper> RUNNING = (s) -> s.getStatus() != ServerStatus.STOPPED;
 
     @Override
     public void initComponent() {
@@ -72,22 +76,14 @@ public class IntellijLanguageClient implements ApplicationComponent {
             // Adds document event listener.
             ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
                     new LSPFileDocumentManagerListener());
-            // Add shutdown hooks
-            ProjectManager.getInstance().addProjectManagerListener(new VetoableProjectManagerListener() {
-                @Override
-                public boolean canClose(@NotNull Project project) {
-                    return true;
-                }
-
-                @Override
-                public void projectClosing(@NotNull Project project) {
-                    getAllServerWrappers(FileUtils.projectToUri(project)).forEach(s -> s.stop(true));
-                }
-            });
 
             // in case if JVM forcefully exit
             Runtime.getRuntime().addShutdownHook(new Thread(() -> projectToLanguageWrappers.values().stream()
-                    .flatMap(Collection::stream).forEach(s -> s.stop(true))));
+                    .flatMap(Collection::stream)
+                    .filter(RUNNING)
+                    .forEach(s -> {
+                        s.getServer().shutdown().thenRun(() -> s.stop(true));
+                    })));
 
             LOG.info("IntelliJ Language Client initialized successfully");
         } catch (Exception e) {

@@ -23,22 +23,27 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.ServerListener;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 class MessageHandler implements Function<MessageConsumer, MessageConsumer> {
 
     private ServerListener listener;
+    private BooleanSupplier isRunning;
     private LanguageServer languageServer;
 
-    public MessageHandler(ServerListener listener) {
+    MessageHandler(@NotNull ServerListener listener, @NotNull BooleanSupplier isRunning) {
         this.listener = listener;
+        this.isRunning = isRunning;
     }
 
     @Override
     public MessageConsumer apply(MessageConsumer messageConsumer) {
         return message -> {
-            handleMessage(message);
-            messageConsumer.consume(message);
+            if(isRunning.getAsBoolean()) {
+                handleMessage(message);
+                messageConsumer.consume(message);
+            }
         };
 
     }
@@ -52,7 +57,7 @@ class MessageHandler implements Function<MessageConsumer, MessageConsumer> {
         }
     }
 
-    public void setLanguageServer(@NotNull LanguageServer languageServer) {
+    void setLanguageServer(@NotNull LanguageServer languageServer) {
         this.languageServer = languageServer;
     }
 }
