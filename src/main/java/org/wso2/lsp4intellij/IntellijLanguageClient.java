@@ -81,9 +81,7 @@ public class IntellijLanguageClient implements ApplicationComponent {
             Runtime.getRuntime().addShutdownHook(new Thread(() -> projectToLanguageWrappers.values().stream()
                     .flatMap(Collection::stream)
                     .filter(RUNNING)
-                    .forEach(s -> {
-                        s.getServer().shutdown().thenRun(() -> s.stop(true));
-                    })));
+                    .forEach(s -> s.stop(true))));
 
             LOG.info("IntelliJ Language Client initialized successfully");
         } catch (Exception e) {
