@@ -27,6 +27,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.FilenameIndex;
@@ -42,10 +43,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
@@ -278,8 +276,26 @@ public class FileUtils {
      * Checks if the file in editor is supported by this LS client library.
      */
     public static boolean isEditorSupported(@NotNull Editor editor) {
-        return isFileSupported(FileDocumentManager.getInstance().getFile(editor.getDocument()));
+        return isFileSupported(FileDocumentManager.getInstance().getFile(editor.getDocument())) &&
+            isFileContentSupported(editor);
     }
+
+    private static boolean isFileContentSupported(Editor editor) {
+        return computableReadAction(() ->
+            Optional.ofNullable(PsiDocumentManager.getInstance(editor.getProject()).getPsiFile(editor.getDocument()))
+                .map(f ->
+                    IntellijLanguageClient.getAllServerWrappers(projectToUri(editor.getProject()))
+                        .stream()
+                        // find first which returns true
+                        .anyMatch(w -> Optional.ofNullable(w.getExtensionManager())
+                            // if no ext manager then return true
+                            .map(em -> em.isFileContentSupported(f)).orElse(true))
+                ).orElseGet(() -> {
+                LOG.debug("PsiFile for editor is null, isFileContentSupported will return false");
+                return false;
+            }));
+    }
+
 
     /**
      * Find projects which contains the given file. This search runs among all open projects.
