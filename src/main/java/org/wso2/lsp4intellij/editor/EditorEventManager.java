@@ -31,11 +31,7 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.editor.colors.EditorColors;
-import com.intellij.openapi.editor.event.DocumentEvent;
-import com.intellij.openapi.editor.event.DocumentListener;
-import com.intellij.openapi.editor.event.EditorMouseEvent;
-import com.intellij.openapi.editor.event.EditorMouseListener;
-import com.intellij.openapi.editor.event.EditorMouseMotionListener;
+import com.intellij.openapi.editor.event.*;
 import com.intellij.openapi.editor.ex.EditorSettingsExternalizable;
 import com.intellij.openapi.editor.markup.HighlighterLayer;
 import com.intellij.openapi.editor.markup.HighlighterTargetArea;
@@ -47,7 +43,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
@@ -108,41 +105,22 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
-import java.awt.Cursor;
-import java.awt.Point;
-import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collections;
+import javax.swing.*;
+import java.awt.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
-import java.util.Objects;
 import java.util.Timer;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import javax.swing.Icon;
-
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.*;
 import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
-import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
-import static org.wso2.lsp4intellij.requests.Timeouts.COMPLETION;
-import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
-import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
-import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
-import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
-import static org.wso2.lsp4intellij.requests.Timeouts.SIGNATURE;
-import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
+import static org.wso2.lsp4intellij.requests.Timeouts.*;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.*;
 import static org.wso2.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
 
 /**
@@ -371,8 +349,8 @@ public class EditorEventManager {
             } else {
                 VirtualFile file = null;
                 try {
-                    file = LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(locUri)));
-                } catch (URISyntaxException e1) {
+                    file = VfsUtil.findFileByURL(new URL(VfsUtilCore.fixURLforIDEA(locUri)));
+                } catch (MalformedURLException e1) {
                     LOG.warn("Syntax Exception occurred for uri: " + locUri);
                 }
                 if (file != null) {
