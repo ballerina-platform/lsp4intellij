@@ -314,34 +314,19 @@ public class LanguageServerWrapper {
                     return;
                 }
                 try {
-                    Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities
-                            .getTextDocumentSync();
-                    TextDocumentSyncKind syncKind = null;
+                    Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities.getTextDocumentSync();
                     if (syncOptions != null) {
-                        if (syncOptions.isRight()) {
-                            syncKind = syncOptions.getRight().getChange();
-                        } else if (syncOptions.isLeft()) {
-                            syncKind = syncOptions.getLeft();
-                        }
                         //Todo - Implement
                         //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
                         DocumentListenerImpl documentListener = new DocumentListenerImpl();
                         EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
                         EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
 
-                        ServerOptions serverOptions = new ServerOptions(syncKind,
-                                capabilities.getCompletionProvider(), capabilities.getSignatureHelpProvider(),
-                                capabilities.getCodeLensProvider(),
-                                capabilities.getDocumentOnTypeFormattingProvider(),
-                                capabilities.getDocumentLinkProvider(),
-                                capabilities.getExecuteCommandProvider(),
-                                capabilities.getSemanticHighlighting());
-
+                        ServerOptions serverOptions = new ServerOptions(capabilities);
                         EditorEventManager manager;
                         if (extManager != null) {
-                            manager = extManager
-                                    .getExtendedEditorEventManagerFor(editor, documentListener, mouseListener,
-                                            mouseMotionListener, requestManager, serverOptions, this);
+                            manager = extManager.getExtendedEditorEventManagerFor(editor, documentListener,
+                                    mouseListener, mouseMotionListener, requestManager, serverOptions, this);
                             if (manager == null) {
                                 manager = new EditorEventManager(editor, documentListener, mouseListener,
                                         mouseMotionListener, requestManager, serverOptions, this);
