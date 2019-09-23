@@ -85,7 +85,7 @@ class LSPFileEventManager {
         if (manager != null) {
             manager.documentSaved();
             FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
-                    FileUtils.projectToUri(p), FileChangeType.Changed, manager.wrapper));
+                    FileUtils.projectToUri(p), FileChangeType.Changed));
         } else {
             FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
                     FileUtils.projectToUri(p), FileChangeType.Changed));
@@ -219,10 +219,6 @@ class LSPFileEventManager {
     }
 
     private static void changedConfiguration(String uri, String projectUri, FileChangeType typ) {
-        changedConfiguration(uri, projectUri, typ, null);
-    }
-
-    private static void changedConfiguration(String uri, String projectUri, FileChangeType typ, LanguageServerWrapper targetWrapper) {
         ApplicationUtils.pool(() -> {
             List<FileEvent> event = new ArrayList<>();
             event.add(new FileEvent(uri, typ));
@@ -232,7 +228,7 @@ class LSPFileEventManager {
                 return;
             }
             for (LanguageServerWrapper wrapper : wrappers) {
-                if (wrapper != targetWrapper && wrapper.getRequestManager() != null
+                if (wrapper.getRequestManager() != null
                         && wrapper.getStatus() == ServerStatus.INITIALIZED) {
                     wrapper.getRequestManager().didChangeWatchedFiles(params);
                 }
