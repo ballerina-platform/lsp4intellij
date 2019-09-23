@@ -49,7 +49,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
@@ -114,9 +115,8 @@ import org.wso2.lsp4intellij.utils.GUIUtils;
 
 import java.awt.Cursor;
 import java.awt.Point;
-import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -1293,8 +1293,8 @@ public class EditorEventManager {
             } else {
                 VirtualFile file = null;
                 try {
-                    file = LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(locUri)));
-                } catch (URISyntaxException e1) {
+                    file = VfsUtil.findFileByURL(new URL(VfsUtilCore.fixURLforIDEA(locUri)));
+                } catch (MalformedURLException e1) {
                     LOG.warn("Syntax Exception occurred for uri: " + locUri);
                 }
                 if (file != null) {
