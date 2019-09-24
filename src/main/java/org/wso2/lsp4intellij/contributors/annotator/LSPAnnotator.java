@@ -18,30 +18,27 @@ package org.wso2.lsp4intellij.contributors.annotator;
 import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.ExternalAnnotator;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
-import org.eclipse.lsp4j.CodeAction;
-import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
-import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
-import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
-import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
+import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
-import java.util.Objects;
 
 public class LSPAnnotator extends ExternalAnnotator {
+
+    private static final Logger LOG = Logger.getInstance(LSPAnnotator.class);
     private static final Object RESULT = new Object();
 
     @Nullable
@@ -59,7 +56,7 @@ public class LSPAnnotator extends ExternalAnnotator {
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
 
             // If the diagnostics list is locked, we need to skip annotating the file.
-            if (eventManager == null || eventManager.isDiagnosticsLocked()) {
+            if (eventManager == null || !(eventManager.isDiagnosticSyncRequired() || eventManager.isCodeActionSyncRequired())) {
                 return null;
             }
             return RESULT;
@@ -81,23 +78,53 @@ public class LSPAnnotator extends ExternalAnnotator {
         if (FileUtils.isFileSupported(virtualFile) && IntellijLanguageClient.isExtensionSupported(virtualFile)) {
             String uri = FileUtils.VFSToURI(virtualFile);
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
-
-            if (eventManager == null || eventManager.isDiagnosticsLocked()) {
+            if (eventManager == null) {
                 return;
             }
-            try {
-                createAnnotations(file, holder, eventManager);
-            } catch (ConcurrentModificationException e) {
-                // Todo
+
+            if (eventManager.isCodeActionSyncRequired()) {
+                try {
+                    updateAnnotations(holder, eventManager);
+                } catch (ConcurrentModificationException e) {
+                    // Todo - Add proper fix to handle concurrent modifications gracefully.
+                    LOG.warn("Error occurred when updating LSP diagnostics due to concurrent modifications.", e);
+                } catch (Throwable t) {
+                    LOG.warn("Error occurred when updating LSP diagnostics.", t);
+                }
+            } else if (eventManager.isDiagnosticSyncRequired()) {
+                try {
+                    createAnnotations(holder, eventManager);
+                } catch (ConcurrentModificationException e) {
+                    // Todo - Add proper fix to handle concurrent modifications gracefully.
+                    LOG.warn("Error occurred when updating LSP code actions due to concurrent modifications.", e);
+                } catch (Throwable t) {
+                    LOG.warn("Error occurred when updating LSP code actions.", t);
+                }
             }
         }
     }
 
-    private void createAnnotations(PsiFile file, AnnotationHolder holder, EditorEventManager eventManager) {
+    private void updateAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
+        final List<Annotation> annotations = eventManager.getAnnotations();
+        if (annotations == null) {
+            return;
+        }
+        annotations.forEach(annotation -> {
+            Annotation anon = holder.createAnnotation(annotation.getSeverity(),
+                    new TextRange(annotation.getStartOffset(), annotation.getEndOffset()), annotation.getMessage());
+
+            if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
+                return;
+            }
+            annotation.getQuickFixes().forEach(quickFixInfo -> anon.registerFix(quickFixInfo.quickFix));
+        });
+    }
+
+    private void createAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
         final List<Diagnostic> diagnostics = eventManager.getDiagnostics();
         final Editor editor = eventManager.editor;
-        final String uri = FileUtils.VFSToURI(file.getVirtualFile());
 
+        List<Annotation> annotations = new ArrayList<>();
         diagnostics.forEach(d -> {
             final int start = DocumentUtils.LSPPosToOffset(editor, d.getRange().getStart());
             final int end = DocumentUtils.LSPPosToOffset(editor, d.getRange().getEnd());
@@ -123,18 +150,10 @@ public class LSPAnnotator extends ExternalAnnotator {
                     break;
             }
 
-            final String name = editor.getDocument().getText(textRange);
-            final LSPPsiElement element = new LSPPsiElement(name, editor.getProject(), start, end, file);
-            final List<Either<Command, CodeAction>> codeAction = eventManager.codeAction(element);
-            if (codeAction != null) {
-                codeAction.stream().filter(Objects::nonNull).forEach(e -> {
-                    if (e.isLeft()) {
-                        annotation.registerFix(new LSPCommandFix(uri, e.getLeft()), textRange);
-                    } else if (e.isRight()) {
-                        annotation.registerFix(new LSPCodeActionFix(uri, e.getRight()), textRange);
-                    }
-                });
-            }
+            annotations.add(annotation);
         });
+
+        eventManager.setAnnotations(annotations);
+        eventManager.setAnonHolder(holder);
     }
 }
