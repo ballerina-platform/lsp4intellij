@@ -875,7 +875,7 @@ public class EditorEventManager {
         String presentableText = StringUtils.isNotEmpty(label) ? label : (insertText != null) ? insertText : "";
         String tailText = (detail != null) ? detail : "";
         LSPIconProvider iconProvider = GUIUtils.getIconProviderFor(wrapper.getServerDefinition());
-        Icon icon = LSPIconProvider.getCompletionIcon(kind);
+        Icon icon = iconProvider.getCompletionIcon(kind);
         LookupElementBuilder lookupElementBuilder;
 
         String lookupString = null;

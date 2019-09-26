@@ -33,6 +33,7 @@ import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
@@ -370,5 +371,13 @@ public class IntellijLanguageClient implements ApplicationComponent {
     @Override
     public void disposeComponent() {
         // Todo
+    }
+
+    /**
+     * Returns the registered extension manager for this language server.
+     * @param definition The LanguageServerDefinition
+     */
+    public static Optional<LSPExtensionManager> getExtensionManagerForDefinition(@NotNull LanguageServerDefinition definition) {
+        return Optional.ofNullable(extToExtManager.get(definition.ext.split(",")[0]));
     }
 }

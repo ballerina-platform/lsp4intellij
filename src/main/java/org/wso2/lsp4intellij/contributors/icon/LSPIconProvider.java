@@ -25,17 +25,11 @@ import javax.swing.*;
 
 public abstract class LSPIconProvider {
 
-    public static Icon getCompletionIcon(CompletionItemKind kind) {
-        return LSPDefaultIconProvider.getCompletionIcon(kind);
-    }
+    public abstract Icon getCompletionIcon(CompletionItemKind kind);
 
-    public static Map<ServerStatus, Icon> getStatusIcons() {
-        return LSPDefaultIconProvider.getStatusIcons();
-    }
+    public abstract Map<ServerStatus, Icon> getStatusIcons();
 
-    public static Icon getSymbolIcon(SymbolKind kind) {
-        return LSPDefaultIconProvider.getSymbolIcon(kind);
-    }
+    public abstract Icon getSymbolIcon(SymbolKind kind);
 
     public abstract boolean isSpecificFor(LanguageServerDefinition serverDefinition);
 }
