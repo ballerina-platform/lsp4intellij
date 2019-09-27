@@ -20,13 +20,17 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import com.intellij.openapi.vfs.VirtualFile;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.WorkspaceSymbolParams;
@@ -57,18 +61,24 @@ public class WorkspaceSymbolProvider {
     final WorkspaceSymbolParams symbolParams = new WorkspaceSymbolParams(name);
     return serverWrappers.stream().filter(s -> s.getStatus() == ServerStatus.INITIALIZED)
         .flatMap(server -> collectSymbol(server, server.getRequestManager(), symbolParams))
-        .map(s -> createNavigationItem(s, project)).collect(Collectors.toList());
+        .map(s -> createNavigationItem(s, project)).filter(Objects::nonNull).collect(Collectors.toList());
   }
 
   private LSPNavigationItem createNavigationItem(LSPSymbolResult result, Project project) {
-    final LSPIconProvider iconProviderFor = GUIUtils.getIconProviderFor(result.getDefinition());
     final SymbolInformation information = result.getSymbolInformation();
     final Location location = information.getLocation();
-    return new LSPNavigationItem(information.getName(),
-        information.getContainerName(), iconProviderFor.getSymbolIcon(information.getKind()),
-        project, FileUtils.URIToVFS(location.getUri()),
-        location.getRange().getStart().getLine(),
-        location.getRange().getStart().getCharacter());
+    final VirtualFile file = FileUtils.URIToVFS(location.getUri());
+
+    if (file != null) {
+      final LSPIconProvider iconProviderFor = GUIUtils.getIconProviderFor(result.getDefinition());
+      return new LSPNavigationItem(information.getName(),
+              information.getContainerName(), iconProviderFor.getSymbolIcon(information.getKind()),
+              project, file,
+              location.getRange().getStart().getLine(),
+              location.getRange().getStart().getCharacter());
+    } else {
+      return null;
+    }
   }
 
   @SuppressWarnings("squid:S2142")
