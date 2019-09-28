@@ -24,13 +24,17 @@ import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
+import org.wso2.lsp4intellij.contributors.label.LSPDefaultLabelProvider;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
+import org.wso2.lsp4intellij.contributors.label.LSPLabelProvider;
 
 import java.awt.*;
 import javax.swing.*;
 
 public class GUIUtils {
     private static final LSPDefaultIconProvider DEFAULT_ICON_PROVIDER = new LSPDefaultIconProvider();
+
+    private static final LSPLabelProvider DEFAULT_LABEL_PROVIDER = new LSPDefaultLabelProvider();
 
     public static Hint createAndShowEditorHint(Editor editor, String string, Point point) {
         return createAndShowEditorHint(editor, string, point, HintManager.ABOVE,
@@ -69,4 +73,16 @@ public class GUIUtils {
         return IntellijLanguageClient.getExtensionManagerForDefinition(serverDefinition)
                 .map(LSPExtensionManager::getIconProvider).orElse(DEFAULT_ICON_PROVIDER);
     }
+
+    /**
+     * Returns a suitable LSPLabelProvider given a ServerDefinition
+     *
+     * @param serverDefinition The serverDefinition
+     * @return The LSPLabelProvider, or the default if none are found
+     */
+    public static LSPLabelProvider getLabelProviderFor(LanguageServerDefinition serverDefinition) {
+        return IntellijLanguageClient.getExtensionManagerForDefinition(serverDefinition)
+                .map(LSPExtensionManager::getLabelProvider).orElse(DEFAULT_LABEL_PROVIDER);
+    }
+
 }

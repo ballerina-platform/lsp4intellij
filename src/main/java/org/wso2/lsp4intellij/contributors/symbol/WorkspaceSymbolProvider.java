@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -40,6 +39,7 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
+import org.wso2.lsp4intellij.contributors.label.LSPLabelProvider;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
@@ -71,9 +71,10 @@ public class WorkspaceSymbolProvider {
 
     if (file != null) {
       final LSPIconProvider iconProviderFor = GUIUtils.getIconProviderFor(result.getDefinition());
-      return new LSPNavigationItem(information.getName(),
-              information.getContainerName(), iconProviderFor.getSymbolIcon(information.getKind()),
-              project, file,
+      final LSPLabelProvider labelProvider = GUIUtils.getLabelProviderFor(result.getDefinition());
+      return new LSPNavigationItem(labelProvider.symbolNameFor(information, project),
+              labelProvider.symbolLocationFor(information, project), iconProviderFor.getSymbolIcon(information.getKind()),
+              project, FileUtils.URIToVFS(location.getUri()),
               location.getRange().getStart().getLine(),
               location.getRange().getStart().getCharacter());
     } else {
