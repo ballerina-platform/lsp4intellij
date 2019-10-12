@@ -15,6 +15,9 @@
  */
 package org.wso2.lsp4intellij.editor;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.codeInsight.hint.HintManager;
@@ -82,10 +85,7 @@ import java.awt.Cursor;
 import java.awt.Point;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -255,9 +255,8 @@ public class EditorEventManager {
             return;
         }
         Language language = psiFile.getLanguage();
-        if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !language
-                .equals(PlainTextLanguage.INSTANCE)) || (!getIsCtrlDown() && !EditorSettingsExternalizable
-                .getInstance().isShowQuickDocOnMouseOverElement())) {
+        if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !isSupportedLanguageFile(psiFile))
+                || (!getIsCtrlDown() && !EditorSettingsExternalizable.getInstance().isShowQuickDocOnMouseOverElement())) {
             return;
         }
 
@@ -295,6 +294,11 @@ public class EditorEventManager {
             }
             predTime = curTime;
         }
+    }
+
+    private boolean isSupportedLanguageFile(PsiFile file) {
+        return file.getLanguage().isKindOf(PlainTextLanguage.INSTANCE)
+            || FileUtils.isFileSupported(file.getVirtualFile());
     }
 
     /**
