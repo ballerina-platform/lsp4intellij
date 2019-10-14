@@ -26,6 +26,7 @@ import com.intellij.psi.PsiFile;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.FileChangeType;
 import org.eclipse.lsp4j.FileEvent;
+import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
@@ -185,7 +186,15 @@ class LSPFileEventManager {
                     // Detaches old file from the wrappers.
                     Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(FileUtils.projectToUri(p));
                     if (wrappers != null) {
-                        wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
+                        wrappers.forEach(wrapper -> {
+                            // make these calls first since the disconnect might stop the LS client if its last file.
+                            wrapper.getRequestManager().didChangeWatchedFiles(
+                                    getDidChangeWatchedFilesParams(oldFileUri, FileChangeType.Deleted));
+                            wrapper.getRequestManager().didChangeWatchedFiles(
+                                    getDidChangeWatchedFilesParams(newFileUri, FileChangeType.Created));
+
+                            wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p));
+                        });
                     }
 
                     // Todo - Stop opening files with the same file name.
@@ -220,9 +229,7 @@ class LSPFileEventManager {
 
     private static void changedConfiguration(String uri, String projectUri, FileChangeType typ) {
         ApplicationUtils.pool(() -> {
-            List<FileEvent> event = new ArrayList<>();
-            event.add(new FileEvent(uri, typ));
-            DidChangeWatchedFilesParams params = new DidChangeWatchedFilesParams(event);
+            DidChangeWatchedFilesParams params = getDidChangeWatchedFilesParams(uri, typ);
             Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(projectUri);
             if (wrappers == null) {
                 return;
@@ -234,5 +241,12 @@ class LSPFileEventManager {
                 }
             }
         });
+    }
+
+    @NotNull
+    private static DidChangeWatchedFilesParams getDidChangeWatchedFilesParams(String fileUri, FileChangeType typ) {
+        List<FileEvent> event = new ArrayList<>();
+        event.add(new FileEvent(fileUri, typ));
+        return new DidChangeWatchedFilesParams(event);
     }
 }
