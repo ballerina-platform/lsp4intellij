@@ -18,7 +18,10 @@ package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 import com.intellij.openapi.diagnostic.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
+import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
+import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 
 import java.io.IOException;
 import java.io.InputStream;
