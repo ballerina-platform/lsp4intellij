@@ -92,7 +92,7 @@ public class EditorEventManagerBase {
      */
     public static EditorEventManager forUri(String uri) {
         prune();
-        return uriToManager.get(uri);
+        return uri == null ? null : uriToManager.get(uri);
     }
 
     private static void prune() {
