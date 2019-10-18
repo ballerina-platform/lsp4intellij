@@ -24,6 +24,7 @@ import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.project.VetoableProjectManagerListener;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
@@ -31,6 +32,9 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
@@ -43,14 +47,9 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.io.File;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 
@@ -62,6 +61,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
     private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
     private static Map<Pair<String, String>, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
     private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
+
+    private static final Predicate<LanguageServerWrapper> RUNNING = (s) -> s.getStatus() != ServerStatus.STOPPED;
 
     @Override
     public void initComponent() {
@@ -76,6 +77,13 @@ public class IntellijLanguageClient implements ApplicationComponent {
             // Adds document event listener.
             ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
                     new LSPFileDocumentManagerListener());
+
+            // in case if JVM forcefully exit
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> projectToLanguageWrappers.values().stream()
+                    .flatMap(Collection::stream)
+                    .filter(RUNNING)
+                    .forEach(s -> s.stop(true))));
+
             LOG.info("IntelliJ Language Client initialized successfully");
         } catch (Exception e) {
             LOG.warn("Fatal error occurred when initializing IntelliJ language client.", e);
@@ -363,5 +371,13 @@ public class IntellijLanguageClient implements ApplicationComponent {
     @Override
     public void disposeComponent() {
         // Todo
+    }
+
+    /**
+     * Returns the registered extension manager for this language server.
+     * @param definition The LanguageServerDefinition
+     */
+    public static Optional<LSPExtensionManager> getExtensionManagerForDefinition(@NotNull LanguageServerDefinition definition) {
+        return Optional.ofNullable(extToExtManager.get(definition.ext.split(",")[0]));
     }
 }

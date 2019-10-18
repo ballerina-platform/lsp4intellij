@@ -314,34 +314,19 @@ public class LanguageServerWrapper {
                     return;
                 }
                 try {
-                    Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities
-                            .getTextDocumentSync();
-                    TextDocumentSyncKind syncKind = null;
+                    Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities.getTextDocumentSync();
                     if (syncOptions != null) {
-                        if (syncOptions.isRight()) {
-                            syncKind = syncOptions.getRight().getChange();
-                        } else if (syncOptions.isLeft()) {
-                            syncKind = syncOptions.getLeft();
-                        }
                         //Todo - Implement
                         //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
                         DocumentListenerImpl documentListener = new DocumentListenerImpl();
                         EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
                         EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
 
-                        ServerOptions serverOptions = new ServerOptions(syncKind,
-                                capabilities.getCompletionProvider(), capabilities.getSignatureHelpProvider(),
-                                capabilities.getCodeLensProvider(),
-                                capabilities.getDocumentOnTypeFormattingProvider(),
-                                capabilities.getDocumentLinkProvider(),
-                                capabilities.getExecuteCommandProvider(),
-                                capabilities.getSemanticHighlighting());
-
+                        ServerOptions serverOptions = new ServerOptions(capabilities);
                         EditorEventManager manager;
                         if (extManager != null) {
-                            manager = extManager
-                                    .getExtendedEditorEventManagerFor(editor, documentListener, mouseListener,
-                                            mouseMotionListener, requestManager, serverOptions, this);
+                            manager = extManager.getExtendedEditorEventManagerFor(editor, documentListener,
+                                    mouseListener, mouseMotionListener, requestManager, serverOptions, this);
                             if (manager == null) {
                                 manager = new EditorEventManager(editor, documentListener, mouseListener,
                                         mouseMotionListener, requestManager, serverOptions, this);
@@ -458,7 +443,7 @@ public class LanguageServerWrapper {
                 OutputStream outputStream = streams.getValue();
                 InitializeParams initParams = getInitParams();
                 ExecutorService executorService = Executors.newCachedThreadPool();
-                MessageHandler messageHandler = new MessageHandler(serverDefinition.getServerListener());
+                MessageHandler messageHandler = new MessageHandler(serverDefinition.getServerListener(), () -> getStatus() != STOPPED);
                 if (extManager != null && extManager.getExtendedServerInterface() != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
                     client = extManager.getExtendedClientFor(new ServerWrapperBaseClientContext(this));
@@ -695,6 +680,16 @@ public class LanguageServerWrapper {
             alreadyShownTimeout = false;
             IntellijLanguageClient.restart(project);
         }
+    }
+
+    /**
+     * Returns the extension manager associated with this language server wrapper.
+     *
+     * @return The result can be null if there is not extension manager defined.
+     */
+    @Nullable
+    public final LSPExtensionManager getExtensionManager() {
+        return extManager;
     }
 }
 

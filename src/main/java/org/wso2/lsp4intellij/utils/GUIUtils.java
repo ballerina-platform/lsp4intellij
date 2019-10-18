@@ -20,14 +20,17 @@ import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.ui.Hint;
 import com.intellij.ui.LightweightHint;
+import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
+import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 
 import java.awt.*;
 import javax.swing.*;
 
 public class GUIUtils {
+    private static final LSPDefaultIconProvider DEFAULT_ICON_PROVIDER = new LSPDefaultIconProvider();
 
     public static Hint createAndShowEditorHint(Editor editor, String string, Point point) {
         return createAndShowEditorHint(editor, string, point, HintManager.ABOVE,
@@ -63,6 +66,7 @@ public class GUIUtils {
      * @return The LSPIconProvider, or LSPDefaultIconProvider if none are found
      */
     public static LSPIconProvider getIconProviderFor(LanguageServerDefinition serverDefinition) {
-        return new LSPDefaultIconProvider();
+        return IntellijLanguageClient.getExtensionManagerForDefinition(serverDefinition)
+                .map(LSPExtensionManager::getIconProvider).orElse(DEFAULT_ICON_PROVIDER);
     }
 }

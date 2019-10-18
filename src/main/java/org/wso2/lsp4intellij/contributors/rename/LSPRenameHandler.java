@@ -66,12 +66,10 @@ public class LSPRenameHandler implements RenameHandler {
     public void invoke(@NotNull Project project, Editor editor, PsiFile file, DataContext dataContext) {
         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
-            if (editor.getContentComponent().hasFocus()) {
-                LSPPsiElement psiElement = getElementAtOffset(manager,
-                        editor.getCaretModel().getCurrentCaret().getOffset());
-                if (psiElement != null) {
-                    doRename(psiElement, editor);
-                }
+            LSPPsiElement psiElement = getElementAtOffset(manager,
+                editor.getCaretModel().getCurrentCaret().getOffset());
+            if (psiElement != null) {
+                doRename(psiElement, editor);
             }
         }
     }

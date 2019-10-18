@@ -34,7 +34,7 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
     private static Icon STARTING = IconLoader.getIcon("/images/starting.png");
     private static Icon STOPPED = IconLoader.getIcon("/images/stopped.png");
 
-    public static Icon getCompletionIcon(CompletionItemKind kind) {
+    public Icon getCompletionIcon(CompletionItemKind kind) {
 
         if (kind == null) {
             return null;
@@ -82,7 +82,7 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
         }
     }
 
-    public static Icon getSymbolIcon(SymbolKind kind) {
+    public Icon getSymbolIcon(SymbolKind kind) {
 
         if (kind == null) {
             return null;
@@ -107,7 +107,7 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
         }
     }
 
-    public static Map<ServerStatus, Icon> getStatusIcons() {
+    public Map<ServerStatus, Icon> getStatusIcons() {
         Map<ServerStatus, Icon> statusIconMap = new HashMap<>();
         statusIconMap.put(ServerStatus.STOPPED, STOPPED);
         statusIconMap.put(ServerStatus.STARTING, STARTING);
