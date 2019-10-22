@@ -63,4 +63,18 @@ public interface LSPExtensionManager {
     default LSPIconProvider getIconProvider() {
         return new LSPDefaultIconProvider();
     }
+
+    /**
+     * Some language servers might only need to start for files which has a specific content. This method can be used
+     * in such situation to control whether the file must be connected to a language server which is registered for the
+     * extension of this file.
+     *
+     * <b>Note:</b> By default this method returns <code>true</code>
+     *
+     * @param file PsiFile which is about to connect to a language server.
+     * @return <code>true</code> if the file is supported.
+     */
+    default boolean isFileContentSupported(@NotNull PsiFile file) {
+        return true;
+    }
 }

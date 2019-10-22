@@ -90,12 +90,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -111,6 +106,7 @@ import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
 import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
 import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
 import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToProjectFolderUri;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToURIString;
@@ -351,7 +347,7 @@ public class LanguageServerWrapper {
                         }
                         // trigger annotators since the this is the first editor which starts the LS
                         // and annotators are executed before LS is boostrap to provide diagnostics
-                        ApplicationUtils.computableReadAction(() -> {
+                        computableReadAction(() -> {
                             DaemonCodeAnalyzer.getInstance(project).restart(
                                     PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument()));
                             return null;
