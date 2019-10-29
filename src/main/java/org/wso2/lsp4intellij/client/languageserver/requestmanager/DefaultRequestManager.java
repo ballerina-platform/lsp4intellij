@@ -16,8 +16,62 @@
 package org.wso2.lsp4intellij.client.languageserver.requestmanager;
 
 import com.intellij.openapi.diagnostic.Logger;
-import org.eclipse.lsp4j.*;
-import org.eclipse.lsp4j.jsonrpc.messages.CancelParams;
+import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionOptions;
+import org.eclipse.lsp4j.CodeActionParams;
+import org.eclipse.lsp4j.CodeLens;
+import org.eclipse.lsp4j.CodeLensParams;
+import org.eclipse.lsp4j.ColorInformation;
+import org.eclipse.lsp4j.ColorPresentation;
+import org.eclipse.lsp4j.ColorPresentationParams;
+import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionParams;
+import org.eclipse.lsp4j.DidChangeConfigurationParams;
+import org.eclipse.lsp4j.DidChangeTextDocumentParams;
+import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
+import org.eclipse.lsp4j.DidCloseTextDocumentParams;
+import org.eclipse.lsp4j.DidOpenTextDocumentParams;
+import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentColorParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentHighlight;
+import org.eclipse.lsp4j.DocumentLink;
+import org.eclipse.lsp4j.DocumentLinkParams;
+import org.eclipse.lsp4j.DocumentOnTypeFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
+import org.eclipse.lsp4j.DocumentSymbol;
+import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.FoldingRange;
+import org.eclipse.lsp4j.FoldingRangeRequestParams;
+import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.InitializeParams;
+import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.InitializedParams;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.MessageActionItem;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.ReferenceParams;
+import org.eclipse.lsp4j.RegistrationParams;
+import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SemanticHighlightingParams;
+import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.ShowMessageRequestParams;
+import org.eclipse.lsp4j.SignatureHelp;
+import org.eclipse.lsp4j.SymbolInformation;
+import org.eclipse.lsp4j.TextDocumentPositionParams;
+import org.eclipse.lsp4j.TextDocumentSyncOptions;
+import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.UnregistrationParams;
+import org.eclipse.lsp4j.WillSaveTextDocumentParams;
+import org.eclipse.lsp4j.WorkspaceEdit;
+import org.eclipse.lsp4j.WorkspaceSymbolParams;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -29,6 +83,9 @@ import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Default implementation for LSP requests/notifications handling.
+ */
 public class DefaultRequestManager implements RequestManager {
 
     private Logger LOG = Logger.getInstance(DefaultRequestManager.class);
@@ -42,7 +99,7 @@ public class DefaultRequestManager implements RequestManager {
     private TextDocumentService textDocumentService;
 
     public DefaultRequestManager(LanguageServerWrapper wrapper, LanguageServer server, LanguageClient client,
-            ServerCapabilities serverCapabilities) {
+                                 ServerCapabilities serverCapabilities) {
 
         this.wrapper = wrapper;
         this.server = server;
@@ -72,7 +129,7 @@ public class DefaultRequestManager implements RequestManager {
         return serverCapabilities;
     }
 
-    //Client
+    // Client
     @Override
     public void showMessage(MessageParams messageParams) {
         client.showMessage(messageParams);
@@ -118,8 +175,9 @@ public class DefaultRequestManager implements RequestManager {
         client.semanticHighlighting(params);
     }
 
-    //Server
-    //General
+    // Server
+
+    // General
     @Override
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         if (checkStatus()) {
@@ -157,7 +215,6 @@ public class DefaultRequestManager implements RequestManager {
         } else {
             return null;
         }
-
     }
 
     @Override
@@ -172,11 +229,34 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     @Override
-    public void cancelRequest(CancelParams params) {
-
+    public TextDocumentService getTextDocumentService() {
+        if (checkStatus()) {
+            try {
+                return textDocumentService;
+            } catch (Exception e) {
+                crashed(e);
+                return null;
+            }
+        } else {
+            return null;
+        }
     }
 
-    //Workspace
+    @Override
+    public WorkspaceService getWorkspaceService() {
+        if (checkStatus()) {
+            try {
+                return workspaceService;
+            } catch (Exception e) {
+                crashed(e);
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+
+    // Workspace service
     @Override
     public void didChangeConfiguration(DidChangeConfigurationParams params) {
         if (checkStatus()) {
@@ -226,7 +306,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
-    //Document
+    // Text document service
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         if (checkStatus()) {
@@ -325,7 +405,7 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     @Override
-    public CompletableFuture<CompletionItem> completionItemResolve(CompletionItem unresolved) {
+    public CompletableFuture<CompletionItem> resolveCompletionItem(CompletionItem unresolved) {
         if (checkStatus()) {
             try {
                 return (serverCapabilities.getCompletionProvider() != null && serverCapabilities.getCompletionProvider()
@@ -556,6 +636,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         //        if (checkStatus()) {
         //            try {
@@ -573,12 +654,12 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     @Override
-    public CompletableFuture<List<? extends Location>> implementation(TextDocumentPositionParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(TextDocumentPositionParams params) {
         return null;
     }
 
     @Override
-    public CompletableFuture<List<? extends Location>> typeDefinition(TextDocumentPositionParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> typeDefinition(TextDocumentPositionParams params) {
         return null;
     }
 
@@ -604,11 +685,6 @@ public class DefaultRequestManager implements RequestManager {
     private void crashed(Exception e) {
         LOG.warn(e);
         wrapper.crashed(e);
-    }
-
-    private boolean checkProvider(Either<Boolean, StaticRegistrationOptions> provider) {
-        return provider != null && ((provider.isLeft() && provider.getLeft()) || (provider.isRight()
-                && provider.getRight() != null));
     }
 
     private boolean checkCodeActionProvider(Either<Boolean, CodeActionOptions> provider) {

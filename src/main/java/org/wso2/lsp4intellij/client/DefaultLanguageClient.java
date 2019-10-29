@@ -28,6 +28,7 @@ import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.RegistrationParams;
+import org.eclipse.lsp4j.SemanticHighlightingParams;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
@@ -39,7 +40,6 @@ import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
-import javax.swing.Icon;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +49,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
+
+import javax.swing.Icon;
 
 public class DefaultLanguageClient implements LanguageClient {
 
@@ -201,7 +203,8 @@ public class DefaultLanguageClient implements LanguageClient {
         return context;
     }
 
-    //    public void semanticHighlighting(SemanticHighlightingParams params) {
-    //        SemanticHighlightingHandler.handlePush(params);
-    //    }
+    @Override
+    public void semanticHighlighting(SemanticHighlightingParams params) {
+        // Todo
+    }
 }
