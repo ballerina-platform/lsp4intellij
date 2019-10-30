@@ -107,8 +107,7 @@ public class DefaultRequestManager implements RequestManager {
         this.serverCapabilities = serverCapabilities;
 
         textDocumentOptions = serverCapabilities.getTextDocumentSync().isRight() ?
-                serverCapabilities.getTextDocumentSync().getRight() :
-                null;
+                serverCapabilities.getTextDocumentSync().getRight() : null;
         workspaceService = server.getWorkspaceService();
         textDocumentService = server.getTextDocumentService();
     }
@@ -212,9 +211,8 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -237,9 +235,8 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -294,16 +291,13 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
         if (checkStatus()) {
             try {
-                return serverCapabilities.getExecuteCommandProvider() != null ?
-                        workspaceService.executeCommand(params) :
-                        null;
+                return serverCapabilities.getExecuteCommandProvider() != null ? workspaceService.executeCommand(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     // Text document service
@@ -351,15 +345,13 @@ public class DefaultRequestManager implements RequestManager {
         if (checkStatus()) {
             try {
                 return (textDocumentOptions == null || textDocumentOptions.getWillSaveWaitUntil()) ?
-                        textDocumentService.willSaveWaitUntil(params) :
-                        null;
+                        textDocumentService.willSaveWaitUntil(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -392,16 +384,13 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getCompletionProvider() != null) ?
-                        textDocumentService.completion(params) :
-                        null;
+                return (serverCapabilities.getCompletionProvider() != null) ? textDocumentService.completion(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -414,9 +403,8 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -428,25 +416,21 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
     public CompletableFuture<SignatureHelp> signatureHelp(TextDocumentPositionParams params) {
-        if (checkStatus())
+        if (checkStatus()) {
             try {
-                return (serverCapabilities.getSignatureHelpProvider() != null) ?
-                        textDocumentService.signatureHelp(params) :
-                        null;
+                return (serverCapabilities.getSignatureHelpProvider() != null) ? textDocumentService.signatureHelp(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -458,51 +442,41 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
     public CompletableFuture<List<? extends DocumentHighlight>> documentHighlight(TextDocumentPositionParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentHighlightProvider()) ?
-                        textDocumentService.documentHighlight(params) :
-                        null;
+                return (serverCapabilities.getDocumentHighlightProvider()) ? textDocumentService.documentHighlight(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
-    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
-            DocumentSymbolParams params) {
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(DocumentSymbolParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentSymbolProvider()) ?
-                        textDocumentService.documentSymbol(params) :
-                        null;
+                return (serverCapabilities.getDocumentSymbolProvider()) ? textDocumentService.documentSymbol(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
     public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentFormattingProvider()) ?
-                        textDocumentService.formatting(params) :
-                        null;
+                return (serverCapabilities.getDocumentFormattingProvider()) ? textDocumentService.formatting(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -516,16 +490,13 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentRangeFormattingProvider() != null) ?
-                        textDocumentService.rangeFormatting(params) :
-                        null;
+                return (serverCapabilities.getDocumentRangeFormattingProvider() != null) ? textDocumentService.rangeFormatting(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -533,15 +504,13 @@ public class DefaultRequestManager implements RequestManager {
         if (checkStatus()) {
             try {
                 return (serverCapabilities.getDocumentOnTypeFormattingProvider() != null) ?
-                        textDocumentService.onTypeFormatting(params) :
-                        null;
+                        textDocumentService.onTypeFormatting(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -553,25 +522,21 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
         if (checkStatus()) {
             try {
-                return checkCodeActionProvider(serverCapabilities.getCodeActionProvider()) ?
-                        textDocumentService.codeAction(params) :
-                        null;
+                return checkCodeActionProvider(serverCapabilities.getCodeActionProvider()) ? textDocumentService.codeAction(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -583,9 +548,8 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -598,9 +562,8 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -614,9 +577,8 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -631,9 +593,8 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override
@@ -647,8 +608,6 @@ public class DefaultRequestManager implements RequestManager {
         //                crashed(e);
         //                return null;
         //            }
-        //        } else {
-        //            return null;
         //        }
         return null;
     }
