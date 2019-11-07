@@ -1015,7 +1015,7 @@ public class EditorEventManager {
     }
 
     /**
-     * Returns the logical position given a mouse eventgi
+     * Returns the logical position given a mouse event
      *
      * @param e The event
      * @return The position (or null if out of bounds)
@@ -1522,7 +1522,6 @@ public class EditorEventManager {
             this.startIndex = start;
             this.endIndex = end;
             this.variableValue = getVariableValue(text);
-            this.intellijSnippetText = "$" + this.variableValue + "$";
         }
 
         private String getVariableValue(String lspVarSnippet) {
