@@ -1294,7 +1294,7 @@ public class EditorEventManager {
 
     private void requestAndShowCodeActions() {
         invokeLater(() -> {
-            if (editor.isDisposed()) {
+            if (editor.isDisposed() || annotations == null || annotations.isEmpty()) {
                 return;
             }
             // sends code action request.
@@ -1310,9 +1310,6 @@ public class EditorEventManager {
                 }
                 if (element.isLeft()) {
                     Command command = element.getLeft();
-                    if (annotations == null || annotations.isEmpty()) {
-                        return;
-                    }
                     annotations.forEach(annotation -> {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
