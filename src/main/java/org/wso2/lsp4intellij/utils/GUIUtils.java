@@ -17,9 +17,20 @@ package org.wso2.lsp4intellij.utils;
 
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
+import com.intellij.ide.browsers.BrowserLauncher;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VfsUtilCore;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.Hint;
 import com.intellij.ui.LightweightHint;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
@@ -28,13 +39,27 @@ import org.wso2.lsp4intellij.contributors.label.LSPDefaultLabelProvider;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.contributors.label.LSPLabelProvider;
 
-import java.awt.*;
 import javax.swing.*;
+import javax.swing.event.HyperlinkEvent;
+import javax.swing.text.html.HTMLEditorKit;
+import java.awt.*;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.Objects;
+import java.util.Optional;
 
-public class GUIUtils {
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
+
+public final class GUIUtils {
     private static final LSPDefaultIconProvider DEFAULT_ICON_PROVIDER = new LSPDefaultIconProvider();
 
     private static final LSPLabelProvider DEFAULT_LABEL_PROVIDER = new LSPDefaultLabelProvider();
+
+    private static final Logger LOGGER = Logger.getInstance(GUIUtils.class);
+
+    private GUIUtils() {
+    }
 
     public static Hint createAndShowEditorHint(Editor editor, String string, Point point) {
         return createAndShowEditorHint(editor, string, point, HintManager.ABOVE,
@@ -56,7 +81,41 @@ public class GUIUtils {
      * @return The hint
      */
     public static Hint createAndShowEditorHint(Editor editor, String string, Point point, short constraint, int flags) {
-        LightweightHint hint = new LightweightHint(new JLabel(string));
+        JTextPane textPane = new JTextPane();
+        textPane.setEditorKit(new HTMLEditorKit());
+        textPane.setText(string);
+        textPane.setEditable(false);
+        textPane.addHyperlinkListener(e -> {
+            if ((e.getEventType() == HyperlinkEvent.EventType.ACTIVATED)
+                    && Objects.nonNull(e.getURL())) {
+                try {
+                    if ("http".equals(e.getURL().getProtocol())) {
+                        BrowserLauncher.getInstance().browse(e.getURL().toURI());
+                    } else {
+                        final Project project = editor.getProject();
+                        Optional<? extends Pair<Project, VirtualFile>> fileToOpen = Optional.ofNullable(project).map(p -> {
+                            try {
+                                return Optional.ofNullable(
+                                    VfsUtil.findFileByURL(new URL(VfsUtilCore.fixURLforIDEA(e.getURL().toString()))))
+                                    .map(f -> new ImmutablePair<>(p, f));
+                            } catch (MalformedURLException ex) {
+                                LOGGER.debug("Invalid URL was found.", ex);
+                                return Optional.<Pair<Project, VirtualFile>>empty();
+                            }
+                        }).orElse(Optional.empty());
+
+                        fileToOpen.ifPresent(f -> {
+                            final OpenFileDescriptor descriptor = new OpenFileDescriptor(f.getLeft(), f.getRight());
+                            writeAction(() -> FileEditorManager.getInstance(f.getLeft()).openTextEditor(descriptor, true));
+                        });
+                    }
+                } catch (URISyntaxException ex) {
+                    Messages.showErrorDialog("Invalid syntax in URL", "Open URL Error");
+                    LOGGER.debug("Invalid URL was found.", ex);
+                }
+            }
+        });
+        LightweightHint hint = new LightweightHint(textPane);
         Point p = HintManagerImpl.getHintPosition(hint, editor, editor.xyToLogicalPosition(point), constraint);
         HintManagerImpl.getInstanceImpl().showEditorHint(hint, editor, p, flags, 0, false,
                 HintManagerImpl.createHintHint(editor, p, hint, constraint).setContentActive(false));
