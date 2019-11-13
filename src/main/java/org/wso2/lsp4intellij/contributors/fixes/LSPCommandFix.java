@@ -54,7 +54,7 @@ public class LSPCommandFix implements IntentionAction {
 
     @Override
     public boolean isAvailable(@NotNull Project project, Editor editor, PsiFile psiFile) {
-        return false;
+        return true;
     }
 
     @Override

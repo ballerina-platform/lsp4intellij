@@ -47,28 +47,27 @@ public class HoverHandler {
         }
         Either<List<Either<String, MarkedString>>, MarkupContent> hoverContents = hover.getContents();
         if (hoverContents.isLeft()) {
-            boolean useHtml = false;
             List<Either<String, MarkedString>> contents = hoverContents.getLeft();
             if (contents != null && !contents.isEmpty()) {
                 List<String> result = new ArrayList<>();
                 for (Either<String, MarkedString> c : contents) {
+                    String string = "";
                     if (c.isLeft() && !c.getLeft().isEmpty()) {
-                        result.add(c.getLeft());
+                        string = c.getLeft();
                     } else if (c.isRight()) {
-                        useHtml = true;
-                        MutableDataSet options = new MutableDataSet();
-                        Parser parser = Parser.builder(options).build();
-                        HtmlRenderer renderer = HtmlRenderer.builder(options).build();
                         MarkedString markedString = c.getRight();
-                        String string = (markedString.getLanguage() != null && !markedString.getLanguage().isEmpty()) ?
+                        string = (markedString.getLanguage() != null && !markedString.getLanguage().isEmpty()) ?
                                 "```" + markedString.getLanguage() + " " + markedString.getValue() + "```" :
                                 "";
-                        if (!string.isEmpty()) {
-                            result.add(renderer.render(parser.parse(string)));
-                        }
+                    }
+                    MutableDataSet options = new MutableDataSet();
+                    Parser parser = Parser.builder(options).build();
+                    HtmlRenderer renderer = HtmlRenderer.builder(options).build();
+                    if (!string.isEmpty()) {
+                        result.add(renderer.render(parser.parse(string)));
                     }
                 }
-                return useHtml ? "<html>" + String.join("\n\n", result) + "</html>" : String.join("\n\n", result);
+                return "<html>" + String.join("\n\n", result) + "</html>";
             } else {
                 return "";
             }

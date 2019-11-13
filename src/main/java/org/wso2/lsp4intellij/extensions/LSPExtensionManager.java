@@ -30,6 +30,8 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
+import org.wso2.lsp4intellij.contributors.label.LSPDefaultLabelProvider;
+import org.wso2.lsp4intellij.contributors.label.LSPLabelProvider;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 
@@ -63,4 +65,28 @@ public interface LSPExtensionManager {
     default LSPIconProvider getIconProvider() {
         return new LSPDefaultIconProvider();
     }
+
+    /**
+     * Some language servers might only need to start for files which has a specific content. This method can be used
+     * in such situation to control whether the file must be connected to a language server which is registered for the
+     * extension of this file.
+     *
+     * <b>Note:</b> By default this method returns <code>true</code>
+     *
+     * @param file PsiFile which is about to connect to a language server.
+     * @return <code>true</code> if the file is supported.
+     */
+    default boolean isFileContentSupported(@NotNull PsiFile file) {
+        return true;
+    }
+
+    /**
+     * The label provider for the Language Server. Implement and override default behavior
+     * if it needs to be customize.
+     */
+    @NotNull
+    default LSPLabelProvider getLabelProvider() {
+        return new LSPDefaultLabelProvider();
+    }
+
 }

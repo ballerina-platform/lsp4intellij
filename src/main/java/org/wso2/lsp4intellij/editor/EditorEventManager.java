@@ -15,6 +15,9 @@
  */
 package org.wso2.lsp4intellij.editor;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.codeInsight.hint.HintManager;
@@ -57,45 +60,10 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.lsp4j.CodeAction;
-import org.eclipse.lsp4j.CodeActionContext;
-import org.eclipse.lsp4j.CodeActionParams;
-import org.eclipse.lsp4j.Command;
-import org.eclipse.lsp4j.CompletionItem;
-import org.eclipse.lsp4j.CompletionItemKind;
-import org.eclipse.lsp4j.CompletionList;
-import org.eclipse.lsp4j.CompletionParams;
-import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.DidChangeTextDocumentParams;
-import org.eclipse.lsp4j.DidCloseTextDocumentParams;
-import org.eclipse.lsp4j.DidOpenTextDocumentParams;
-import org.eclipse.lsp4j.DidSaveTextDocumentParams;
-import org.eclipse.lsp4j.DocumentFormattingParams;
-import org.eclipse.lsp4j.DocumentRangeFormattingParams;
-import org.eclipse.lsp4j.ExecuteCommandParams;
-import org.eclipse.lsp4j.FormattingOptions;
-import org.eclipse.lsp4j.Hover;
-import org.eclipse.lsp4j.Location;
-import org.eclipse.lsp4j.MarkupContent;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.ReferenceContext;
-import org.eclipse.lsp4j.ReferenceParams;
-import org.eclipse.lsp4j.RenameParams;
-import org.eclipse.lsp4j.SignatureHelp;
-import org.eclipse.lsp4j.SignatureInformation;
-import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
-import org.eclipse.lsp4j.TextDocumentIdentifier;
-import org.eclipse.lsp4j.TextDocumentItem;
-import org.eclipse.lsp4j.TextDocumentPositionParams;
-import org.eclipse.lsp4j.TextDocumentSaveReason;
-import org.eclipse.lsp4j.TextDocumentSyncKind;
-import org.eclipse.lsp4j.TextEdit;
-import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
-import org.eclipse.lsp4j.WillSaveTextDocumentParams;
-import org.eclipse.lsp4j.WorkspaceEdit;
+import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.actions.LSPReferencesAction;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
@@ -117,10 +85,7 @@ import java.awt.Cursor;
 import java.awt.Point;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -290,9 +255,8 @@ public class EditorEventManager {
             return;
         }
         Language language = psiFile.getLanguage();
-        if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !language
-                .equals(PlainTextLanguage.INSTANCE)) || (!getIsCtrlDown() && !EditorSettingsExternalizable
-                .getInstance().isShowQuickDocOnMouseOverElement())) {
+        if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !isSupportedLanguageFile(psiFile))
+                || (!getIsCtrlDown() && !EditorSettingsExternalizable.getInstance().isShowQuickDocOnMouseOverElement())) {
             return;
         }
 
@@ -332,6 +296,11 @@ public class EditorEventManager {
         }
     }
 
+    private boolean isSupportedLanguageFile(PsiFile file) {
+        return file.getLanguage().isKindOf(PlainTextLanguage.INSTANCE)
+            || FileUtils.isFileSupported(file.getVirtualFile());
+    }
+
     /**
      * Called when the mouse is clicked
      * At the moment, is used by CTRL+click to see references / goto definition
@@ -364,7 +333,7 @@ public class EditorEventManager {
 
     private void createCtrlRange(Position logicalPos, Range range) {
         Location location = requestDefinition(logicalPos);
-        if (location == null || editor.isDisposed()) {
+        if (location == null || location.getRange() == null || editor.isDisposed()) {
             return;
         }
         Range corRange;
@@ -398,16 +367,20 @@ public class EditorEventManager {
      */
     private Location requestDefinition(Position position) {
         TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, position);
-        CompletableFuture<List<? extends Location>> request = requestManager.definition(params);
+        CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> request =
+                requestManager.definition(params);
 
         if (request == null) {
             return null;
         }
         try {
-            List<? extends Location> definition = request.get(getTimeout(DEFINITION), TimeUnit.MILLISECONDS);
+            // for now we only get Location, so we only check the left, but in future we might need to support
+            // right as well which will return LocationLink
+            Either<List<? extends Location>, List<? extends LocationLink>> definition =
+                    request.get(getTimeout(DEFINITION), TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.DEFINITION);
-            if (definition != null && !definition.isEmpty()) {
-                return definition.get(0);
+            if (definition.isLeft() && !definition.getLeft().isEmpty()) {
+                return definition.getLeft().get(0);
             }
         } catch (TimeoutException e) {
             LOG.warn(e);
@@ -616,8 +589,9 @@ public class EditorEventManager {
                 }
                 int activeSignatureIndex = signatureResp.getActiveSignature();
                 int activeParameterIndex = signatureResp.getActiveParameter();
+
                 String activeParameter = signatures.get(activeSignatureIndex).getParameters().size() > activeParameterIndex ?
-                        signatures.get(activeSignatureIndex).getParameters().get(activeParameterIndex).getLabel() : "";
+                        extractLabel(signatures.get(activeSignatureIndex), signatures.get(activeSignatureIndex).getParameters().get(activeParameterIndex).getLabel()): "";
                 Either<String, MarkupContent> signatureDescription = signatures.get(activeSignatureIndex).getDocumentation();
 
                 StringBuilder builder = new StringBuilder();
@@ -651,6 +625,16 @@ public class EditorEventManager {
                 LOG.warn("Internal error occurred when processing signature help");
             }
         });
+    }
+
+    private String extractLabel(SignatureInformation signatureInformation, Either<String, Tuple.Two<Integer, Integer>> label) {
+        if(label.isLeft()) {
+            return label.getLeft();
+        } else if (label.isRight()) {
+            return signatureInformation.getLabel().substring(label.getRight().getFirst(), label.getRight().getSecond());
+        } else {
+            return "";
+        }
     }
 
     /**
