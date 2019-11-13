@@ -23,10 +23,22 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionContext;
+import org.eclipse.lsp4j.CodeActionParams;
+import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
+import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
+import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
+import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
@@ -35,6 +47,13 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
+import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
 
 public class LSPAnnotator extends ExternalAnnotator {
 
@@ -82,16 +101,7 @@ public class LSPAnnotator extends ExternalAnnotator {
                 return;
             }
 
-            if (eventManager.isCodeActionSyncRequired()) {
-                try {
-                    updateAnnotations(holder, eventManager);
-                } catch (ConcurrentModificationException e) {
-                    // Todo - Add proper fix to handle concurrent modifications gracefully.
-                    LOG.warn("Error occurred when updating LSP diagnostics due to concurrent modifications.", e);
-                } catch (Throwable t) {
-                    LOG.warn("Error occurred when updating LSP diagnostics.", t);
-                }
-            } else if (eventManager.isDiagnosticSyncRequired()) {
+            if (eventManager.isDiagnosticSyncRequired()) {
                 try {
                     createAnnotations(holder, eventManager);
                 } catch (ConcurrentModificationException e) {
@@ -104,27 +114,10 @@ public class LSPAnnotator extends ExternalAnnotator {
         }
     }
 
-    private void updateAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
-        final List<Annotation> annotations = eventManager.getAnnotations();
-        if (annotations == null) {
-            return;
-        }
-        annotations.forEach(annotation -> {
-            Annotation anon = holder.createAnnotation(annotation.getSeverity(),
-                    new TextRange(annotation.getStartOffset(), annotation.getEndOffset()), annotation.getMessage());
-
-            if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
-                return;
-            }
-            annotation.getQuickFixes().forEach(quickFixInfo -> anon.registerFix(quickFixInfo.quickFix));
-        });
-    }
-
     private void createAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
         final List<Diagnostic> diagnostics = eventManager.getDiagnostics();
         final Editor editor = eventManager.editor;
 
-        List<Annotation> annotations = new ArrayList<>();
         diagnostics.forEach(d -> {
             final int start = DocumentUtils.LSPPosToOffset(editor, d.getRange().getStart());
             final int end = DocumentUtils.LSPPosToOffset(editor, d.getRange().getEnd());
@@ -149,11 +142,99 @@ public class LSPAnnotator extends ExternalAnnotator {
                     annotation = holder.createWeakWarningAnnotation(textRange, d.getMessage());
                     break;
             }
+            requestAndShowCodeActions(eventManager, annotation);
+        });
+    }
 
-            annotations.add(annotation);
+    /**
+     * Retrieves the commands needed to apply a CodeAction
+     *
+     * @param offset The cursor position(offset) which should be evaluated for code action request.
+     * @return The list of commands, or null if none are given / the request times out
+     */
+    private List<Either<Command, CodeAction>> codeAction(EditorEventManager eventManager, int offset) {
+        Editor editor = eventManager.editor;
+        LanguageServerWrapper wrapper = eventManager.wrapper;
+        List<Diagnostic> diagnostics = eventManager.getDiagnostics();
+        TextDocumentIdentifier identifier = eventManager.getIdentifier();
+        RequestManager requestManager = eventManager.getRequestManager();
+
+        CodeActionParams params = new CodeActionParams();
+        params.setTextDocument(identifier);
+        Range range = new Range(DocumentUtils.offsetToLSPPos(editor, offset),
+                DocumentUtils.offsetToLSPPos(editor, offset));
+        params.setRange(range);
+
+        // Calculates the diagnostic context.
+        List<Diagnostic> diagnosticContext = new ArrayList<>();
+        diagnostics.forEach(diagnostic -> {
+            int startOffset = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getStart());
+            int endOffset = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getEnd());
+            if (offset >= startOffset && offset <= endOffset) {
+                diagnosticContext.add(diagnostic);
+            }
         });
 
-        eventManager.setAnnotations(annotations);
-        eventManager.setAnonHolder(holder);
+        CodeActionContext context = new CodeActionContext(diagnosticContext);
+        params.setContext(context);
+        CompletableFuture<List<Either<Command, CodeAction>>> future = requestManager.codeAction(params);
+        if (future != null) {
+            try {
+                List<Either<Command, CodeAction>> res = future.get(getTimeout(CODEACTION), TimeUnit.MILLISECONDS);
+                wrapper.notifySuccess(CODEACTION);
+                return res;
+            } catch (TimeoutException e) {
+                LOG.warn(e);
+                wrapper.notifyFailure(CODEACTION);
+                return null;
+            } catch (InterruptedException | JsonRpcException | ExecutionException e) {
+                LOG.warn(e);
+                wrapper.crashed(e);
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private void requestAndShowCodeActions(EditorEventManager eventManager, Annotation annotation) {
+        Editor editor = eventManager.editor;
+        List<Either<Command, CodeAction>> codeActionResp = codeAction(eventManager, annotation.getStartOffset());
+        if (codeActionResp == null || codeActionResp.isEmpty()) {
+            return;
+        }
+
+        int start = annotation.getStartOffset();
+        int end = annotation.getEndOffset();
+        codeActionResp.forEach(element -> {
+            if (element == null) {
+                return;
+            }
+            if (element.isLeft()) {
+                Command command = element.getLeft();
+
+                annotation.registerFix(new LSPCommandFix(FileUtils.editorToURIString(editor),
+                        command), new TextRange(start, end));
+
+
+            } else if (element.isRight()) {
+                CodeAction codeAction = element.getRight();
+                List<Diagnostic> diagnosticContext = codeAction.getDiagnostics();
+
+                annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor),
+                        codeAction), new TextRange(start, end));
+
+                // If the code actions does not have a diagnostics context, creates an intention action for
+                // the current line.
+                if ((diagnosticContext == null || diagnosticContext.isEmpty())) {
+                    // Calculates text range of the current line.
+                    int line = editor.getCaretModel().getCurrentCaret().getLogicalPosition().line;
+                    int startOffset = editor.getDocument().getLineStartOffset(line);
+                    int endOffset = editor.getDocument().getLineEndOffset(line);
+                    TextRange range = new TextRange(startOffset, endOffset);
+
+                    annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction), range);
+                }
+            }
+        });
     }
 }
