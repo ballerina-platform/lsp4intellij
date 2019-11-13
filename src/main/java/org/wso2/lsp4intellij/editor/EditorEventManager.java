@@ -302,9 +302,8 @@ public class EditorEventManager {
             return;
         }
         Language language = psiFile.getLanguage();
-        if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !language
-                .equals(PlainTextLanguage.INSTANCE)) || (!getIsCtrlDown() && !EditorSettingsExternalizable
-                .getInstance().isShowQuickDocOnMouseOverElement())) {
+        if ((!LanguageDocumentation.INSTANCE.allForLanguage(language).isEmpty() && !isSupportedLanguageFile(psiFile))
+                || (!getIsCtrlDown() && !EditorSettingsExternalizable.getInstance().isShowQuickDocOnMouseOverElement())) {
             return;
         }
 
@@ -342,6 +341,11 @@ public class EditorEventManager {
             }
             predTime = curTime;
         }
+    }
+
+    private boolean isSupportedLanguageFile(PsiFile file) {
+        return file.getLanguage().isKindOf(PlainTextLanguage.INSTANCE)
+            || FileUtils.isFileSupported(file.getVirtualFile());
     }
 
     /**
