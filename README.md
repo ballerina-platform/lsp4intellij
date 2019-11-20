@@ -53,9 +53,9 @@ For instructions on adding **Lsp4IntelliJ** as a dependency when using the below
     
     - **RawCommandServerDefinition(string fileExtension, string[] command)** 
         
-        This definition executes the given command. 
+        This definition can be used to start a language server using a command. 
         
-        * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts, js").
+        * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
     
         * If you want to bind your language server definition only with a specific set of files, you can use that 
         specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
@@ -72,8 +72,34 @@ For instructions on adding **Lsp4IntelliJ** as a dependency when using the below
         String[] command = new String[]{"java","-jar","path/to/language-server.jar"};
         new RawCommandServerDefinition("bsl,os",command);
         ```
-        
-    > **Note:** All these implementations will use server stdin/stdout to communicate.
+       
+   - **ProcessBuilderServerDefinition(string fileExtension, string[] command)** 
+               
+       This definition is an extended form of the **RawCommandServerDefinition**, which accepts 
+       `java.lang.ProcessBuilder` instances so that the users will have more controllability over the language
+        server
+        process to be created.
+       
+       * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
+   
+       * If you want to bind your language server definition only with a specific set of files, you can use that 
+       specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
+       
+       Examples: 
+       
+       Ballerina Language Server 
+       ```java
+       ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
+       new ProcessBuilderServerDefinition("bal", process);
+       ```
+       
+       BSL Language Server
+       ```java
+       ProcessBuilder process = new ProcessBuilder("java","-jar","path/to/language-server.jar");
+       new ProcessBuilderServerDefinition("bsl,os", process);
+       ```
+               
+    > **Note:** All of the above implementations will use server stdin/stdout to communicate.
 
 2. To register any of the aforementioned options, implement a preloading activity in your plugin as shown 
 below.
@@ -181,11 +207,18 @@ IDE when opening a file that has a registered file extension as shown below.
 
 ## Features 
 
-#### Code Completion 
+#### Code Completion (with code snippet support)
 Press the `CTRL+SPACE` keys to see the completion items list, which depends on your cursor position.(Code completion items 
 will also pop-up auytomatically based on your language-server-specific trigger characters.)
 
 ![](resources/images/lsp4intellij-completion.gif)
+
+
+For Code Snippets, you can use TAB/ENTER to navigate to the next place holder position or ESC to apply the code
+snippets with the default values.
+ 
+![](resources/images/lsp4intellij-snippets.gif)
+
 
 #### Code Formatting 
 Navigate to **Code->Reformat Code** and you will get a dialog to choose whether to format the whole file or the 
