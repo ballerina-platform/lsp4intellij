@@ -18,10 +18,7 @@ package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 import com.intellij.openapi.diagnostic.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
-import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
-import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,28 +32,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * A trait representing a ServerDefinition
  */
 public class LanguageServerDefinition {
-    public static final String SPLIT_CHAR = ",";
+
     private static final Logger LOG = Logger.getInstance(LanguageServerDefinition.class);
-    private static final LanguageServerDefinition INSTANCE = new LanguageServerDefinition();
-    /**
-     * The extension that the language server manages.
-     */
+
     public String ext;
-
     protected Map<String, String> languageIds = Collections.emptyMap();
-
     private Map<String, StreamConnectionProvider> streamConnectionProviders = new ConcurrentHashMap<>();
-
-    LanguageServerDefinition() {
-    }
-
-    public static LanguageServerDefinition getInstance() {
-        return INSTANCE;
-    }
-
-    public LanguageServerDefinition fromArray(String[] arr) {
-        return new UserConfigurableServerDefinition().fromArray(arr);
-    }
+    public static final String SPLIT_CHAR = ",";
 
     /**
      * Starts a Language server for the given directory and returns a tuple (InputStream, OutputStream)
@@ -68,14 +50,12 @@ public class LanguageServerDefinition {
     public Pair<InputStream, OutputStream> start(String workingDir) throws IOException {
         StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
         if (streamConnectionProvider != null) {
-            return new ImmutablePair<>(streamConnectionProvider.getInputStream(),
-                    streamConnectionProvider.getOutputStream());
+            return new ImmutablePair<>(streamConnectionProvider.getInputStream(), streamConnectionProvider.getOutputStream());
         } else {
             streamConnectionProvider = createConnectionProvider(workingDir);
             streamConnectionProvider.start();
             streamConnectionProviders.put(workingDir, streamConnectionProvider);
-            return new ImmutablePair<>(streamConnectionProvider.getInputStream(),
-                    streamConnectionProvider.getOutputStream());
+            return new ImmutablePair<>(streamConnectionProvider.getInputStream(), streamConnectionProvider.getOutputStream());
         }
     }
 
@@ -101,13 +81,6 @@ public class LanguageServerDefinition {
     @Override
     public String toString() {
         return "ServerDefinition for " + ext;
-    }
-
-    /**
-     * @return The array corresponding to the server definition
-     */
-    public String[] toArray() {
-        throw new UnsupportedOperationException();
     }
 
     /**

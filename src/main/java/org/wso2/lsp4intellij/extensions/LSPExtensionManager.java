@@ -37,29 +37,61 @@ import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 
 public interface LSPExtensionManager {
 
+    /**
+     * Lsp4IntelliJ allows you to provide custom(language-specific) {@link RequestManager} implementations.
+     * Request manager implementation is required to be modified in such situations where,
+     *
+     * <ul>
+     * <li> Adding support for custom LSP requests/notifications which are not part of the standard LS protocol.</li>
+     * <li> Default handling process of LSP requests/notifications is required to be customized.
+     * </ul>
+     * <p>
+     * As a starting point you can extend
+     * {@link org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager}.
+     */
     <T extends DefaultRequestManager> T getExtendedRequestManagerFor(LanguageServerWrapper wrapper,
-            LanguageServer server, LanguageClient client, ServerCapabilities serverCapabilities);
+                                                                     LanguageServer server, LanguageClient client,
+                                                                     ServerCapabilities serverCapabilities);
 
+    /**
+     * Lsp4IntelliJ allows you to provide custom {@link EditorEventManager} implementations.
+     * Editor event manager implementation is required to be modified in such situations where,
+     *
+     * <ul>
+     * <li> Modifying/optimizing lsp4intellij features for custom requirements.
+     * </ul>
+     * <p>
+     * As a starting point you can extend
+     * {@link org.wso2.lsp4intellij.editor.EditorEventManager}.
+     */
     <T extends EditorEventManager> T getExtendedEditorEventManagerFor(Editor editor, DocumentListener documentListener,
-            EditorMouseListener mouseListener, EditorMouseMotionListenerImpl mouseMotionListener,
-            RequestManager requestManager, ServerOptions serverOptions, LanguageServerWrapper wrapper);
+                                                                      EditorMouseListener mouseListener,
+                                                                      EditorMouseMotionListenerImpl mouseMotionListener,
+                                                                      RequestManager requestManager,
+                                                                      ServerOptions serverOptions,
+                                                                      LanguageServerWrapper wrapper);
 
+    /**
+     * Lsp4IntelliJ allows you to provide extended/custom {@link LanguageServer} interfaces, if required.
+     */
     Class<? extends LanguageServer> getExtendedServerInterface();
 
     /**
-     * Extension implementor must provide a {@link LanguageClient} implementation which this library
-     * will use. LanuageClient is extended in situation where you have custom client notifications
-     * which are not part of the LS protocol. As a starting point the implementor can extend the
+     * Lsp4IntelliJ allows you to provide custom(language-specific) {@link LanguageClient} implementations.
+     * Language client is required to be modified in such situations where,
+     * <ul>
+     * <li> Adding support for custom client notifications which are not part of the standard LS protocol.</li>
+     * <li> Default handling process of LSP client requests/notifications is required to be customized.
+     * </ul>
+     * <p>
+     * As a starting point you can extend
      * {@link org.wso2.lsp4intellij.client.DefaultLanguageClient}.
-     *
-     * @param context The client context which can be used by the LanguageClient implementation.
      */
     LanguageClient getExtendedClientFor(ClientContext context);
 
     /**
      * The icon provider for the Language Server. Override and implement your own or extend the
      * {@link LSPDefaultIconProvider} to customize the default icons.
-     *
      */
     @NotNull
     default LSPIconProvider getIconProvider() {

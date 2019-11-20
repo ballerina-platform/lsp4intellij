@@ -18,63 +18,62 @@ package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 import org.wso2.lsp4intellij.client.connection.ProcessStreamConnectionProvider;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 
 /**
- * A class representing raw command based metadata to launch a language server.
+ * A class representing {@link java.lang.ProcessBuilder} based metadata to launch a language server.
  */
 @SuppressWarnings("unused")
-public class RawCommandServerDefinition extends LanguageServerDefinition {
+public class ProcessBuilderServerDefinition extends LanguageServerDefinition {
 
-    protected String[] command;
+    protected ProcessBuilder processBuilder;
 
     /**
-     * Creates new instance with the given languag id which is different from the file extension.
+     * Creates new instance with the given language id which is different from the file extension.
      *
-     * @param ext         The extension
+     * @param ext         The extension.
      * @param languageIds The language server ids mapping to extension(s).
-     * @param command     The command to run
+     * @param process     The process builder instance to be started.
      */
     @SuppressWarnings("WeakerAccess")
-    public RawCommandServerDefinition(String ext, Map<String, String> languageIds, String[] command) {
+    public ProcessBuilderServerDefinition(String ext, Map<String, String> languageIds, ProcessBuilder process) {
         this.ext = ext;
         this.languageIds = languageIds;
-        this.command = command;
+        this.processBuilder = process;
     }
 
     /**
      * Creates new instance.
      *
-     * @param ext     The extension
-     * @param command The command to run
+     * @param ext     The extension.
+     * @param process The process builder instance to be started.
      */
     @SuppressWarnings("unused")
-    public RawCommandServerDefinition(String ext, String[] command) {
-        this(ext, Collections.emptyMap(), command);
+    public ProcessBuilderServerDefinition(String ext, ProcessBuilder process) {
+        this(ext, Collections.emptyMap(), process);
     }
 
     public String toString() {
-        return "RawCommandServerDefinition : " + String.join(" ", command);
+        return "ProcessBuilderServerDefinition : " + String.join(" ", processBuilder.toString());
     }
 
     @Override
     public StreamConnectionProvider createConnectionProvider(String workingDir) {
-        return new ProcessStreamConnectionProvider(Arrays.asList(command), workingDir);
+        return new ProcessStreamConnectionProvider(processBuilder);
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof RawCommandServerDefinition) {
-            RawCommandServerDefinition commandsDef = (RawCommandServerDefinition) obj;
-            return ext.equals(commandsDef.ext) && Arrays.equals(command, commandsDef.command);
+        if (obj instanceof ProcessBuilderServerDefinition) {
+            ProcessBuilderServerDefinition processBuilderDef = (ProcessBuilderServerDefinition) obj;
+            return ext.equals(processBuilderDef.ext) && processBuilder.equals(processBuilderDef.processBuilder);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return ext.hashCode() + 3 * Arrays.hashCode(command);
+        return ext.hashCode() + 3 * processBuilder.hashCode();
     }
 }

@@ -16,6 +16,7 @@
 package org.wso2.lsp4intellij.client.connection;
 
 import com.intellij.openapi.diagnostic.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -35,19 +36,26 @@ import java.util.Objects;
 public class ProcessStreamConnectionProvider implements StreamConnectionProvider {
 
     private Logger LOG = Logger.getInstance(ProcessStreamConnectionProvider.class);
+
+    @Nullable
+    private ProcessBuilder builder;
+    @Nullable
+    private Process process = null;
     private List<String> commands;
     private String workingDir;
 
     public ProcessStreamConnectionProvider(List<String> commands, String workingDir) {
         this.commands = commands;
         this.workingDir = workingDir;
+        this.builder = null;
     }
 
-    @Nullable
-    private Process process = null;
+    public ProcessStreamConnectionProvider(@NotNull ProcessBuilder processBuilder) {
+        this.builder = processBuilder;
+    }
 
     public void start() throws IOException {
-        if (workingDir == null || commands == null || commands.isEmpty() || commands.contains(null)) {
+        if ((workingDir == null || commands == null || commands.isEmpty() || commands.contains(null)) && builder == null) {
             throw new IOException("Unable to start language server: " + this.toString());
         }
         ProcessBuilder builder = createProcessBuilder();
@@ -61,12 +69,15 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
     }
 
     private ProcessBuilder createProcessBuilder() {
-        //TODO for cquery, REMOVE
-        commands.forEach(c -> c = c.replace("\'", ""));
-        ProcessBuilder builder = new ProcessBuilder(commands);
-        builder.directory(new File(workingDir));
-        builder.redirectError(ProcessBuilder.Redirect.INHERIT);
-        return builder;
+        if (builder != null) {
+            return builder;
+        } else {
+            commands.forEach(c -> c = c.replace("\'", ""));
+            ProcessBuilder builder = new ProcessBuilder(commands);
+            builder.directory(new File(workingDir));
+            builder.redirectError(ProcessBuilder.Redirect.INHERIT);
+            return builder;
+        }
     }
 
     @Nullable
@@ -91,7 +102,7 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
     public boolean equals(Object obj) {
         if (obj instanceof ProcessStreamConnectionProvider) {
             ProcessStreamConnectionProvider other = (ProcessStreamConnectionProvider) obj;
-            return commands.size() == other.commands.size() && new HashSet<>(commands) == new HashSet<>(other.commands)
+            return commands.size() == other.commands.size() && new HashSet<>(commands).equals(new HashSet<>(other.commands))
                     && workingDir.equals(other.workingDir);
         }
         return false;
