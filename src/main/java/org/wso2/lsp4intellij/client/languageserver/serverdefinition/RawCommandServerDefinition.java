@@ -15,24 +15,20 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 
-import org.wso2.lsp4intellij.utils.Utils;
+import org.wso2.lsp4intellij.client.connection.ProcessStreamConnectionProvider;
+import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 
 /**
- * A class representing a raw command to launch a languageserver
+ * A class representing raw command based metadata to launch a language server.
  */
-public class RawCommandServerDefinition extends CommandServerDefinition {
-    private static final RawCommandServerDefinition INSTANCE = new RawCommandServerDefinition();
+@SuppressWarnings("unused")
+public class RawCommandServerDefinition extends LanguageServerDefinition {
 
-    private RawCommandServerDefinition() {
-    }
-
-    public static RawCommandServerDefinition getInstance() {
-        return INSTANCE;
-    }
+    protected String[] command;
 
     /**
      * Creates new instance with the given languag id which is different from the file extension.
@@ -41,56 +37,31 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
      * @param languageIds The language server ids mapping to extension(s).
      * @param command     The command to run
      */
+    @SuppressWarnings("WeakerAccess")
     public RawCommandServerDefinition(String ext, Map<String, String> languageIds, String[] command) {
         this.ext = ext;
         this.languageIds = languageIds;
         this.command = command;
-        this.typ = "rawCommand";
-        this.presentableTyp = "Raw command";
     }
 
     /**
      * Creates new instance.
      *
-     * @param ext The extension
+     * @param ext     The extension
      * @param command The command to run
      */
+    @SuppressWarnings("unused")
     public RawCommandServerDefinition(String ext, String[] command) {
         this(ext, Collections.emptyMap(), command);
     }
 
-
-    /**
-     * Transforms an array of string into the corresponding UserConfigurableServerDefinition
-     *
-     * @param arr The array
-     * @return The server definition
-     */
-    public CommandServerDefinition fromArray(String[] arr) {
-        if (arr[0].equals(typ)) {
-            String[] arrTail = Arrays.copyOfRange(arr, 1, arr.length - 1);
-            if (arrTail.length > 1) {
-                new RawCommandServerDefinition(arrTail[0],
-                        Utils.parseArgs(Arrays.copyOfRange(arrTail, 1, arrTail.length - 1)));
-            }
-        }
-        return null;
-    }
-
-    //  import RawCommandServerDefinition.typ
-
-    /**
-     * @return The array corresponding to the server definition
-     */
-    public String[] toArray() {
-        String[] strings = { typ, ext };
-        String[] merged = Arrays.copyOf(strings, strings.length + command.length);
-        System.arraycopy(command, 0, merged, strings.length, command.length);
-        return merged;
-    }
-
     public String toString() {
-        return typ + " : " + String.join(" ", command);
+        return "RawCommandServerDefinition : " + String.join(" ", command);
+    }
+
+    @Override
+    public StreamConnectionProvider createConnectionProvider(String workingDir) {
+        return new ProcessStreamConnectionProvider(Arrays.asList(command), workingDir);
     }
 
     @Override
@@ -104,6 +75,6 @@ public class RawCommandServerDefinition extends CommandServerDefinition {
 
     @Override
     public int hashCode() {
-        return ext.hashCode() + 3 * command.hashCode();
+        return ext.hashCode() + 3 * Arrays.hashCode(command);
     }
 }
