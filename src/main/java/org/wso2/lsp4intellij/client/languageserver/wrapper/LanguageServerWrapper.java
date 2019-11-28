@@ -80,8 +80,8 @@ import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.listeners.DocumentListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
+import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.Timeouts;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
 
@@ -317,6 +317,7 @@ public class LanguageServerWrapper {
                         DocumentListenerImpl documentListener = new DocumentListenerImpl();
                         EditorMouseListenerImpl mouseListener = new EditorMouseListenerImpl();
                         EditorMouseMotionListenerImpl mouseMotionListener = new EditorMouseMotionListenerImpl();
+                        LSPCaretListenerImpl caretListener = new LSPCaretListenerImpl();
 
                         ServerOptions serverOptions = new ServerOptions(capabilities);
                         EditorEventManager manager;
@@ -325,16 +326,19 @@ public class LanguageServerWrapper {
                                     mouseListener, mouseMotionListener, requestManager, serverOptions, this);
                             if (manager == null) {
                                 manager = new EditorEventManager(editor, documentListener, mouseListener,
-                                        mouseMotionListener, requestManager, serverOptions, this);
+                                        mouseMotionListener, caretListener,
+                                        requestManager, serverOptions, this);
                             }
                         } else {
                             manager = new EditorEventManager(editor, documentListener, mouseListener,
-                                    mouseMotionListener, requestManager, serverOptions, this);
+                                    mouseMotionListener, caretListener,
+                                    requestManager, serverOptions, this);
                         }
                         // selectionListener.setManager(manager);
                         documentListener.setManager(manager);
                         mouseListener.setManager(manager);
                         mouseMotionListener.setManager(manager);
+                        caretListener.setManager(manager);
                         manager.registerListeners();
                         connectedEditors.put(uri, manager);
                         manager.documentOpened();
