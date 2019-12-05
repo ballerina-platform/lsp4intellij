@@ -1406,9 +1406,13 @@ public class EditorEventManager {
 
     private void requestAndShowCodeActions() {
         invokeLater(() -> {
-            if (editor.isDisposed() || annotations == null || annotations.isEmpty()) {
+            if (editor.isDisposed()) {
                 return;
             }
+            if (annotations == null) {
+                annotations = new ArrayList<>();
+            }
+
             // sends code action request.
             int caretPos = editor.getCaretModel().getCurrentCaret().getOffset();
             List<Either<Command, CodeAction>> codeActionResp = codeAction(caretPos);
