@@ -16,6 +16,7 @@
 package org.wso2.lsp4intellij;
 
 import com.intellij.AppTopics;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.diagnostic.Logger;
@@ -24,7 +25,6 @@ import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
-import com.intellij.openapi.project.VetoableProjectManagerListener;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
@@ -33,7 +33,6 @@ import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
@@ -47,21 +46,26 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.io.File;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 
-public class IntellijLanguageClient implements ApplicationComponent {
+public class IntellijLanguageClient implements ApplicationComponent, Disposable {
 
     private static Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
-
     private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new ConcurrentHashMap<>();
     private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
     private static Map<Pair<String, String>, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
     private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
-
     private static final Predicate<LanguageServerWrapper> RUNNING = (s) -> s.getStatus() != ServerStatus.STOPPED;
 
     @Override
@@ -71,22 +75,20 @@ public class IntellijLanguageClient implements ApplicationComponent {
             ApplicationManager.getApplication().getMessageBus().connect().subscribe(ProjectManager.TOPIC,
                     new LSPProjectManagerListener());
             // Adds editor listener.
-            EditorFactory.getInstance().addEditorFactoryListener(new LSPEditorListener(), Disposer.newDisposable());
+            EditorFactory.getInstance().addEditorFactoryListener(new LSPEditorListener(), this);
             // Adds VFS listener.
             VirtualFileManager.getInstance().addVirtualFileListener(new VFSListener());
             // Adds document event listener.
             ApplicationManager.getApplication().getMessageBus().connect().subscribe(AppTopics.FILE_DOCUMENT_SYNC,
                     new LSPFileDocumentManagerListener());
 
-            // in case if JVM forcefully exit
+            // in case if JVM forcefully exit.
             Runtime.getRuntime().addShutdownHook(new Thread(() -> projectToLanguageWrappers.values().stream()
-                    .flatMap(Collection::stream)
-                    .filter(RUNNING)
-                    .forEach(s -> s.stop(true))));
+                    .flatMap(Collection::stream).filter(RUNNING).forEach(s -> s.stop(true))));
 
-            LOG.info("IntelliJ Language Client initialized successfully");
+            LOG.info("Intellij Language Client initialized successfully");
         } catch (Exception e) {
-            LOG.warn("Fatal error occurred when initializing IntelliJ language client.", e);
+            LOG.warn("Fatal error occurred when initializing Intellij language client.", e);
         }
     }
 
@@ -173,75 +175,76 @@ public class IntellijLanguageClient implements ApplicationComponent {
             return;
         }
         String projectUri = FileUtils.projectToUri(project);
-        if (projectUri != null) {
-            pool(() -> {
-                String ext = file.getExtension();
-                final String fileName = file.getName();
-                LOG.info("Opened " + fileName);
-
-                // The ext can either be a file extension or a file pattern(regex expression).
-                // First try for the extension since it is the most comment usage, if not try to
-                // match file name.
-                LanguageServerDefinition serverDefinition = extToServerDefinition.get(new ImmutablePair<>(ext, projectUri));
-                if (serverDefinition == null) {
-                    // Fallback to file name pattern matching, where the map key is a regex.
-                    Optional<Pair<String, String>> keyForFile = extToServerDefinition.keySet().stream().
-                            filter(keyPair -> fileName.matches(keyPair.getLeft()) && keyPair.getRight().equals(projectUri))
-                            .findFirst();
-                    if (keyForFile.isPresent()) {
-                        serverDefinition = extToServerDefinition.get(keyForFile.get());
-                        // ext must be the key since we are in file name mode.
-                        ext = keyForFile.get().getLeft();
-                    }
-                }
-
-                // If cannot find a project-specific server definition for the given file and project, repeat the
-                // above process to find an application level server definition for the given file extension/regex.
-                if (serverDefinition == null) {
-                    serverDefinition = extToServerDefinition.get(new ImmutablePair<>(ext, ""));
-                }
-                if (serverDefinition == null) {
-                    // Fallback to file name pattern matching, where the map key is a regex.
-                    Optional<Pair<String, String>> keyForFile = extToServerDefinition.keySet().stream().
-                            filter(keyPair -> fileName.matches(keyPair.getLeft()) && keyPair.getRight().isEmpty())
-                            .findFirst();
-                    if (keyForFile.isPresent()) {
-                        serverDefinition = extToServerDefinition.get(keyForFile.get());
-                        // ext must be the key since we are in file name mode.
-                        ext = keyForFile.get().getLeft();
-                    }
-                }
-
-                if (serverDefinition != null) {
-                    LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, projectUri));
-                    if (wrapper == null) {
-                        LOG.info("Instantiating wrapper for " + ext + " : " + projectUri);
-                        if (extToExtManager.get(ext) != null) {
-                            wrapper = new LanguageServerWrapper(serverDefinition, project, extToExtManager.get(ext));
-                        } else {
-                            wrapper = new LanguageServerWrapper(serverDefinition, project);
-                        }
-                        String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
-                        for (String ex : exts) {
-                            extToLanguageWrapper.put(new ImmutablePair<>(ex, projectUri), wrapper);
-                        }
-
-                        // Update project mapping for language servers.
-                        Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers
-                                .computeIfAbsent(projectUri, k -> new HashSet<>());
-                        wrappers.add(wrapper);
-                    } else {
-                        LOG.info("Wrapper already existing for " + ext + " , " + projectUri);
-                    }
-                    LOG.info("Adding file " + fileName);
-                    wrapper.connect(editor);
-                } else {
-                    LOG.warn("Could not find a server definition for " + ext);
-                }
-            });
-        } else {
+        if (projectUri == null) {
             LOG.warn("File for editor " + editor.getDocument().getText() + " is null");
+            return;
         }
+
+        pool(() -> {
+            String ext = file.getExtension();
+            final String fileName = file.getName();
+            LOG.info("Opened " + fileName);
+
+            // The ext can either be a file extension or a file pattern(regex expression).
+            // First try for the extension since it is the most comment usage, if not try to
+            // match file name.
+            LanguageServerDefinition serverDefinition = extToServerDefinition.get(new ImmutablePair<>(ext, projectUri));
+            if (serverDefinition == null) {
+                // Fallback to file name pattern matching, where the map key is a regex.
+                Optional<Pair<String, String>> keyForFile = extToServerDefinition.keySet().stream().
+                        filter(keyPair -> fileName.matches(keyPair.getLeft()) && keyPair.getRight().equals(projectUri))
+                        .findFirst();
+                if (keyForFile.isPresent()) {
+                    serverDefinition = extToServerDefinition.get(keyForFile.get());
+                    // ext must be the key since we are in file name mode.
+                    ext = keyForFile.get().getLeft();
+                }
+            }
+
+            // If cannot find a project-specific server definition for the given file and project, repeat the
+            // above process to find an application level server definition for the given file extension/regex.
+            if (serverDefinition == null) {
+                serverDefinition = extToServerDefinition.get(new ImmutablePair<>(ext, ""));
+            }
+            if (serverDefinition == null) {
+                // Fallback to file name pattern matching, where the map key is a regex.
+                Optional<Pair<String, String>> keyForFile = extToServerDefinition.keySet().stream().
+                        filter(keyPair -> fileName.matches(keyPair.getLeft()) && keyPair.getRight().isEmpty())
+                        .findFirst();
+                if (keyForFile.isPresent()) {
+                    serverDefinition = extToServerDefinition.get(keyForFile.get());
+                    // ext must be the key since we are in file name mode.
+                    ext = keyForFile.get().getLeft();
+                }
+            }
+
+            if (serverDefinition == null) {
+                LOG.warn("Could not find a server definition for " + ext);
+                return;
+            }
+            LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, projectUri));
+            if (wrapper == null) {
+                LOG.info("Instantiating wrapper for " + ext + " : " + projectUri);
+                if (extToExtManager.get(ext) != null) {
+                    wrapper = new LanguageServerWrapper(serverDefinition, project, extToExtManager.get(ext));
+                } else {
+                    wrapper = new LanguageServerWrapper(serverDefinition, project);
+                }
+                String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
+                for (String ex : exts) {
+                    extToLanguageWrapper.put(new ImmutablePair<>(ex, projectUri), wrapper);
+                }
+
+                // Update project mapping for language servers.
+                Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers
+                        .computeIfAbsent(projectUri, k -> new HashSet<>());
+                wrappers.add(wrapper);
+            } else {
+                LOG.info("Wrapper already existing for " + ext + " , " + projectUri);
+            }
+            LOG.info("Adding file " + fileName);
+            wrapper.connect(editor);
+        });
     }
 
     /**
@@ -264,7 +267,6 @@ public class IntellijLanguageClient implements ApplicationComponent {
             }
         });
     }
-
 
     /**
      * This can be used to instantly apply a language server definition without restarting the IDE.
@@ -349,8 +351,8 @@ public class IntellijLanguageClient implements ApplicationComponent {
         if (wrapper.getProject() != null) {
             String[] extensions = wrapper.getServerDefinition().ext.split(LanguageServerDefinition.SPLIT_CHAR);
             for (String ext : extensions) {
-                extToLanguageWrapper.remove(new MutablePair<>(ext, FileUtils
-                        .pathToUri(new File(wrapper.getProjectRootPath()).getAbsolutePath())));
+                extToLanguageWrapper.remove(new MutablePair<>(ext, FileUtils.pathToUri(
+                        new File(wrapper.getProjectRootPath()).getAbsolutePath())));
             }
         } else {
             LOG.error("No attached projects found for wrapper");
@@ -370,14 +372,20 @@ public class IntellijLanguageClient implements ApplicationComponent {
 
     @Override
     public void disposeComponent() {
-        // Todo
+        Disposer.dispose(this);
     }
 
     /**
      * Returns the registered extension manager for this language server.
+     *
      * @param definition The LanguageServerDefinition
      */
     public static Optional<LSPExtensionManager> getExtensionManagerForDefinition(@NotNull LanguageServerDefinition definition) {
         return Optional.ofNullable(extToExtManager.get(definition.ext.split(",")[0]));
+    }
+
+    @Override
+    public void dispose() {
+        Disposer.dispose(this);
     }
 }
