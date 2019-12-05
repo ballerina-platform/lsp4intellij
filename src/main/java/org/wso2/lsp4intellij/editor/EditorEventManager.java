@@ -345,7 +345,7 @@ public class EditorEventManager {
 
     private boolean isSupportedLanguageFile(PsiFile file) {
         return file.getLanguage().isKindOf(PlainTextLanguage.INSTANCE)
-            || FileUtils.isFileSupported(file.getVirtualFile());
+                || FileUtils.isFileSupported(file.getVirtualFile());
     }
 
     /**
@@ -401,8 +401,7 @@ public class EditorEventManager {
             setCtrlRange(new CtrlRangeMarker(location, editor, !isDefinition ?
                     (editor.getMarkupModel().addRangeHighlighter(startOffset, endOffset, HighlighterLayer.HYPERLINK,
                             editor.getColorsScheme().getAttributes(EditorColors.REFERENCE_HYPERLINK_COLOR),
-                            HighlighterTargetArea.EXACT_RANGE)) :
-                    null));
+                            HighlighterTargetArea.EXACT_RANGE)) : null));
         }
     }
 
@@ -1388,10 +1387,13 @@ public class EditorEventManager {
                     LOG.warn("Syntax Exception occurred for uri: " + locUri);
                 }
                 if (file != null) {
-                    final Position start = loc.getRange().getStart();
-                    final OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, start.getLine(),
-                            start.getCharacter());
-                    writeAction(() -> FileEditorManager.getInstance(project).openTextEditor(descriptor, true));
+                    Position start = loc.getRange().getStart();
+                    LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(editor, start);
+                    if (logicalPos != null) {
+                        OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, logicalPos.line,
+                                logicalPos.column);
+                        writeAction(() -> FileEditorManager.getInstance(project).openTextEditor(descriptor, true));
+                    }
                 } else {
                     LOG.warn("Empty file for " + locUri);
                 }

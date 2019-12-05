@@ -24,6 +24,8 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.DocumentUtil;
 import org.eclipse.lsp4j.Position;
 
+import javax.annotation.Nullable;
+
 import static java.lang.Math.min;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 
@@ -123,17 +125,38 @@ public class DocumentUtils {
                 int column = tabs * tabSize + lineTextForPosition.length() - tabs;
                 int offset = editor.logicalPositionToOffset(new LogicalPosition(line, column));
                 if (pos.getCharacter() >= lineText.length()) {
-                    LOG.warn(
-                            "LSPPOS outofbounds : " + pos + " line : " + lineText + " column : " + column + " offset : "
-                                    + offset);
+                    LOG.warn(String.format("LSPPOS outofbounds : %s line : %s column : %d offset : %d", pos,
+                            lineText, column, offset));
                 }
                 int docLength = doc.getTextLength();
                 if (offset > docLength) {
-                    LOG.warn("Offset greater than text length : " + offset + " > " + docLength);
+                    LOG.warn(String.format("Offset greater than text length : %d > %d", offset, docLength));
                 }
                 return Math.min(Math.max(offset, 0), docLength);
             } catch (IndexOutOfBoundsException e) {
                 return -1;
+            }
+        });
+    }
+
+    @Nullable
+    public static LogicalPosition getTabsAwarePosition(Editor editor, Position pos) {
+        return computableReadAction(() -> {
+            try {
+                if (editor.isDisposed()) {
+                    return null;
+                }
+                Document doc = editor.getDocument();
+                int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()));
+                String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
+                String lineTextForPosition = !lineText.isEmpty() ? lineText.substring(0, min(lineText.length(),
+                        pos.getCharacter())) : "";
+                int tabs = StringUtil.countChars(lineTextForPosition, '\t');
+                int tabSize = editor.getSettings().getTabSize(editor.getProject());
+                int column = tabs * tabSize + lineTextForPosition.length() - tabs;
+                return new LogicalPosition(line, column);
+            } catch (IndexOutOfBoundsException e) {
+                return null;
             }
         });
     }
