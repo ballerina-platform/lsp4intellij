@@ -120,7 +120,7 @@ class LSPFileEventManager {
 
             FileUtils.findProjectsFor(file).forEach(p -> {
                 // Detaches old file from the wrappers.
-                Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(FileUtils.projectToUri(p));
+                Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
                 if (wrappers != null) {
                     wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
                 }
@@ -184,7 +184,7 @@ class LSPFileEventManager {
 
                 FileUtils.findProjectsFor(file).forEach(p -> {
                     // Detaches old file from the wrappers.
-                    Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(FileUtils.projectToUri(p));
+                    Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
                     if (wrappers != null) {
                         wrappers.forEach(wrapper -> {
                             // make these calls first since the disconnect might stop the LS client if its last file.
@@ -230,7 +230,7 @@ class LSPFileEventManager {
     private static void changedConfiguration(String uri, String projectUri, FileChangeType typ) {
         ApplicationUtils.pool(() -> {
             DidChangeWatchedFilesParams params = getDidChangeWatchedFilesParams(uri, typ);
-            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappers(projectUri);
+            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(projectUri);
             if (wrappers == null) {
                 return;
             }
