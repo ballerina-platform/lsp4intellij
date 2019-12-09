@@ -18,6 +18,7 @@ package org.wso2.lsp4intellij.listeners;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManagerListener;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.utils.FileUtils;
@@ -32,7 +33,7 @@ public class LSPProjectManagerListener implements ProjectManagerListener {
     }
 
     @Override
-    public void projectClosing(Project project) {
+    public void projectClosing(@NotNull Project project) {
         // Removes all the attached LSP status widgets before closing a project. Otherwise the old status widget will
         // not be removed when opening a new project in the same project window.
         try {

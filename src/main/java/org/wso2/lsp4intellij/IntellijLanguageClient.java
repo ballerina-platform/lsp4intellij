@@ -47,7 +47,6 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.io.File;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -144,8 +143,24 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     /**
      * @return All instantiated ServerWrappers
      */
-    public static Set<LanguageServerWrapper> getAllServerWrappers(String projectUri) {
-        return projectToLanguageWrappers.getOrDefault(projectUri, Collections.emptySet());
+    public static Set<LanguageServerWrapper> getAllServerWrappersFor(String projectUri) {
+        Set<LanguageServerWrapper> allWrappers = new HashSet<>();
+        extToLanguageWrapper.forEach((stringStringPair, languageServerWrapper) -> {
+            if (FileUtils.projectToUri(languageServerWrapper.getProject()).equals(projectUri)) {
+                allWrappers.add(languageServerWrapper);
+            }
+        });
+        return allWrappers;
+    }
+
+    /**
+     * @return All registered LSP protocol extension managers.
+     */
+    public static LSPExtensionManager getExtensionManagerFor(String fileExt) {
+        if (extToExtManager.containsKey(fileExt)) {
+            return extToExtManager.get(fileExt);
+        }
+        return null;
     }
 
     /**
