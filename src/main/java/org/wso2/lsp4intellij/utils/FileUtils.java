@@ -94,6 +94,7 @@ public class FileUtils {
         return editorFromVirtualFile(virtualFileFromURI(uri), project);
     }
 
+    @Nullable
     public static Editor editorFromVirtualFile(VirtualFile file, Project project) {
         FileEditor[] allEditors = FileEditorManager.getInstance(project).getAllEditors(file);
         if (allEditors.length > 0 && allEditors[0] instanceof TextEditor) {
