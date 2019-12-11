@@ -16,7 +16,11 @@
 package org.wso2.lsp4intellij.utils;
 
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.project.NoAccessDuringPsiEvents;
 import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.util.Condition;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -55,5 +59,17 @@ public class ApplicationUtils {
 
     static public <T> T computableWriteAction(Computable<T> computable) {
         return ApplicationManager.getApplication().runWriteAction(computable);
+    }
+
+    static public void invokeAfterPsiEvents(Runnable runnable) {
+        Runnable wrapper = () -> {
+            if(NoAccessDuringPsiEvents.isInsideEventProcessing()) {
+                invokeAfterPsiEvents(runnable);
+            } else {
+                runnable.run();
+            }
+        };
+
+        ApplicationManager.getApplication().invokeLater(wrapper, (Condition<Void>) value -> false);
     }
 }
