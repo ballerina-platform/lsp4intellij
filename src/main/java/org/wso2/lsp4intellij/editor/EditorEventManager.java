@@ -35,6 +35,7 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorModificationUtil;
 import com.intellij.openapi.editor.LogicalPosition;
+import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.editor.colors.EditorColors;
 import com.intellij.openapi.editor.event.DocumentEvent;
@@ -1387,13 +1388,20 @@ public class EditorEventManager {
                     LOG.warn("Syntax Exception occurred for uri: " + locUri);
                 }
                 if (file != null) {
-                    Position start = loc.getRange().getStart();
-                    LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(editor, start);
-                    if (logicalPos != null) {
-                        OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file, logicalPos.line,
-                                logicalPos.column);
-                        writeAction(() -> FileEditorManager.getInstance(project).openTextEditor(descriptor, true));
-                    }
+                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+                    VirtualFile finalFile = file;
+                    writeAction(() -> {
+                        FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
+                        Editor srcEditor = FileUtils.editorFromVirtualFile(finalFile, project);
+                        if (srcEditor != null) {
+                            Position start = loc.getRange().getStart();
+                            LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(srcEditor, start);
+                            if (logicalPos != null) {
+                                srcEditor.getCaretModel().moveToLogicalPosition(logicalPos);
+                                srcEditor.getScrollingModel().scrollTo(logicalPos, ScrollType.CENTER);
+                            }
+                        }
+                    });
                 } else {
                     LOG.warn("Empty file for " + locUri);
                 }
@@ -1430,8 +1438,8 @@ public class EditorEventManager {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
-                            annotation.registerFix(new LSPCommandFix(FileUtils.editorToURIString(editor),
-                                    command), new TextRange(start, end));
+                            annotation.registerFix(new LSPCommandFix(FileUtils.editorToURIString(editor), command),
+                                    new TextRange(start, end));
                             codeActionSyncRequired = true;
                         }
                     });

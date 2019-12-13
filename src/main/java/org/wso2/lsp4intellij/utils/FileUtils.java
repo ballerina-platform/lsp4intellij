@@ -94,6 +94,7 @@ public class FileUtils {
         return editorFromVirtualFile(virtualFileFromURI(uri), project);
     }
 
+    @Nullable
     public static Editor editorFromVirtualFile(VirtualFile file, Project project) {
         FileEditor[] allEditors = FileEditorManager.getInstance(project).getAllEditors(file);
         if (allEditors.length > 0 && allEditors[0] instanceof TextEditor) {
@@ -283,14 +284,17 @@ public class FileUtils {
     public static Set<Project> findProjectsFor(@NotNull VirtualFile file) {
         return Arrays.stream(ProjectManager.getInstance().getOpenProjects())
                 .flatMap(p -> Arrays.stream(searchFiles(file.getName(), p)))
-                .filter(f -> f.getVirtualFile().getPath().equals(file.getPath()))
-                .map(PsiElement::getProject)
+                .filter(f -> f.getVirtualFile().getPath().equals(file.getPath())).map(PsiElement::getProject)
                 .collect(Collectors.toSet());
     }
 
     public static PsiFile[] searchFiles(String fileName, Project p) {
-        return computableReadAction(() ->
-                FilenameIndex.getFilesByName(p, fileName, GlobalSearchScope.projectScope(p)));
+        try {
+            return computableReadAction(() -> FilenameIndex.getFilesByName(p, fileName, GlobalSearchScope.projectScope(p)));
+        } catch (Throwable t) {
+            // Todo - Find a proper way to handle when IDEA file indexing is in-progress.
+            return new PsiFile[0];
+        }
     }
 
     /**
