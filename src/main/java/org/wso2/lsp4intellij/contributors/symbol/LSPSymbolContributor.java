@@ -15,7 +15,6 @@
  */
 package org.wso2.lsp4intellij.contributors.symbol;
 
-import com.intellij.navigation.ChooseByNameContributor;
 import com.intellij.navigation.ChooseByNameContributorEx;
 import com.intellij.navigation.NavigationItem;
 import com.intellij.openapi.project.Project;
@@ -37,13 +36,17 @@ public class LSPSymbolContributor implements ChooseByNameContributorEx {
 
     @Override
     public void processNames(@NotNull Processor<String> processor, @NotNull GlobalSearchScope globalSearchScope, @Nullable IdFilter idFilter) {
-        workspaceSymbolProvider.workspaceSymbols("", globalSearchScope.getProject()).stream().map(NavigationItem::getName)
-                .forEach(processor::process);
+        workspaceSymbolProvider.workspaceSymbols("", globalSearchScope.getProject()).stream()
+            .filter(ni -> globalSearchScope.accept(ni.getFile()))
+            .map(NavigationItem::getName)
+            .forEach(processor::process);
     }
 
     @Override
     public void processElementsWithName(@NotNull String s, @NotNull Processor<NavigationItem> processor, @NotNull FindSymbolParameters findSymbolParameters) {
-        workspaceSymbolProvider.workspaceSymbols(s, findSymbolParameters.getProject()).forEach(processor::process);
+        workspaceSymbolProvider.workspaceSymbols(s, findSymbolParameters.getProject()).stream()
+            .filter(ni -> findSymbolParameters.getSearchScope().accept(ni.getFile()))
+            .forEach(processor::process);
     }
 
     @NotNull
