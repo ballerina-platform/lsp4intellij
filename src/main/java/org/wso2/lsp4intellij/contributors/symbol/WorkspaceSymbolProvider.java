@@ -15,7 +15,6 @@
  */
 package org.wso2.lsp4intellij.contributors.symbol;
 
-import com.intellij.navigation.NavigationItem;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import java.util.Collections;
@@ -53,7 +52,7 @@ public class WorkspaceSymbolProvider {
 
   private static final Logger LOG = Logger.getInstance(WorkspaceSymbolProvider.class);
 
-  public List<NavigationItem> workspaceSymbols(String name, Project project) {
+  public List<LSPNavigationItem> workspaceSymbols(String name, Project project) {
     final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient
         .getProjectToLanguageWrappers()
         .getOrDefault(FileUtils.projectToUri(project), Collections.emptySet());
@@ -74,7 +73,7 @@ public class WorkspaceSymbolProvider {
       final LSPLabelProvider labelProvider = GUIUtils.getLabelProviderFor(result.getDefinition());
       return new LSPNavigationItem(labelProvider.symbolNameFor(information, project),
               labelProvider.symbolLocationFor(information, project), iconProviderFor.getSymbolIcon(information.getKind()),
-              project, FileUtils.URIToVFS(location.getUri()),
+              project, file,
               location.getRange().getStart().getLine(),
               location.getRange().getStart().getCharacter());
     } else {
@@ -83,7 +82,7 @@ public class WorkspaceSymbolProvider {
   }
 
   @SuppressWarnings("squid:S2142")
-  private Stream<? extends LSPSymbolResult> collectSymbol(LanguageServerWrapper wrapper,
+  private Stream<LSPSymbolResult> collectSymbol(LanguageServerWrapper wrapper,
       RequestManager requestManager,
       WorkspaceSymbolParams symbolParams) {
     final CompletableFuture<List<? extends SymbolInformation>> request = requestManager
