@@ -82,15 +82,17 @@ class LSPFileEventManager {
             return;
         }
 
-        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
-        if (manager != null) {
-            manager.documentSaved();
-            FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
+        ApplicationUtils.invokeAfterPsiEvents(() -> {
+            EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+            if (manager != null) {
+                manager.documentSaved();
+                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
                     FileUtils.projectToUri(p), FileChangeType.Changed));
-        } else {
-            FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
+            } else {
+                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
                     FileUtils.projectToUri(p), FileChangeType.Changed));
-        }
+            }
+        });
     }
 
     /**
@@ -112,23 +114,25 @@ class LSPFileEventManager {
             }
             String oldFileUri = String.format("%s/%s", oldParentUri, event.getFileName());
 
-            // Notifies the language server.
-            FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
+            ApplicationUtils.invokeAfterPsiEvents(() -> {
+                // Notifies the language server.
+                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
                     FileUtils.projectToUri(p), FileChangeType.Deleted));
-            FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(newFileUri,
+                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(newFileUri,
                     FileUtils.projectToUri(p), FileChangeType.Created));
 
-            FileUtils.findProjectsFor(file).forEach(p -> {
-                // Detaches old file from the wrappers.
-                Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
-                if (wrappers != null) {
-                    wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
-                }
-                // Re-open file to so that the new editor will be connected to the language server.
-                FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
-                ApplicationUtils.invokeLater(() -> {
-                    fileEditorManager.closeFile(file);
-                    fileEditorManager.openFile(file, true);
+                FileUtils.findProjectsFor(file).forEach(p -> {
+                    // Detaches old file from the wrappers.
+                    Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
+                    if (wrappers != null) {
+                        wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
+                    }
+                    // Re-open file to so that the new editor will be connected to the language server.
+                    FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
+                    ApplicationUtils.invokeLater(() -> {
+                        fileEditorManager.closeFile(file);
+                        fileEditorManager.openFile(file, true);
+                    });
                 });
             });
         } catch (Exception e) {
@@ -149,8 +153,10 @@ class LSPFileEventManager {
         if (uri == null) {
             return;
         }
-        FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
+        ApplicationUtils.invokeAfterPsiEvents(() -> {
+            FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
                 FileUtils.projectToUri(p), FileChangeType.Deleted));
+        });
     }
 
     /**
@@ -160,55 +166,56 @@ class LSPFileEventManager {
      * @param newFileName the new file name
      */
     static void fileRenamed(String oldFileName, String newFileName) {
-
-        try {
-            // Getting the right file is not trivial here since we only have the file name. Since we have to iterate over
-            // all opened projects and filter based on the file name.
-            Set<VirtualFile> files = Arrays.stream(ProjectManager.getInstance().getOpenProjects())
+        ApplicationUtils.invokeAfterPsiEvents(() -> {
+            try {
+                // Getting the right file is not trivial here since we only have the file name. Since we have to iterate over
+                // all opened projects and filter based on the file name.
+                Set<VirtualFile> files = Arrays.stream(ProjectManager.getInstance().getOpenProjects())
                     .flatMap(p -> Arrays.stream(searchFiles(newFileName, p)))
                     .map(PsiFile::getVirtualFile)
                     .collect(Collectors.toSet());
 
-            for (VirtualFile file : files) {
-                if (!FileUtils.isFileSupported(file)) {
-                    continue;
-                }
-                String newFileUri = FileUtils.VFSToURI(file);
-                String oldFileUri = newFileUri.replace(file.getName(), oldFileName);
+                for (VirtualFile file : files) {
+                    if (!FileUtils.isFileSupported(file)) {
+                        continue;
+                    }
+                    String newFileUri = FileUtils.VFSToURI(file);
+                    String oldFileUri = newFileUri.replace(file.getName(), oldFileName);
 
-                // Notifies the language server.
-                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
+                    // Notifies the language server.
+                    FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
                         FileUtils.projectToUri(p), FileChangeType.Deleted));
-                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(newFileUri,
+                    FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(newFileUri,
                         FileUtils.projectToUri(p), FileChangeType.Created));
 
-                FileUtils.findProjectsFor(file).forEach(p -> {
-                    // Detaches old file from the wrappers.
-                    Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
-                    if (wrappers != null) {
-                        wrappers.forEach(wrapper -> {
-                            // make these calls first since the disconnect might stop the LS client if its last file.
-                            wrapper.getRequestManager().didChangeWatchedFiles(
+                    FileUtils.findProjectsFor(file).forEach(p -> {
+                        // Detaches old file from the wrappers.
+                        Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
+                        if (wrappers != null) {
+                            wrappers.forEach(wrapper -> {
+                                // make these calls first since the disconnect might stop the LS client if its last file.
+                                wrapper.getRequestManager().didChangeWatchedFiles(
                                     getDidChangeWatchedFilesParams(oldFileUri, FileChangeType.Deleted));
-                            wrapper.getRequestManager().didChangeWatchedFiles(
+                                wrapper.getRequestManager().didChangeWatchedFiles(
                                     getDidChangeWatchedFilesParams(newFileUri, FileChangeType.Created));
 
-                            wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p));
-                        });
-                    }
+                                wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p));
+                            });
+                        }
 
-                    // Todo - Stop opening files with the same file name.
-                    // Re-open file to so that the new editor will be connected to the language server.
-                    FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
-                    ApplicationUtils.invokeLater(() -> {
-                        fileEditorManager.closeFile(file);
-                        fileEditorManager.openFile(file, true);
+                        // Todo - Stop opening files with the same file name.
+                        // Re-open file to so that the new editor will be connected to the language server.
+                        FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
+                        ApplicationUtils.invokeLater(() -> {
+                            fileEditorManager.closeFile(file);
+                            fileEditorManager.openFile(file, true);
+                        });
                     });
-                });
+                }
+            } catch (Exception e) {
+                LOG.warn("LSP file rename event failed due to : ", e);
             }
-        } catch (Exception e) {
-            LOG.warn("LSP file rename event failed due to : ", e);
-        }
+        });
     }
 
     /**
@@ -222,8 +229,10 @@ class LSPFileEventManager {
         }
         String uri = FileUtils.VFSToURI(file);
         if (uri != null) {
-            FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
+            ApplicationUtils.invokeAfterPsiEvents(() -> {
+                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,
                     FileUtils.projectToUri(p), FileChangeType.Created));
+            });
         }
     }
 
