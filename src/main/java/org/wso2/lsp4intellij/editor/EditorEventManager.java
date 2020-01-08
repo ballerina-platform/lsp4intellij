@@ -114,6 +114,7 @@ import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
+import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.HoverHandler;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
@@ -183,6 +184,7 @@ public class EditorEventManager {
     private DocumentListener documentListener;
     private EditorMouseListener mouseListener;
     private EditorMouseMotionListener mouseMotionListener;
+    private LSPCaretListenerImpl caretListener;
 
     public List<String> completionTriggers;
     private List<String> signatureTriggers;
@@ -207,8 +209,8 @@ public class EditorEventManager {
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
-                              EditorMouseMotionListener mouseMotionListener, RequestManager requestManager,
-                              ServerOptions serverOptions, LanguageServerWrapper wrapper) {
+                              EditorMouseMotionListener mouseMotionListener, LSPCaretListenerImpl caretListener,
+                              RequestManager requestManager, ServerOptions serverOptions, LanguageServerWrapper wrapper) {
 
         this.editor = editor;
         this.documentListener = documentListener;
@@ -216,6 +218,7 @@ public class EditorEventManager {
         this.mouseMotionListener = mouseMotionListener;
         this.requestManager = requestManager;
         this.wrapper = wrapper;
+        this.caretListener = caretListener;
 
         this.identifier = new TextDocumentIdentifier(FileUtils.editorToURIString(editor));
         this.changesParams = new DidChangeTextDocumentParams(new VersionedTextDocumentIdentifier(),
@@ -368,15 +371,7 @@ public class EditorEventManager {
             } catch (Exception err) {
                 LOG.warn("Error occurred when trying source navigation", err);
             }
-        } else {
-            // Request and shows available code actions(intention actions) for the given context.
-            try {
-                requestAndShowCodeActions();
-            } catch (Exception err) {
-                LOG.warn("Error occurred when trying to update code actions", err);
-            }
         }
-
     }
 
     private void createCtrlRange(Position logicalPos, Range range) {
@@ -1181,6 +1176,7 @@ public class EditorEventManager {
     public void registerListeners() {
         editor.getDocument().addDocumentListener(documentListener);
         editor.addEditorMouseListener(mouseListener);
+        editor.getCaretModel().addCaretListener(caretListener);
         editor.addEditorMouseMotionListener(mouseMotionListener);
         // Todo - Implement
         // editor.getSelectionModel.addSelectionListener(selectionListener)
@@ -1192,6 +1188,7 @@ public class EditorEventManager {
     public void removeListeners() {
         editor.getDocument().removeDocumentListener(documentListener);
         editor.removeEditorMouseListener(mouseListener);
+        editor.removeEditorMouseMotionListener(mouseMotionListener);
         editor.removeEditorMouseMotionListener(mouseMotionListener);
         // Todo - Implement
         // editor.getSelectionModel.removeSelectionListener(selectionListener)
@@ -1412,7 +1409,7 @@ public class EditorEventManager {
         });
     }
 
-    private void requestAndShowCodeActions() {
+    public void requestAndShowCodeActions() {
         invokeLater(() -> {
             if (editor.isDisposed()) {
                 return;
