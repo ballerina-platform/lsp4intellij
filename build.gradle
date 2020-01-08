@@ -40,9 +40,10 @@ sourceSets {
 
 license {
     header = rootProject.file("resources/license/HEADER.txt")
-    ext["year"] = "2018-" + Calendar.getInstance().get(Calendar.YEAR)
+    ext["year"] = Calendar.getInstance().get(Calendar.YEAR)
     ext["author"] = "WSO2 Inc. (http://www.wso2.org)"
     strictCheck = true
+    skipExistingHeaders = true
     mapping("java", "SLASHSTAR_STYLE")
     exclude("/**/*.png")
 }
