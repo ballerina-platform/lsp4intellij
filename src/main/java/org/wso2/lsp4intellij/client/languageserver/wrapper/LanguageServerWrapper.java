@@ -323,7 +323,8 @@ public class LanguageServerWrapper {
                         EditorEventManager manager;
                         if (extManager != null) {
                             manager = extManager.getExtendedEditorEventManagerFor(editor, documentListener,
-                                    mouseListener, mouseMotionListener, requestManager, serverOptions, this);
+                                    mouseListener, mouseMotionListener, caretListener, requestManager, serverOptions,
+                                    this);
                             if (manager == null) {
                                 manager = new EditorEventManager(editor, documentListener, mouseListener,
                                         mouseMotionListener, caretListener,

@@ -17,7 +17,6 @@ package org.wso2.lsp4intellij.extensions;
 
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.event.DocumentListener;
-import com.intellij.openapi.editor.event.EditorMouseListener;
 import com.intellij.psi.PsiFile;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -33,7 +32,9 @@ import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 import org.wso2.lsp4intellij.contributors.label.LSPDefaultLabelProvider;
 import org.wso2.lsp4intellij.contributors.label.LSPLabelProvider;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
+import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
+import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 
 public interface LSPExtensionManager {
 
@@ -65,8 +66,9 @@ public interface LSPExtensionManager {
      * {@link org.wso2.lsp4intellij.editor.EditorEventManager}.
      */
     <T extends EditorEventManager> T getExtendedEditorEventManagerFor(Editor editor, DocumentListener documentListener,
-                                                                      EditorMouseListener mouseListener,
+                                                                      EditorMouseListenerImpl mouseListener,
                                                                       EditorMouseMotionListenerImpl mouseMotionListener,
+                                                                      LSPCaretListenerImpl caretListener,
                                                                       RequestManager requestManager,
                                                                       ServerOptions serverOptions,
                                                                       LanguageServerWrapper wrapper);
