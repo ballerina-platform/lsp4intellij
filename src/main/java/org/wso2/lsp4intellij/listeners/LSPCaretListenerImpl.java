@@ -19,18 +19,38 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.event.CaretEvent;
 import com.intellij.openapi.editor.event.CaretListener;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 public class LSPCaretListenerImpl extends LSPListener implements CaretListener {
+
     private Logger LOG = Logger.getInstance(LSPCaretListenerImpl.class);
+    private ScheduledExecutorService scheduler;
+    private ScheduledFuture<?> scheduledFuture;
+    private static final long DEBOUNCE_INTERVAL_MS = 500;
+
+    public LSPCaretListenerImpl() {
+        scheduler = Executors.newScheduledThreadPool(1);
+        scheduledFuture = null;
+    }
 
     @Override
     public void caretPositionChanged(CaretEvent e) {
-        if (checkEnabled()) {
-            // Request and shows available code actions(intention actions) for the given context.
-            try {
-                manager.requestAndShowCodeActions();
-            } catch (Exception err) {
-                LOG.warn("Error occurred when trying to update code actions", err);
+        try {
+            if (scheduledFuture != null && !scheduledFuture.isCancelled()) {
+                scheduledFuture.cancel(false);
             }
+            scheduledFuture = scheduler.schedule(this::debouncedCaretPositionChanged, DEBOUNCE_INTERVAL_MS, TimeUnit.MILLISECONDS);
+        } catch (Exception err) {
+            LOG.warn("Error occurred when trying to update code actions", err);
+        }
+    }
+
+    private void debouncedCaretPositionChanged() {
+        if (checkEnabled()) {
+            manager.requestAndShowCodeActions();
         }
     }
 }
