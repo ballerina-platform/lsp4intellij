@@ -131,11 +131,11 @@ public class DefaultLanguageClient implements LanguageClient {
             if (msgType == MessageType.Error) {
                 Messages.showErrorDialog(message, title);
             } else if (msgType == MessageType.Warning) {
-                Messages.showErrorDialog(message, title);
+                Messages.showWarningDialog(message, title);
             } else if (msgType == MessageType.Info) {
-                Messages.showErrorDialog(message, title);
+                Messages.showInfoMessage(message, title);
             } else if (msgType == MessageType.Log) {
-                Messages.showErrorDialog(message, title);
+                Messages.showInfoMessage(message, title);
             } else {
                 LOG.warn("No message type for " + message);
             }
