@@ -1176,8 +1176,8 @@ public class EditorEventManager {
     public void registerListeners() {
         editor.getDocument().addDocumentListener(documentListener);
         editor.addEditorMouseListener(mouseListener);
-        editor.getCaretModel().addCaretListener(caretListener);
         editor.addEditorMouseMotionListener(mouseMotionListener);
+        editor.getCaretModel().addCaretListener(caretListener);
         // Todo - Implement
         // editor.getSelectionModel.addSelectionListener(selectionListener)
     }
@@ -1189,7 +1189,7 @@ public class EditorEventManager {
         editor.getDocument().removeDocumentListener(documentListener);
         editor.removeEditorMouseListener(mouseListener);
         editor.removeEditorMouseMotionListener(mouseMotionListener);
-        editor.removeEditorMouseMotionListener(mouseMotionListener);
+        editor.getCaretModel().removeCaretListener(caretListener);
         // Todo - Implement
         // editor.getSelectionModel.removeSelectionListener(selectionListener)
     }
