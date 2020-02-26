@@ -65,10 +65,6 @@ public class FileUtils {
 
     private static Logger LOG = Logger.getInstance(FileUtils.class);
 
-    public static String extFromPsiFile(PsiFile psiFile) {
-        return psiFile.getVirtualFile().getExtension();
-    }
-
     public static List<Editor> getAllOpenedEditors(Project project) {
         return computableReadAction(() -> {
             List<Editor> editors = new ArrayList<>();
@@ -84,6 +80,32 @@ public class FileUtils {
             }
             return editors;
         });
+    }
+
+    /**
+     * This can be used to instantly apply a language server definition without restarting the IDE.
+     */
+    public static void reloadAllEditors() {
+        Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
+        for (Project project : openProjects) {
+            reloadEditors(project);
+        }
+    }
+
+    /**
+     * This can be used to instantly apply a project-specific language server definition without restarting the
+     * project/IDE.
+     *
+     * @param project The project instance which need to be restarted
+     */
+    public static void reloadEditors(@NotNull Project project) {
+        try {
+            List<Editor> allOpenedEditors = FileUtils.getAllOpenedEditors(project);
+            allOpenedEditors.forEach(IntellijLanguageClient::editorClosed);
+            allOpenedEditors.forEach(IntellijLanguageClient::editorOpened);
+        } catch (Exception e) {
+            LOG.warn(String.format("Refreshing project: %s is failed due to: ", project.getName()), e);
+        }
     }
 
     public static Editor editorFromPsiFile(PsiFile psiFile) {

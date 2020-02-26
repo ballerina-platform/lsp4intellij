@@ -33,6 +33,7 @@ import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
@@ -46,17 +47,13 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.io.File;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
+import static org.wso2.lsp4intellij.utils.FileUtils.reloadAllEditors;
+import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
 
 public class IntellijLanguageClient implements ApplicationComponent, Disposable {
 
@@ -99,7 +96,7 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      * @param definition The server definition
      */
     @SuppressWarnings("unused")
-    public static void addServerDefinition(LanguageServerDefinition definition) {
+    public static void addServerDefinition(@NotNull LanguageServerDefinition definition) {
         addServerDefinition(definition, null);
     }
 
@@ -110,19 +107,15 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      * @param definition The server definition
      */
     @SuppressWarnings("unused")
-    public static void addServerDefinition(LanguageServerDefinition definition, Project project) {
-        if (definition != null) {
-            if (project != null) {
-                processDefinition(definition, FileUtils.projectToUri(project));
-                restart(project);
-            } else {
-                processDefinition(definition, "");
-                restart();
-            }
-            LOG.info("Added definition for " + definition);
+    public static void addServerDefinition(@NotNull LanguageServerDefinition definition, @Nullable Project project) {
+        if (project != null) {
+            processDefinition(definition, FileUtils.projectToUri(project));
+            reloadEditors(project);
         } else {
-            LOG.warn("Trying to add a null definition");
+            processDefinition(definition, "");
+            reloadAllEditors();
         }
+        LOG.info("Added definition for " + definition);
     }
 
     /**
@@ -133,7 +126,7 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      * @param manager LSP extension manager (Should be implemented by the developer)
      */
     @SuppressWarnings("unused")
-    public static void addExtensionManager(String ext, LSPExtensionManager manager) {
+    public static void addExtensionManager(@NotNull String ext, @NotNull LSPExtensionManager manager) {
         if (extToExtManager.get(ext) != null) {
             LOG.warn("An extension manager is already registered for \"" + ext + "\" extension");
         }
@@ -284,32 +277,6 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     }
 
     /**
-     * This can be used to instantly apply a language server definition without restarting the IDE.
-     */
-    public static void restart() {
-        Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
-        for (Project project : openProjects) {
-            restart(project);
-        }
-    }
-
-    /**
-     * This can be used to instantly apply a project-specific language server definition without restarting the
-     * project/IDE.
-     *
-     * @param project The project instance which need to be restarted
-     */
-    public static void restart(Project project) {
-        try {
-            List<Editor> allOpenedEditors = FileUtils.getAllOpenedEditors(project);
-            allOpenedEditors.forEach(IntellijLanguageClient::editorClosed);
-            allOpenedEditors.forEach(IntellijLanguageClient::editorOpened);
-        } catch (Exception e) {
-            LOG.warn(String.format("Refreshing project: %s is failed due to: ", project.getName()), e);
-        }
-    }
-
-    /**
      * Returns current timeout values.
      *
      * @return A map of Timeout types and corresponding values(in milliseconds).
@@ -348,20 +315,6 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
         setTimeouts(newTimeout);
     }
 
-    private static void processDefinition(LanguageServerDefinition definition, String projectUri) {
-        String[] extensions = definition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
-        for (String ext : extensions) {
-            Pair<String, String> keyPair = new ImmutablePair<>(ext, projectUri);
-            if (extToServerDefinition.get(keyPair) == null) {
-                extToServerDefinition.put(keyPair, definition);
-                LOG.info("Added server definition for " + ext);
-            } else {
-                extToServerDefinition.replace(keyPair, definition);
-                LOG.info("Updated server definition for " + ext);
-            }
-        }
-    }
-
     public static void removeWrapper(LanguageServerWrapper wrapper) {
         if (wrapper.getProject() != null) {
             String[] extensions = wrapper.getServerDefinition().ext.split(LanguageServerDefinition.SPLIT_CHAR);
@@ -379,15 +332,10 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     }
 
     @SuppressWarnings("unused")
-    public static void didChangeConfiguration(DidChangeConfigurationParams params, Project project) {
+    public static void didChangeConfiguration(@NotNull DidChangeConfigurationParams params, @NotNull Project project) {
         final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient.getProjectToLanguageWrappers()
                 .get(FileUtils.projectToUri(project));
         serverWrappers.forEach(s -> s.getRequestManager().didChangeConfiguration(params));
-    }
-
-    @Override
-    public void disposeComponent() {
-        Disposer.dispose(this);
     }
 
     /**
@@ -400,7 +348,26 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     }
 
     @Override
+    public void disposeComponent() {
+        Disposer.dispose(this);
+    }
+
+    @Override
     public void dispose() {
         Disposer.dispose(this);
+    }
+
+    private static void processDefinition(LanguageServerDefinition definition, String projectUri) {
+        String[] extensions = definition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
+        for (String ext : extensions) {
+            Pair<String, String> keyPair = new ImmutablePair<>(ext, projectUri);
+            if (extToServerDefinition.get(keyPair) == null) {
+                extToServerDefinition.put(keyPair, definition);
+                LOG.info("Added server definition for " + ext);
+            } else {
+                extToServerDefinition.replace(keyPair, definition);
+                LOG.info("Updated server definition for " + ext);
+            }
+        }
     }
 }
