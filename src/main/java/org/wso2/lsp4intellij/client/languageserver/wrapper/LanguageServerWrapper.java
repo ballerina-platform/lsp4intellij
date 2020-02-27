@@ -90,7 +90,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -110,6 +115,7 @@ import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToProjectFolderUri;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToURIString;
+import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
 import static org.wso2.lsp4intellij.utils.FileUtils.sanitizeURI;
 
 /**
@@ -679,7 +685,7 @@ public class LanguageServerWrapper {
         if (isRestartable()) {
             alreadyShownCrash = false;
             alreadyShownTimeout = false;
-            IntellijLanguageClient.restart(project);
+            reloadEditors(project);
         }
     }
 

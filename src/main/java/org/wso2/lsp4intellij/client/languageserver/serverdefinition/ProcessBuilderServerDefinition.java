@@ -55,7 +55,7 @@ public class ProcessBuilderServerDefinition extends LanguageServerDefinition {
     }
 
     public String toString() {
-        return "ProcessBuilderServerDefinition : " + String.join(" ", processBuilder.toString());
+        return "ProcessBuilderServerDefinition : " + String.join(" ", processBuilder.command());
     }
 
     @Override
