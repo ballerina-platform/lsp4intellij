@@ -47,7 +47,7 @@ For instructions on adding **Lsp4IntelliJ** as a dependency when using the below
 ### 2. Add the language server definition
 
 1. Instantiate a concrete subclass of the
-[LanguageServerDefinition](src/main/java/com/github/lsp4intellij/client/languageserver/serverdefinition/LanguageServerDefinition.java).
+[LanguageServerDefinition](src/main/java/org/wso2/lsp4intellij/client/languageserver/serverdefinition/LanguageServerDefinition.java).
 
     You can use the following concrete class:
     
