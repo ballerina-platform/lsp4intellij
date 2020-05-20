@@ -358,6 +358,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @throws IncorrectOperationException if the modification is not supported or not possible for some reason.
      * @deprecated not all PSI implementations implement this method correctly.
      */
+    @Deprecated
     public void checkAdd(PsiElement element) {
         throw new IncorrectOperationException();
     }
@@ -417,6 +418,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @throws IncorrectOperationException if the modification is not supported or not possible for some reason.
      * @deprecated not all PSI implementations implement this method correctly.
      */
+    @Deprecated
     public void checkDelete() {
         throw new IncorrectOperationException();
     }
