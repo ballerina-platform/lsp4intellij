@@ -43,12 +43,8 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
         switch (kind) {
             case Class:
                 return Nodes.Class;
-            case Color:
-                return null;
-            case Constructor:
-                return null;
             case Enum:
-                return Nodes.Class;
+                return Nodes.Enum;
             case Field:
                 return Nodes.Field;
             case File:
@@ -73,8 +69,6 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
                 return AllIcons.FileTypes.Text;
             case Unit:
                 return Nodes.Artifact;
-            case Value:
-                return Nodes.DataSource;
             case Variable:
                 return Nodes.Variable;
             default:
