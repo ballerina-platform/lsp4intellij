@@ -32,10 +32,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class LSPSymbolContributor implements ChooseByNameContributorEx {
 
-    private WorkspaceSymbolProvider workspaceSymbolProvider = new WorkspaceSymbolProvider();
+    private final WorkspaceSymbolProvider workspaceSymbolProvider = new WorkspaceSymbolProvider();
 
     @Override
-    public void processNames(@NotNull Processor<String> processor, @NotNull GlobalSearchScope globalSearchScope, @Nullable IdFilter idFilter) {
+    public void processNames(@NotNull Processor<? super String> processor, @NotNull GlobalSearchScope globalSearchScope, @Nullable IdFilter idFilter) {
         workspaceSymbolProvider.workspaceSymbols("", globalSearchScope.getProject()).stream()
             .filter(ni -> globalSearchScope.accept(ni.getFile()))
             .map(NavigationItem::getName)
@@ -43,22 +43,9 @@ public class LSPSymbolContributor implements ChooseByNameContributorEx {
     }
 
     @Override
-    public void processElementsWithName(@NotNull String s, @NotNull Processor<NavigationItem> processor, @NotNull FindSymbolParameters findSymbolParameters) {
+    public void processElementsWithName(@NotNull String s, @NotNull Processor<? super NavigationItem> processor, @NotNull FindSymbolParameters findSymbolParameters) {
         workspaceSymbolProvider.workspaceSymbols(s, findSymbolParameters.getProject()).stream()
             .filter(ni -> findSymbolParameters.getSearchScope().accept(ni.getFile()))
             .forEach(processor::process);
-    }
-
-    @NotNull
-    @Override
-    public String[] getNames(Project project, boolean includeNonProjectItems) {
-        return null;
-    }
-
-    @NotNull
-    @Override
-    public NavigationItem[] getItemsByName(String name, String pattern, Project project,
-            boolean includeNonProjectItems) {
-        return null;
     }
 }
