@@ -205,7 +205,8 @@ public class LanguageServerWrapper {
         if (capabilities.isLeft()) {
             return false;
         } else {
-            return capabilities.getRight().getWillSaveWaitUntil();
+            final Boolean res = capabilities.getRight().getWillSaveWaitUntil();
+            return res == null ? false : res;
         }
     }
 
