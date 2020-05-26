@@ -120,6 +120,13 @@ public class LSPAnnotator extends ExternalAnnotator {
         });
     }
 
+    /**
+     * This can be overridden to modify an annotation after it has been created.
+     * Useful for customizing highlighting beyond what LSP supports.
+     */
+    protected void modifyCreatedAnnotation(@SuppressWarnings("unused") Annotation annotation) {
+    }
+
     private void createAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
         final List<Diagnostic> diagnostics = eventManager.getDiagnostics();
         final Editor editor = eventManager.editor;
@@ -150,6 +157,7 @@ public class LSPAnnotator extends ExternalAnnotator {
                     break;
             }
 
+            modifyCreatedAnnotation(annotation);
             annotations.add(annotation);
         });
 
