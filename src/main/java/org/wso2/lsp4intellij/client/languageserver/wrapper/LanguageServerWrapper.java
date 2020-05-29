@@ -95,6 +95,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -196,18 +197,11 @@ public class LanguageServerWrapper {
      * @return if the server supports willSaveWaitUntil
      */
     public boolean isWillSaveWaitUntil() {
-        ServerCapabilities serverCapabilities = getServerCapabilities();
-        Either<TextDocumentSyncKind, TextDocumentSyncOptions> capabilities =
-                serverCapabilities != null ? serverCapabilities.getTextDocumentSync() : null;
-        if (capabilities == null) {
-            return false;
-        }
-        if (capabilities.isLeft()) {
-            return false;
-        } else {
-            final Boolean res = capabilities.getRight().getWillSaveWaitUntil();
-            return res == null ? false : res;
-        }
+        return Optional.ofNullable(getServerCapabilities())
+          .map(ServerCapabilities::getTextDocumentSync)
+          .map(Either::getRight)
+          .map(TextDocumentSyncOptions::getWillSaveWaitUntil)
+          .orElse(false);
     }
 
     /**
