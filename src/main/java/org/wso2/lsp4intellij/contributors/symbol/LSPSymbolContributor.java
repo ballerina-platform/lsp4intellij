@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.contributors.symbol;
 
+import com.intellij.ide.util.gotoByName.ChooseByNamePopup;
 import com.intellij.navigation.ChooseByNameContributorEx;
 import com.intellij.navigation.NavigationItem;
 import com.intellij.openapi.project.Project;
@@ -24,6 +25,8 @@ import com.intellij.util.indexing.FindSymbolParameters;
 import com.intellij.util.indexing.IdFilter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Optional;
 
 /**
  * The symbol provider implementation for LSP client.
@@ -36,7 +39,10 @@ public class LSPSymbolContributor implements ChooseByNameContributorEx {
 
     @Override
     public void processNames(@NotNull Processor<? super String> processor, @NotNull GlobalSearchScope globalSearchScope, @Nullable IdFilter idFilter) {
-        workspaceSymbolProvider.workspaceSymbols("", globalSearchScope.getProject()).stream()
+        String queryString = Optional.ofNullable(globalSearchScope.getProject())
+            .map(p -> p.getUserData(ChooseByNamePopup.CURRENT_SEARCH_PATTERN)).orElse("");
+
+        workspaceSymbolProvider.workspaceSymbols(queryString, globalSearchScope.getProject()).stream()
             .filter(ni -> globalSearchScope.accept(ni.getFile()))
             .map(NavigationItem::getName)
             .forEach(processor::process);
