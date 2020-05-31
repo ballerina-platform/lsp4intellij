@@ -29,14 +29,13 @@ import static java.util.Collections.singletonList;
 
 public class LSPCommandFix implements IntentionAction {
 
-    private String uri;
-    private Command command;
+    private final String uri;
+    private final Command command;
 
-    public LSPCommandFix(String uri, Command command) {
+    public LSPCommandFix(String uri, @NotNull Command command) {
         this.uri = uri;
         this.command = command;
     }
-
 
     @Nls(capitalization = Nls.Capitalization.Sentence)
     @NotNull

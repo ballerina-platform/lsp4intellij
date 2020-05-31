@@ -4,6 +4,7 @@ plugins {
     id "com.github.gradle-git-version-calculator" version "1.1.0"
     id 'net.researchgate.release' version '2.6.0'
     id "com.gradle.plugin-publish" version "0.10.1"
+    id "com.github.spotbugs" version "3.0.0"
     id 'signing'
 }
 
@@ -46,6 +47,20 @@ license {
     skipExistingHeaders = true
     mapping("java", "SLASHSTAR_STYLE")
     exclude("/**/*.png")
+}
+
+spotbugsMain {
+    it.effort "max"
+    it.reportLevel "high"
+    it.reports {
+        xml.enabled false
+        html.enabled true
+    }
+    classpath += sourceSets."${(it.name - ~/^spotbugs/).uncapitalize()}".with { it.compileClasspath + project.configurations."${it.compileOnlyConfigurationName}" }
+}
+
+spotbugsTest {
+    it.enabled = false
 }
 
 release {

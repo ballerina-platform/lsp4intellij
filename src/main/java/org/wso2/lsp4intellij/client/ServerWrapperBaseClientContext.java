@@ -23,17 +23,18 @@ import org.wso2.lsp4intellij.editor.EditorEventManager;
 
 public class ServerWrapperBaseClientContext implements ClientContext {
 
-    private LanguageServerWrapper wrapper;
+    private final LanguageServerWrapper wrapper;
 
     public ServerWrapperBaseClientContext(LanguageServerWrapper wrapper) {
         this.wrapper = wrapper;
     }
 
     @Override
-    public EditorEventManager getEditorEventManagerFor(String documentUri) {
+    public EditorEventManager getEditorEventManagerFor(@NotNull String documentUri) {
         return wrapper.getEditorManagerFor(documentUri);
     }
 
+    @NotNull
     @Override
     public Project getProject() {
         return wrapper.getProject();

@@ -30,14 +30,13 @@ import java.util.Collections;
 
 public class LSPCodeActionFix implements IntentionAction {
 
-    private String uri;
-    private CodeAction codeAction;
+    private final String uri;
+    private final CodeAction codeAction;
 
-    public LSPCodeActionFix(String uri, CodeAction codeAction) {
+    public LSPCodeActionFix(String uri, @NotNull CodeAction codeAction) {
         this.uri = uri;
         this.codeAction = codeAction;
     }
-
 
     @Nls(capitalization = Nls.Capitalization.Sentence)
     @NotNull

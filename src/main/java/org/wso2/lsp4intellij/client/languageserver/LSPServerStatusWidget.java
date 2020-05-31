@@ -33,6 +33,7 @@ import com.intellij.util.Consumer;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
@@ -44,16 +45,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import javax.swing.*;
 
 public class LSPServerStatusWidget implements StatusBarWidget {
-    private static Map<Project, List<String>> widgetIDs = new HashMap<>();
-    private Map<Timeouts, Pair<Integer, Integer>> timeouts = new HashMap<>();
-    private LanguageServerWrapper wrapper;
-    private String ext;
-    private Project project;
-    private String projectName;
-    private Map<ServerStatus, Icon> icons;
+
+    private static final Map<Project, List<String>> widgetIDs = new HashMap<>();
+    private final Map<Timeouts, Pair<Integer, Integer>> timeouts = new HashMap<>();
+    private final LanguageServerWrapper wrapper;
+    private final String ext;
+    private final Project project;
+    private final String projectName;
+    private final Map<ServerStatus, Icon> icons;
     private ServerStatus status = ServerStatus.STOPPED;
 
     private LSPServerStatusWidget(LanguageServerWrapper wrapper) {
@@ -156,13 +159,13 @@ public class LSPServerStatusWidget implements StatusBarWidget {
     }
 
     private class IconPresentation implements StatusBarWidget.IconPresentation {
-        @NotNull
+        @Nullable
         @Override
         public Icon getIcon() {
             return icons.get(status);
         }
 
-        @NotNull
+        @Nullable
         @Override
         public Consumer<MouseEvent> getClickConsumer() {
             return (MouseEvent t) -> {
@@ -190,11 +193,11 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
         class ShowConnectedFiles extends AnAction implements DumbAware {
             ShowConnectedFiles() {
-                super("&Show connected files", "Show the files connected to the server", null);
+                super("&Show Connected Files", "Show the files connected to the server", null);
             }
 
             @Override
-            public void actionPerformed(AnActionEvent e) {
+            public void actionPerformed(@NotNull AnActionEvent e) {
                 StringBuilder connectedFiles = new StringBuilder("Connected files :");
                 wrapper.getConnectedFiles().forEach(f -> connectedFiles.append(System.lineSeparator()).append(f));
                 Messages.showInfoMessage(connectedFiles.toString(), "Connected Files");
@@ -203,18 +206,17 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
         class ShowTimeouts extends AnAction implements DumbAware {
             ShowTimeouts() {
-                super("&Show timeouts", "Show the timeouts proportions of the server", null);
+                super("&Show Timeouts", "Show the timeouts proportions of the server", null);
             }
 
             @Override
-            public void actionPerformed(AnActionEvent e) {
+            public void actionPerformed(@NotNull AnActionEvent e) {
                 StringBuilder message = new StringBuilder();
                 message.append("<html>");
                 message.append("Timeouts (failed requests) :<br>");
                 timeouts.forEach((t, v) -> {
                     int timeouts = v.getRight();
-                    message.append(t.name().substring(0, 1)).append(t.name().substring(1).toLowerCase())
-                            .append(" => ");
+                    message.append(t.name(), 0, 1).append(t.name().substring(1).toLowerCase()).append(" => ");
                     int total = v.getLeft() + timeouts;
                     if (total != 0) {
                         if (timeouts > 0) {

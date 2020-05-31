@@ -317,13 +317,12 @@ public class EditorEventManager {
             ctrlTime = curTime;
         } else {
             LogicalPosition lPos = getPos(e);
-
             if (lPos == null || getIsKeyPressed() && !getIsCtrlDown()) {
                 return;
             }
 
             int offset = editor.logicalPositionToOffset(lPos);
-            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRES) {
+            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRESH) {
                 if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
                     if (currentHint != null) {
                         currentHint.hide();
@@ -335,11 +334,9 @@ public class EditorEventManager {
                     setCtrlRange(null);
                     pool(() -> requestAndShowDoc(lPos, e.getMouseEvent().getPoint()));
                 } else if (getCtrlRange().definitionContainsOffset(offset)) {
-                    createAndShowEditorHint(editor, "Click to show usages",
-                            editor.offsetToXY(offset));
+                    createAndShowEditorHint(editor, "Click to show usages", editor.offsetToXY(offset));
                 } else {
-                    editor.getContentComponent()
-                            .setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    editor.getContentComponent().setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 }
                 ctrlTime = curTime;
             }
