@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
 
-public class LSPAnnotator extends ExternalAnnotator {
+public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
 
     private static final Logger LOG = Logger.getInstance(LSPAnnotator.class);
     private static final Object RESULT = new Object();
@@ -110,6 +110,7 @@ public class LSPAnnotator extends ExternalAnnotator {
             return;
         }
         annotations.forEach(annotation -> {
+            // TODO: Use 'newAnnotation'; 'createAnnotation' is deprecated.
             Annotation anon = holder.createAnnotation(annotation.getSeverity(),
                     new TextRange(annotation.getStartOffset(), annotation.getEndOffset()), annotation.getMessage());
 
@@ -120,37 +121,37 @@ public class LSPAnnotator extends ExternalAnnotator {
         });
     }
 
+    @Nullable
+    protected Annotation createAnnotation(Editor editor, AnnotationHolder holder, Diagnostic diagnostic) {
+        final int start = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getStart());
+        final int end = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getEnd());
+        if (start >= end) {
+            return null;
+        }
+        final TextRange textRange = new TextRange(start, end);
+        switch (diagnostic.getSeverity()) {
+            // TODO: Use 'newAnnotation'; 'create*Annotation' methods are deprecated.
+            case Error:
+                return holder.createErrorAnnotation(textRange, diagnostic.getMessage());
+            case Warning:
+                return holder.createWarningAnnotation(textRange, diagnostic.getMessage());
+            case Information:
+                return holder.createInfoAnnotation(textRange, diagnostic.getMessage());
+            default:
+                return holder.createWeakWarningAnnotation(textRange, diagnostic.getMessage());
+        }
+    }
+
     private void createAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
         final List<Diagnostic> diagnostics = eventManager.getDiagnostics();
         final Editor editor = eventManager.editor;
 
         List<Annotation> annotations = new ArrayList<>();
         diagnostics.forEach(d -> {
-            final int start = DocumentUtils.LSPPosToOffset(editor, d.getRange().getStart());
-            final int end = DocumentUtils.LSPPosToOffset(editor, d.getRange().getEnd());
-
-            if (start >= end) {
-                return;
+            Annotation annotation = createAnnotation(editor, holder, d);
+            if (annotation != null) {
+                annotations.add(annotation);
             }
-
-            Annotation annotation;
-            final TextRange textRange = new TextRange(start, end);
-            switch (d.getSeverity()) {
-                case Error:
-                    annotation = holder.createErrorAnnotation(textRange, d.getMessage());
-                    break;
-                case Warning:
-                    annotation = holder.createWarningAnnotation(textRange, d.getMessage());
-                    break;
-                case Information:
-                    annotation = holder.createInfoAnnotation(textRange, d.getMessage());
-                    break;
-                default:
-                    annotation = holder.createWeakWarningAnnotation(textRange, d.getMessage());
-                    break;
-            }
-
-            annotations.add(annotation);
         });
 
         eventManager.setAnnotations(annotations);
