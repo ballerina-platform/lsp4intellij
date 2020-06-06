@@ -38,12 +38,12 @@ public interface ClientContext {
     /**
      * Returns the {@link Project} associated with the LanuageClient.
      */
-    @NotNull
+    @Nullable
     Project getProject();
 
     /**
      * Returns the {@link RequestManager} associated with the Language Server Connection.
      */
-    @NotNull
+    @Nullable
     RequestManager getRequestManager();
 }

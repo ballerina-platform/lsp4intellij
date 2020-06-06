@@ -56,6 +56,10 @@ spotbugsMain {
         xml.enabled false
         html.enabled true
     }
+    def excludeFile = file('spotbugs-exclude.xml')
+    if(excludeFile.exists()) {
+        it.excludeFilter = excludeFile
+    }
     classpath += sourceSets."${(it.name - ~/^spotbugs/).uncapitalize()}".with { it.compileClasspath + project.configurations."${it.compileOnlyConfigurationName}" }
 }
 

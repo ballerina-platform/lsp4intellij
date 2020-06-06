@@ -63,7 +63,7 @@ public class FileUtils {
     private final static String URI_VALID_FILE_BEGIN = "file:///";
     private final static char URI_PATH_SEP = '/';
 
-    private static Logger LOG = Logger.getInstance(FileUtils.class);
+    private static final Logger LOG = Logger.getInstance(FileUtils.class);
 
     public static List<Editor> getAllOpenedEditors(Project project) {
         return computableReadAction(() -> {

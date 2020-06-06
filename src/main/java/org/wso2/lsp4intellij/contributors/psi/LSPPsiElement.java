@@ -60,16 +60,15 @@ import javax.swing.*;
  */
 public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElement {
 
-    private Key<KeyFMap> COPYABLE_USER_MAP_KEY = Key.create("COPYABLE_USER_MAP_KEY");
-    private AtomicFieldUpdater<LSPPsiElement, KeyFMap> updater = AtomicFieldUpdater
-            .forFieldOfType(LSPPsiElement.class, KeyFMap.class);
-    private PsiManager manager;
-    private LSPPsiReference reference;
+    private final Key<KeyFMap> COPYABLE_USER_MAP_KEY = Key.create("COPYABLE_USER_MAP_KEY");
+    private final AtomicFieldUpdater<LSPPsiElement, KeyFMap> updater = AtomicFieldUpdater.forFieldOfType(LSPPsiElement.class, KeyFMap.class);
+    private final PsiManager manager;
+    private final LSPPsiReference reference;
     private final Project project;
-    public final int start;
-    public final int end;
     private String name;
     private final PsiFile file;
+    public final int start;
+    public final int end;
 
     /**
      * @param name    The name (text) of the element
@@ -77,7 +76,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @param start   The offset in the editor where the element starts
      * @param end     The offset where it ends
      */
-    public LSPPsiElement(String name, Project project, int start, int end, PsiFile file) {
+    public LSPPsiElement(String name, @NotNull Project project, int start, int end, PsiFile file) {
         this.project = project;
         this.name = name;
         this.start = start;
@@ -97,6 +96,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      *
      * @return the language instance.
      */
+    @NotNull
     public Language getLanguage() {
         return PlainTextLanguage.INSTANCE;
     }
@@ -116,8 +116,9 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      *
      * @return the array of child elements.
      */
+    @NotNull
     public PsiElement[] getChildren() {
-        return null;
+        return new PsiElement[0];
     }
 
     /**
@@ -217,6 +218,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      *
      * @return the element text as a character array.
      */
+    @NotNull
     public char[] textToCharArray() {
         return name.toCharArray();
     }
@@ -251,7 +253,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @param text the character sequence to compare with.
      * @return true if the text is equal, false otherwise.
      */
-    public boolean textMatches(CharSequence text) {
+    public boolean textMatches(@NotNull CharSequence text) {
         return getText() == text;
     }
 
@@ -300,7 +302,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      *
      * @param visitor the visitor to pass the children to.
      */
-    public void acceptChildren(PsiElementVisitor visitor) {
+    public void acceptChildren(@NotNull PsiElementVisitor visitor) {
 
     }
 
@@ -322,7 +324,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return the element which was actually added (either { @code element} or its copy).
      * @throws IncorrectOperationException if the modification is not supported or not possible for some reason.
      */
-    public PsiElement add(PsiElement element) {
+    public PsiElement add(@NotNull PsiElement element) {
         throw new IncorrectOperationException();
     }
 
@@ -334,7 +336,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return the element which was actually added (either { @code element} or its copy).
      * @throws IncorrectOperationException if the modification is not supported or not possible for some reason.
      */
-    public PsiElement addBefore(PsiElement element, PsiElement anchor) {
+    public PsiElement addBefore(@NotNull PsiElement element, PsiElement anchor) {
         throw new IncorrectOperationException();
     }
 
@@ -346,7 +348,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return the element which was actually added (either { @code element} or its copy).
      * @throws IncorrectOperationException if the modification is not supported or not possible for some reason.
      */
-    public PsiElement addAfter(PsiElement element, PsiElement anchor) {
+    public PsiElement addAfter(@NotNull PsiElement element, PsiElement anchor) {
         throw new IncorrectOperationException();
     }
 
@@ -359,7 +361,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @deprecated not all PSI implementations implement this method correctly.
      */
     @Deprecated
-    public void checkAdd(PsiElement element) {
+    public void checkAdd(@NotNull PsiElement element) {
         throw new IncorrectOperationException();
     }
 
@@ -384,7 +386,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return the first child element which was actually added (either { @code first} or its copy).
      * @throws IncorrectOperationException if the modification is not supported or not possible for some reason.
      */
-    public PsiElement addRangeBefore(PsiElement first, PsiElement last, PsiElement anchor) {
+    public PsiElement addRangeBefore(@NotNull PsiElement first, @NotNull PsiElement last, PsiElement anchor) {
         throw new IncorrectOperationException();
     }
 
@@ -489,7 +491,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @see com.intellij.psi.search.searches.ReferencesSearch
      */
     public PsiReference getReference() {
-        return (PsiReference) reference;
+        return reference;
     }
 
     /**
@@ -505,8 +507,9 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @see PsiReferenceService#getReferences
      * @see com.intellij.psi.search.searches.ReferencesSearch
      */
+    @NotNull
     public PsiReference[] getReferences() {
-        return new PsiReference[] { (PsiReference) reference };
+        return new PsiReference[]{reference};
     }
 
     /**
@@ -519,8 +522,9 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @param place      the original element from which the tree up walk was initiated.
      * @return true if the declaration processing should continue or false if it should be stopped.
      */
-    public boolean processDeclarations(PsiScopeProcessor processor, ResolveState state, PsiElement lastParent,
-            PsiElement place) {
+    public boolean processDeclarations(@NotNull PsiScopeProcessor processor, @NotNull ResolveState state,
+                                       PsiElement lastParent,
+                                       @NotNull PsiElement place) {
         return false;
     }
 
@@ -552,6 +556,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      *
      * @return the resolve scope instance.
      */
+    @NotNull
     public GlobalSearchScope getResolveScope() {
         return getContainingFile().getResolveScope();
     }
@@ -562,6 +567,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return the search scope instance.
      * @see { @link com.intellij.psi.search.PsiSearchHelper#getUseScope(PsiElement)}
      */
+    @NotNull
     public SearchScope getUseScope() {
         return getContainingFile().getResolveScope();
     }
@@ -603,12 +609,12 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         return this;
     }
 
-    public PsiElement setName(String name) {
+    public PsiElement setName(@NotNull String name) {
         this.name = name;
         return this;
     }
 
-    public <T> void putUserData(Key<T> key, @Nullable T value) {
+    public <T> void putUserData(@NotNull Key<T> key, @Nullable T value) {
         boolean control = true;
         while (control) {
             KeyFMap map = getUserMap();
@@ -632,7 +638,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         return (map == null) ? null : map.get(key);
     }
 
-    public <T> T getUserData(Key<T> key) {
+    public <T> T getUserData(@NotNull Key<T> key) {
         T t = getUserMap().get(key);
         if (t == null && key instanceof KeyWithDefaultValue) {
             KeyWithDefaultValue<T> key1 = (KeyWithDefaultValue<T>) key;
