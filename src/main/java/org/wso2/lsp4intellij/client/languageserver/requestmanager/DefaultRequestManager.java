@@ -414,9 +414,9 @@ public class DefaultRequestManager implements RequestManager {
         if (checkStatus()) {
             try {
                 return (
-                    Optional.of(serverCapabilities.getHoverProvider()).orElse(false)
-                ) ? textDocumentService.hover(params)
-                  : null;
+                    Optional.of(serverCapabilities.getHoverProvider()).orElse(false)) ?
+                        textDocumentService.hover(params) : null;
+               
             } catch (Exception e) {
                 crashed(e);
                 return null;
