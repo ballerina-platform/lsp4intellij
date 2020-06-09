@@ -398,12 +398,9 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<CompletionItem> resolveCompletionItem(CompletionItem unresolved) {
         if (checkStatus()) {
             try {
-                return (
-                    Optional.of(serverCapabilities.getCompletionProvider())
-                        .map(x -> x.getResolveProvider())
-                        .orElse(false)
-                ) ? textDocumentService.resolveCompletionItem(unresolved)
-                  : null;
+                return (Optional.of(serverCapabilities.getCompletionProvider())
+                    .map(x -> x.getResolveProvider()).orElse(false)) ?
+                    textDocumentService.resolveCompletionItem(unresolved) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
