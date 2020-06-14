@@ -1456,7 +1456,7 @@ public class EditorEventManager {
 
                     // If the code actions does not have a diagnostics context, creates an intention action for
                     // the current line.
-                    if ((diagnosticContext == null || diagnosticContext.isEmpty()) && !codeActionSyncRequired) {
+                    if ((diagnosticContext == null || diagnosticContext.isEmpty()) && anonHolder != null && !codeActionSyncRequired) {
                         // Calculates text range of the current line.
                         int line = editor.getCaretModel().getCurrentCaret().getLogicalPosition().line;
                         int startOffset = editor.getDocument().getLineStartOffset(line);
@@ -1465,7 +1465,6 @@ public class EditorEventManager {
 
                         Annotation annotation = this.anonHolder.createInfoAnnotation(range, codeAction.getTitle());
                         annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction), range);
-
                         this.annotations.add(annotation);
                         diagnosticSyncRequired = true;
                     }
