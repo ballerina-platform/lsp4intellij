@@ -26,16 +26,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorEventManagerBase {
 
-    protected static int HOVER_TIME_THRES =
-            EditorSettingsExternalizable.getInstance().getQuickDocOnMouseOverElementDelayMillis() * 1000000;
-    protected static long SCHEDULE_THRES = 10000000; //Time before the Timer is scheduled
-    protected static long POPUP_THRES = HOVER_TIME_THRES / 1000000 + 20;
-    protected static long CTRL_THRES = 500000000; //Time between requests when ctrl is pressed (500ms)
-
-    public static Map<String, EditorEventManager> uriToManager = new ConcurrentHashMap<>();
-    public static Map<Editor, EditorEventManager> editorToManager = new ConcurrentHashMap<>();
-
-    private static int CTRL_KEY_CODE = OSUtils.isMac() ? KeyEvent.VK_META : KeyEvent.VK_CONTROL;
+    public static final Map<String, EditorEventManager> uriToManager = new ConcurrentHashMap<>();
+    public static final Map<Editor, EditorEventManager> editorToManager = new ConcurrentHashMap<>();
+    private static final int CTRL_KEY_CODE = OSUtils.isMac() ? KeyEvent.VK_META : KeyEvent.VK_CONTROL;
+    protected static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getQuickDocOnMouseOverElementDelayMillis() * 1000000;
     private volatile static boolean isKeyPressed = false;
     private volatile static boolean isCtrlDown = false;
     private volatile static CtrlRangeMarker ctrlRange;

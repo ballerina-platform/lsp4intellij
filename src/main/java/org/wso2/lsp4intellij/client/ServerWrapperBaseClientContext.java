@@ -17,29 +17,31 @@ package org.wso2.lsp4intellij.client;
 
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 
 public class ServerWrapperBaseClientContext implements ClientContext {
 
-    private LanguageServerWrapper wrapper;
+    private final LanguageServerWrapper wrapper;
 
-    public ServerWrapperBaseClientContext(LanguageServerWrapper wrapper) {
+    public ServerWrapperBaseClientContext(@NotNull LanguageServerWrapper wrapper) {
         this.wrapper = wrapper;
     }
 
     @Override
-    public EditorEventManager getEditorEventManagerFor(String documentUri) {
+    public EditorEventManager getEditorEventManagerFor(@NotNull String documentUri) {
         return wrapper.getEditorManagerFor(documentUri);
     }
 
+    @Nullable
     @Override
     public Project getProject() {
         return wrapper.getProject();
     }
 
-    @NotNull
+    @Nullable
     @Override
     public RequestManager getRequestManager() {
         return wrapper.getRequestManager();

@@ -33,7 +33,7 @@ public class Utils {
      */
     public String arrayToString(Object[] arr, String sep) {
         sep = (sep != null) ? sep : "";
-        return String.join(sep, arr.toString());
+        return String.join(sep, Arrays.toString(arr));
     }
 
     /**

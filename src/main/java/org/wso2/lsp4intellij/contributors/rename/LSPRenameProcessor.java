@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -45,18 +46,19 @@ import java.util.stream.Collectors;
  */
 public class LSPRenameProcessor extends RenamePsiElementProcessor {
 
-    private static Set<VirtualFile> openedEditors = new HashSet<>();
     private PsiElement curElem;
-    private Set<PsiElement> elements = new HashSet<>();
+    private final Set<PsiElement> elements = new HashSet<>();
+    private static final Set<VirtualFile> openedEditors = new HashSet<>();
 
     @Override
     public boolean canProcessElement(@NotNull PsiElement element) {
         return element instanceof LSPPsiElement;
     }
 
+    @NotNull
     @Override
-    public RenameDialog createRenameDialog(Project project, PsiElement element, PsiElement nameSuggestionContext,
-                                           Editor editor) {
+    public RenameDialog createRenameDialog(@NotNull Project project, @NotNull PsiElement element,
+                                           PsiElement nameSuggestionContext, Editor editor) {
         return super.createRenameDialog(project, curElem, nameSuggestionContext, editor);
     }
 
@@ -72,15 +74,15 @@ public class LSPRenameProcessor extends RenamePsiElementProcessor {
     public Collection<PsiReference> findReferences(@NotNull PsiElement element, boolean searchInCommentsAndStrings) {
         if (element instanceof LSPPsiElement) {
             if (elements.contains(element)) {
-                return elements.stream().map(PsiElement::getReference).collect(Collectors.toList());
+                return elements.stream().map(PsiElement::getReference).filter(Objects::nonNull).collect(Collectors.toList());
             } else {
-                EditorEventManager manager = EditorEventManagerBase
-                        .forEditor(FileUtils.editorFromPsiFile(element.getContainingFile()));
+                EditorEventManager manager = EditorEventManagerBase.forEditor(FileUtils.editorFromPsiFile(element.getContainingFile()));
                 if (manager != null) {
-                    Pair<List<PsiElement>, List<VirtualFile>> refs = manager
-                            .references(element.getTextOffset(), true, false);
-                    addEditors(refs.getSecond());
-                    return refs.getFirst().stream().map(PsiElement::getReference).collect(Collectors.toList());
+                    Pair<List<PsiElement>, List<VirtualFile>> refs = manager.references(element.getTextOffset(), true, false);
+                    if (refs.getFirst() != null && refs.getSecond() != null) {
+                        addEditors(refs.getSecond());
+                        return refs.getFirst().stream().map(PsiElement::getReference).filter(Objects::nonNull).collect(Collectors.toList());
+                    }
                 }
             }
         }
@@ -93,15 +95,14 @@ public class LSPRenameProcessor extends RenamePsiElementProcessor {
                                                    boolean searchInCommentsAndStrings) {
         if (element instanceof LSPPsiElement) {
             if (elements.contains(element)) {
-                return elements.stream().map(PsiElement::getReference).collect(Collectors.toList());
-            } else {
-                EditorEventManager manager = EditorEventManagerBase
-                        .forEditor(FileUtils.editorFromPsiFile(element.getContainingFile()));
-                if (manager != null) {
-                    Pair<List<PsiElement>, List<VirtualFile>> refs = manager
-                            .references(element.getTextOffset(), true, false);
+                return elements.stream().map(PsiElement::getReference).filter(Objects::nonNull).collect(Collectors.toList());
+            }
+            EditorEventManager manager = EditorEventManagerBase.forEditor(FileUtils.editorFromPsiFile(element.getContainingFile()));
+            if (manager != null) {
+                Pair<List<PsiElement>, List<VirtualFile>> refs = manager.references(element.getTextOffset(), true, false);
+                if (refs.getFirst() != null && refs.getSecond() != null) {
                     addEditors(refs.getSecond());
-                    return refs.getFirst().stream().map(PsiElement::getReference).collect(Collectors.toList());
+                    return refs.getFirst().stream().map(PsiElement::getReference).filter(Objects::nonNull).collect(Collectors.toList());
                 }
             }
         }
