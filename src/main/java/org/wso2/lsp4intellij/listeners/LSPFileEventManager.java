@@ -202,14 +202,14 @@ class LSPFileEventManager {
                                 wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p));
                             });
                         }
-
-                        // Todo - Stop opening files with the same file name.
-                        // Re-open file to so that the new editor will be connected to the language server.
-                        FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
-                        ApplicationUtils.invokeLater(() -> {
-                            fileEditorManager.closeFile(file);
-                            fileEditorManager.openFile(file, true);
-                        });
+                        if (!newFileUri.equals(oldFileUri)) {
+                            // Re-open file to so that the new editor will be connected to the language server.
+                            FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
+                            ApplicationUtils.invokeLater(() -> {
+                                fileEditorManager.closeFile(file);
+                                fileEditorManager.openFile(file, true);
+                            });
+                        }
                     });
                 }
             } catch (Exception e) {
