@@ -277,7 +277,7 @@ public class DefaultRequestManager implements RequestManager {
     public void willSave(WillSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                if (Optional.of(textDocumentOptions).map(x -> x.getWillSave()).orElse(false)) {
+                if (Optional.ofNullable(textDocumentOptions).map(x -> x.getWillSave()).orElse(false)) {
                     textDocumentService.willSave(params);
                 }
             } catch (Exception e) {
@@ -290,7 +290,7 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<TextEdit>> willSaveWaitUntil(WillSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                return Optional.of(textDocumentOptions).map(x -> x.getWillSaveWaitUntil()).orElse(false) ?
+                return Optional.ofNullable(textDocumentOptions).map(x -> x.getWillSaveWaitUntil()).orElse(false) ?
                         textDocumentService.willSaveWaitUntil(params) : null;
             } catch (Exception e) {
                 crashed(e);
@@ -304,7 +304,7 @@ public class DefaultRequestManager implements RequestManager {
     public void didSave(DidSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                if (Optional.of(textDocumentOptions).map(x -> x.getSave()).isPresent()) {
+                if (Optional.ofNullable(textDocumentOptions).map(x -> x.getSave()).isPresent()) {
                     textDocumentService.didSave(params);
                 }
             } catch (Exception e) {
@@ -317,7 +317,7 @@ public class DefaultRequestManager implements RequestManager {
     public void didClose(DidCloseTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                if (Optional.of(textDocumentOptions).map(x -> x.getOpenClose()).orElse(false)) {
+                if (Optional.ofNullable(textDocumentOptions).map(x -> x.getOpenClose()).orElse(false)) {
                     textDocumentService.didClose(params);
                 }
             } catch (Exception e) {
@@ -343,7 +343,7 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<CompletionItem> resolveCompletionItem(CompletionItem unresolved) {
         if (checkStatus()) {
             try {
-                return (Optional.of(serverCapabilities.getCompletionProvider())
+                return (Optional.ofNullable(serverCapabilities.getCompletionProvider())
                     .map(x -> x.getResolveProvider()).orElse(false)) ?
                     textDocumentService.resolveCompletionItem(unresolved) : null;
             } catch (Exception e) {
@@ -364,7 +364,7 @@ public class DefaultRequestManager implements RequestManager {
         if (checkStatus()) {
             try {
                 return (
-                    Optional.of(serverCapabilities.getHoverProvider()).orElse(false)) ?
+                    Optional.ofNullable(serverCapabilities.getHoverProvider()).orElse(false)) ?
                         textDocumentService.hover(params) : null;
                
             } catch (Exception e) {
