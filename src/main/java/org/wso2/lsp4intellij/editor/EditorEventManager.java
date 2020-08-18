@@ -55,7 +55,6 @@ import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
@@ -1381,7 +1380,7 @@ public class EditorEventManager {
             } else {
                 VirtualFile file = null;
                 try {
-                    file = VfsUtil.findFileByURL(new URL(VfsUtilCore.fixURLforIDEA(locUri)));
+                    file = VfsUtil.findFileByURL(new URL(locUri));
                 } catch (MalformedURLException e1) {
                     LOG.warn("Syntax Exception occurred for uri: " + locUri);
                 }

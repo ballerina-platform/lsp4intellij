@@ -25,7 +25,6 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.Hint;
 import com.intellij.ui.LightweightHint;
@@ -43,9 +42,7 @@ import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.html.HTMLEditorKit;
 import java.awt.*;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -93,16 +90,9 @@ public final class GUIUtils {
                         BrowserLauncher.getInstance().browse(e.getURL().toURI());
                     } else {
                         final Project project = editor.getProject();
-                        Optional<? extends Pair<Project, VirtualFile>> fileToOpen = Optional.ofNullable(project).map(p -> {
-                            try {
-                                return Optional.ofNullable(
-                                    VfsUtil.findFileByURL(new URL(VfsUtilCore.fixURLforIDEA(e.getURL().toString()))))
-                                    .map(f -> new ImmutablePair<>(p, f));
-                            } catch (MalformedURLException ex) {
-                                LOGGER.debug("Invalid URL was found.", ex);
-                                return Optional.<Pair<Project, VirtualFile>>empty();
-                            }
-                        }).orElse(Optional.empty());
+                        Optional<? extends Pair<Project, VirtualFile>> fileToOpen = Optional.ofNullable(project).map(
+                                p -> Optional.ofNullable(VfsUtil.findFileByURL(e.getURL()))
+                            .map(f -> new ImmutablePair<>(p, f))).orElse(Optional.empty());
 
                         fileToOpen.ifPresent(f -> {
                             final OpenFileDescriptor descriptor = new OpenFileDescriptor(f.getLeft(), f.getRight());
