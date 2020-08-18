@@ -913,11 +913,8 @@ public class EditorEventManager {
         }
         // Fixes IDEA internal assertion failure in windows.
         lookupString = lookupString.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
-        if (item.getInsertTextFormat() == InsertTextFormat.Snippet) {
-            lookupElementBuilder = LookupElementBuilder.create(convertPlaceHolders(lookupString));
-        } else {
-            lookupElementBuilder = LookupElementBuilder.create(lookupString);
-        }
+
+        lookupElementBuilder = LookupElementBuilder.create(getLookupStringWithoutPlaceholders(item, lookupString));
 
         lookupElementBuilder = addCompletionInsertHandlers(item, lookupElementBuilder, lookupString);
 
@@ -927,6 +924,14 @@ public class EditorEventManager {
 
         return lookupElementBuilder.withPresentableText(presentableText).withTypeText(tailText, true).withIcon(icon)
                 .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
+    }
+
+    private String getLookupStringWithoutPlaceholders(CompletionItem item, String lookupString) {
+        if (item.getInsertTextFormat() == InsertTextFormat.Snippet) {
+            return convertPlaceHolders(lookupString);
+        } else {
+            return lookupString;
+        }
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -939,6 +944,8 @@ public class EditorEventManager {
 
         if (addTextEdits != null) {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> invokeLater(() -> {
+                applyInitialTextEdit(item, lookupString);
+
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
                     prepareAndRunSnippet(lookupString);
@@ -952,6 +959,8 @@ public class EditorEventManager {
             }));
         } else if (command != null) {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
+                applyInitialTextEdit(item, lookupString);
+
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
                     prepareAndRunSnippet(lookupString);
@@ -961,6 +970,8 @@ public class EditorEventManager {
             });
         } else {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
+                applyInitialTextEdit(item, lookupString);
+
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
                     prepareAndRunSnippet(lookupString);
@@ -969,6 +980,24 @@ public class EditorEventManager {
         }
 
         return builder;
+    }
+
+    private void applyInitialTextEdit(CompletionItem item, String lookupString) {
+        if(item.getTextEdit() != null){
+            String insertText = getLookupStringWithoutPlaceholders(item, lookupString);
+
+            // build up an alternative text edit, as intelliJ unfortunately already changed the document and inserted lookupString for us
+            int lookupStringLength = insertText.length();
+            int endLine = item.getTextEdit().getRange().getEnd().getLine();
+            int endCharacter = item.getTextEdit().getRange().getEnd().getCharacter();
+
+            // here we add the lookup string length to the range we want to override, as intellij already inserted it.
+            Position endPosition = new Position(endLine,endCharacter + lookupStringLength);
+
+            // finally, the actual range we want to replace
+            TextEdit myTextEdit = new TextEdit(new Range(item.getTextEdit().getRange().getStart(), endPosition), insertText);
+            applyEdit(Integer.MAX_VALUE, Collections.singletonList(myTextEdit) ,"Completion beforeSnippets: " + lookupString, false,true);
+        }
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -1005,7 +1034,9 @@ public class EditorEventManager {
             template.addTextSegment(splitInsertText[splitInsertText.length - 1]);
         }
         template.setInline(true);
-        EditorModificationUtil.moveCaretRelatively(editor, -template.getTemplateText().length());
+        if(variables.size() > 0){
+            EditorModificationUtil.moveCaretRelatively(editor, -template.getTemplateText().length());
+        }
         TemplateManager.getInstance(getProject()).startTemplate(editor, template);
     }
 
@@ -1114,6 +1145,9 @@ public class EditorEventManager {
                 int end = edit.getEndOffset();
                 if (StringUtils.isEmpty(text)) {
                     document.deleteString(start, end);
+                    if (setCaret) {
+                        editor.getCaretModel().moveToOffset(start);
+                    }
                 } else {
                     text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
                     if (end >= 0) {
