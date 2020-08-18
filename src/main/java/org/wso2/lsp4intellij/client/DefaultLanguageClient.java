@@ -191,11 +191,10 @@ public class DefaultLanguageClient implements LanguageClient {
             LOG.warn(message);
         } else if (msgType == MessageType.Info) {
             LOG.info(message);
-        }
-        if (msgType == MessageType.Log) {
+        }else if (msgType == MessageType.Log) {
             LOG.debug(message);
         } else {
-            LOG.warn("Unknown message type for " + message);
+            LOG.warn("Unknown message type '" + msgType + "' for " + message);
         }
     }
 
