@@ -158,8 +158,10 @@ public class DefaultLanguageClient implements LanguageClient {
 
 
         List<String> options = new ArrayList<>();
-        for (MessageActionItem item : actions) {
-            options.add(item.getTitle());
+        if (actions != null) {
+            for (MessageActionItem item : actions) {
+                options.add(item.getTitle());
+            }
         }
 
         Integer exitCode;
