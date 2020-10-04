@@ -15,50 +15,43 @@
  */
 package org.wso2.lsp4intellij.client;
 
+import com.intellij.notification.*;
+import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.util.ui.UIUtil;
-import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
-import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
-import org.eclipse.lsp4j.ConfigurationParams;
-import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.MessageActionItem;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.MessageType;
-import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.RegistrationParams;
-import org.eclipse.lsp4j.SemanticHighlightingParams;
-import org.eclipse.lsp4j.ShowMessageRequestParams;
-import org.eclipse.lsp4j.Unregistration;
-import org.eclipse.lsp4j.UnregistrationParams;
-import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import javax.swing.*;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 
-import javax.swing.Icon;
-
 public class DefaultLanguageClient implements LanguageClient {
 
-    private Logger LOG = Logger.getInstance(DefaultLanguageClient.class);
-    private Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
-    private ClientContext context;
+    @NotNull
+    final private Logger LOG = Logger.getInstance(DefaultLanguageClient.class);
+    @NotNull
+    private final NotificationGroup STICKY_NOTIFICATION_GROUP =
+            new NotificationGroup("lsp.message.request", NotificationDisplayType.STICKY_BALLOON, false);
+    @NotNull
+    final private Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
+    @NotNull
+    private final ClientContext context;
+    private boolean isModal = false;
 
-    public DefaultLanguageClient(ClientContext context) {
+
+    public DefaultLanguageClient(@NotNull ClientContext context) {
         this.context = context;
     }
 
@@ -109,8 +102,9 @@ public class DefaultLanguageClient implements LanguageClient {
 
     @Override
     public void telemetryEvent(Object o) {
-        //TODO
+        LOG.info(o.toString());
     }
+
 
     @Override
     public void publishDiagnostics(PublishDiagnosticsParams publishDiagnosticsParams) {
@@ -126,20 +120,33 @@ public class DefaultLanguageClient implements LanguageClient {
     public void showMessage(MessageParams messageParams) {
         String title = "Language Server message";
         String message = messageParams.getMessage();
-        ApplicationUtils.invokeLater(() -> {
-            MessageType msgType = messageParams.getType();
-            if (msgType == MessageType.Error) {
-                Messages.showErrorDialog(message, title);
-            } else if (msgType == MessageType.Warning) {
-                Messages.showWarningDialog(message, title);
-            } else if (msgType == MessageType.Info) {
-                Messages.showInfoMessage(message, title);
-            } else if (msgType == MessageType.Log) {
-                Messages.showInfoMessage(message, title);
-            } else {
-                LOG.warn("No message type for " + message);
-            }
-        });
+
+        if (isModal) {
+            ApplicationUtils.invokeLater(() -> {
+                MessageType msgType = messageParams.getType();
+                switch (msgType) {
+                    case Warning:
+                        Messages.showWarningDialog(message, title);
+                        break;
+                    case Error:
+                        Messages.showErrorDialog(message, title);
+                        break;
+                    case Info:
+                    case Log:
+                        Messages.showInfoMessage(message, title);
+                        break;
+                    default:
+                        LOG.warn("No message type for " + message);
+                        break;
+                }
+            });
+
+        } else {
+            NotificationType type = getNotificationType(messageParams.getType());
+            final Notification notification = new Notification(
+                    "lsp", messageParams.getType().toString(), messageParams.getMessage(), type);
+            notification.notify(context.getProject());
+        }
     }
 
     @Override
@@ -148,37 +155,96 @@ public class DefaultLanguageClient implements LanguageClient {
         String title = "Language Server message";
         String message = showMessageRequestParams.getMessage();
         MessageType msgType = showMessageRequestParams.getType();
-        Icon icon;
-        if (msgType == MessageType.Error) {
-            icon = UIUtil.getErrorIcon();
-        } else if (msgType == MessageType.Warning) {
-            icon = UIUtil.getWarningIcon();
-        } else if (msgType == MessageType.Info) {
-            icon = UIUtil.getInformationIcon();
-        } else if (msgType == MessageType.Log) {
-            icon = UIUtil.getInformationIcon();
-        } else {
-            icon = null;
-            LOG.warn("No message type for " + message);
-        }
 
-        List<String> titles = new ArrayList<>();
+
+        List<String> options = new ArrayList<>();
         for (MessageActionItem item : actions) {
-            titles.add(item.getTitle());
-        }
-        FutureTask<Integer> task = new FutureTask<>(
-                () -> Messages.showDialog(message, title, (String[]) titles.toArray(), 0, icon));
-        ApplicationManager.getApplication().invokeAndWait(task);
-
-        int exitCode = 0;
-        try {
-            exitCode = task.get();
-        } catch (InterruptedException | ExecutionException e) {
-            LOG.warn(e.getMessage());
+            options.add(item.getTitle());
         }
 
-        return CompletableFuture.completedFuture(new MessageActionItem(actions.get(exitCode).getTitle()));
+        Integer exitCode;
+        FutureTask<Integer> task;
+        if (isModal) {
+            Icon icon;
+            if (msgType == MessageType.Error) {
+                icon = UIUtil.getErrorIcon();
+            } else if (msgType == MessageType.Warning) {
+                icon = UIUtil.getWarningIcon();
+            } else if (msgType == MessageType.Info) {
+                icon = UIUtil.getInformationIcon();
+            } else if (msgType == MessageType.Log) {
+                icon = UIUtil.getInformationIcon();
+            } else {
+                icon = null;
+                LOG.warn("No message type for " + message);
+            }
+
+            task = new FutureTask<>(
+                    () -> Messages.showDialog(message, title, (String[]) options.toArray(), 0, icon));
+            ApplicationManager.getApplication().invokeAndWait(task);
+
+            try {
+                exitCode = task.get();
+            } catch (InterruptedException | ExecutionException e) {
+                LOG.warn(e.getMessage());
+                exitCode = -1;
+            }
+
+        } else {
+
+            final Notification notification = STICKY_NOTIFICATION_GROUP.createNotification(title, "subtitle", message, getNotificationType(msgType));
+            final CompletableFuture<Integer> integerCompletableFuture = new CompletableFuture<>();
+            for (int i = 0, optionsSize = options.size(); i < optionsSize; i++) {
+                int finalI = i;
+                notification.addAction(new NotificationAction(options.get(finalI)) {
+                    @Override
+                    public boolean isDumbAware() {
+                        return true;
+                    }
+
+                    @Override
+                    public void actionPerformed(@NotNull AnActionEvent e, @NotNull Notification notification) {
+                        integerCompletableFuture.complete(finalI);
+                        notification.expire();
+                    }
+                });
+            }
+            notification.whenExpired(() -> {
+                if (!integerCompletableFuture.isDone()) {
+                    integerCompletableFuture.complete(-1);
+                }
+            });
+            notification.notify(context.getProject());
+
+            try {
+                exitCode = integerCompletableFuture.get();
+            } catch (InterruptedException | ExecutionException e) {
+                LOG.warn(e.getMessage());
+                exitCode = -1;
+            }
+        }
+        return CompletableFuture.completedFuture(exitCode < 0 ? null : new MessageActionItem(actions.get(exitCode).getTitle()));
     }
+
+    @NotNull
+    protected NotificationType getNotificationType(@NotNull MessageType messageType) {
+        NotificationType type;
+        switch (messageType) {
+            case Warning:
+                type = NotificationType.WARNING;
+                break;
+            case Error:
+                type = NotificationType.ERROR;
+                break;
+            case Info:
+            case Log:
+            default:
+                type = NotificationType.INFORMATION;
+                break;
+        }
+        return type;
+    }
+
 
     @Override
     public void logMessage(MessageParams messageParams) {
@@ -198,7 +264,7 @@ public class DefaultLanguageClient implements LanguageClient {
         }
     }
 
-    protected final ClientContext getContext() {
+    protected final @NotNull ClientContext getContext() {
         return context;
     }
 
