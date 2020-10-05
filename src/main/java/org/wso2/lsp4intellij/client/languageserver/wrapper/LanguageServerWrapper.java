@@ -438,7 +438,7 @@ public class LanguageServerWrapper {
     /**
      * Starts the LanguageServer
      */
-    private void start() {
+    public void start() {
         if (status == STOPPED && !alreadyShownCrash && !alreadyShownTimeout) {
             setStatus(STARTING);
             try {
