@@ -225,7 +225,7 @@ public class DefaultLanguageClient implements LanguageClient {
                 exitCode = -1;
             }
         }
-        return CompletableFuture.completedFuture(exitCode < 0 ? null : new MessageActionItem(actions.get(exitCode).getTitle()));
+        return CompletableFuture.completedFuture(actions == null || exitCode < 0 ? null : actions.get(exitCode));
     }
 
     @NotNull
