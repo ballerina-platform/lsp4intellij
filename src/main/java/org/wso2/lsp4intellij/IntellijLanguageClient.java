@@ -50,7 +50,6 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 import static org.wso2.lsp4intellij.utils.FileUtils.reloadAllEditors;
@@ -93,15 +92,12 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      * Use it to initialize the server connection for the given project (useful if no editor is launched)
      */
     public void initProjectConnections(@NotNull Project project) {
-        // TODO: improve: work on entrySet directly
         String projectStr = FileUtils.projectToUri(project);
-        final List<Pair<String, String>> projectsServerDefinitionKeys = extToServerDefinition.keySet().stream().filter((p) -> p.getRight().equals(projectStr)).collect(Collectors.toList());
+        // find serverdefinition keys for this project and try to start a wrapper
+        extToServerDefinition.entrySet().stream().filter((e) -> e.getKey().getRight().equals(projectStr)).forEach(entry -> {
+            updateLanguageWrapperContainers(project, entry.getKey(), entry.getValue()).start();
+        });
 
-        for (Pair<String, String> key : projectsServerDefinitionKeys) {
-            LanguageServerDefinition serverDefinition = extToServerDefinition.get(key);
-            LanguageServerWrapper wrapper = updateLanguageWrapperContainers(project, key, serverDefinition);
-            wrapper.start();
-        }
     }
 
     /**
