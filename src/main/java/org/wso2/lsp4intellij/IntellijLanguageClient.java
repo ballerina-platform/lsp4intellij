@@ -250,7 +250,7 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
         });
     }
 
-    static synchronized LanguageServerWrapper updateLanguageWrapperContainers(Project project, final Pair<String, String> key, LanguageServerDefinition serverDefinition) {
+    private static synchronized LanguageServerWrapper updateLanguageWrapperContainers(Project project, final Pair<String, String> key, LanguageServerDefinition serverDefinition) {
         String projectUri = FileUtils.projectToUri(project);
         LanguageServerWrapper wrapper = extToLanguageWrapper.get(key);
         String ext = key.getLeft();
