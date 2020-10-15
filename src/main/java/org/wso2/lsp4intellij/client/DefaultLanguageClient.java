@@ -48,8 +48,7 @@ public class DefaultLanguageClient implements LanguageClient {
     final private Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
     @NotNull
     private final ClientContext context;
-    private boolean isModal = false;
-
+    protected boolean isModal = false;
 
     public DefaultLanguageClient(@NotNull ClientContext context) {
         this.context = context;
@@ -105,7 +104,6 @@ public class DefaultLanguageClient implements LanguageClient {
         LOG.info(o.toString());
     }
 
-
     @Override
     public void publishDiagnostics(PublishDiagnosticsParams publishDiagnosticsParams) {
         String uri = FileUtils.sanitizeURI(publishDiagnosticsParams.getUri());
@@ -125,11 +123,11 @@ public class DefaultLanguageClient implements LanguageClient {
             ApplicationUtils.invokeLater(() -> {
                 MessageType msgType = messageParams.getType();
                 switch (msgType) {
-                    case Warning:
-                        Messages.showWarningDialog(message, title);
-                        break;
                     case Error:
                         Messages.showErrorDialog(message, title);
+                        break;
+                    case Warning:
+                        Messages.showWarningDialog(message, title);
                         break;
                     case Info:
                     case Log:
@@ -140,7 +138,6 @@ public class DefaultLanguageClient implements LanguageClient {
                         break;
                 }
             });
-
         } else {
             NotificationType type = getNotificationType(messageParams.getType());
             final Notification notification = new Notification(
@@ -161,21 +158,25 @@ public class DefaultLanguageClient implements LanguageClient {
             options[i] = actions.get(i).getTitle();
         }
 
-        Integer exitCode;
+        int exitCode;
         FutureTask<Integer> task;
         if (isModal) {
             Icon icon;
-            if (msgType == MessageType.Error) {
-                icon = UIUtil.getErrorIcon();
-            } else if (msgType == MessageType.Warning) {
-                icon = UIUtil.getWarningIcon();
-            } else if (msgType == MessageType.Info) {
-                icon = UIUtil.getInformationIcon();
-            } else if (msgType == MessageType.Log) {
-                icon = UIUtil.getInformationIcon();
-            } else {
-                icon = null;
-                LOG.warn("No message type for " + message);
+            switch (msgType) {
+                case Error:
+                    icon = UIUtil.getErrorIcon();
+                    break;
+                case Warning:
+                    icon = UIUtil.getWarningIcon();
+                    break;
+                case Info:
+                case Log:
+                    icon = UIUtil.getInformationIcon();
+                    break;
+                default:
+                    icon = null;
+                    LOG.warn("No message type for " + message);
+                    break;
             }
 
             task = new FutureTask<>(
@@ -229,11 +230,11 @@ public class DefaultLanguageClient implements LanguageClient {
     protected NotificationType getNotificationType(@NotNull MessageType messageType) {
         NotificationType type;
         switch (messageType) {
-            case Warning:
-                type = NotificationType.WARNING;
-                break;
             case Error:
                 type = NotificationType.ERROR;
+                break;
+            case Warning:
+                type = NotificationType.WARNING;
                 break;
             case Info:
             case Log:
@@ -250,20 +251,25 @@ public class DefaultLanguageClient implements LanguageClient {
         String message = messageParams.getMessage();
         MessageType msgType = messageParams.getType();
 
-        if (msgType == MessageType.Error) {
-            LOG.error(message);
-        } else if (msgType == MessageType.Warning) {
-            LOG.warn(message);
-        } else if (msgType == MessageType.Info) {
-            LOG.info(message);
-        }else if (msgType == MessageType.Log) {
-            LOG.debug(message);
-        } else {
-            LOG.warn("Unknown message type '" + msgType + "' for " + message);
+        switch (msgType) {
+            case Error:
+                LOG.error(message);
+                break;
+            case Warning:
+                LOG.warn(message);
+                break;
+            case Info:
+            case Log:
+                LOG.info(message);
+                break;
+            default:
+                LOG.warn("Unknown message type '" + msgType + "' for " + message);
+                break;
         }
     }
 
-    protected final @NotNull ClientContext getContext() {
+    @NotNull
+    protected final ClientContext getContext() {
         return context;
     }
 
