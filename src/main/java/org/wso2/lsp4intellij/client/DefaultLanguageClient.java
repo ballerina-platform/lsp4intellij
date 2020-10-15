@@ -226,25 +226,18 @@ public class DefaultLanguageClient implements LanguageClient {
         return CompletableFuture.completedFuture(actions == null || exitCode < 0 ? null : actions.get(exitCode));
     }
 
-    @NotNull
     protected NotificationType getNotificationType(@NotNull MessageType messageType) {
-        NotificationType type;
         switch (messageType) {
             case Error:
-                type = NotificationType.ERROR;
-                break;
+                return NotificationType.ERROR;
             case Warning:
-                type = NotificationType.WARNING;
-                break;
+                return NotificationType.WARNING;
             case Info:
             case Log:
             default:
-                type = NotificationType.INFORMATION;
-                break;
+                return NotificationType.INFORMATION;
         }
-        return type;
     }
-
 
     @Override
     public void logMessage(MessageParams messageParams) {
