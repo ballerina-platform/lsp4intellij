@@ -1285,9 +1285,10 @@ public class EditorEventManager {
                 int endLine, endColumn;
                 if (oldText.length() > 0) {
                     endLine = startLine + StringUtil.countNewLines(oldText);
-                    String[] oldLines = oldText.toString().split("\n");
+                    String content = oldText.toString();
+                    String[] oldLines = content.split("\n");
                     int oldTextLength = oldLines.length == 0 ? 0 : oldLines[oldLines.length - 1].length();
-                    endColumn = oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
+                    endColumn = content.endsWith("\n") ? 0 : oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
                 } else { //if insert or no text change, the end position is the same
                     endLine = startLine;
                     endColumn = startColumn;
