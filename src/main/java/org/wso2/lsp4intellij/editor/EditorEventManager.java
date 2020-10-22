@@ -125,11 +125,7 @@ import java.awt.Cursor;
 import java.awt.Point;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -946,7 +942,7 @@ public class EditorEventManager {
 
         if (addTextEdits != null) {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> invokeLater(() -> {
-                applyInitialTextEdit(item, lookupString);
+                applyInitialTextEdit(item, context, lookupString);
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
@@ -961,7 +957,7 @@ public class EditorEventManager {
             }));
         } else if (command != null) {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                applyInitialTextEdit(item, lookupString);
+                applyInitialTextEdit(item, context, lookupString);
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
@@ -972,7 +968,7 @@ public class EditorEventManager {
             });
         } else {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                applyInitialTextEdit(item, lookupString);
+                applyInitialTextEdit(item, context, lookupString);
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
@@ -984,22 +980,60 @@ public class EditorEventManager {
         return builder;
     }
 
-    private void applyInitialTextEdit(CompletionItem item, String lookupString) {
+    private void applyInitialTextEdit(CompletionItem item, InsertionContext context, String lookupString) {
         if(item.getTextEdit() != null){
-            String insertText = getLookupStringWithoutPlaceholders(item, lookupString);
+            // remove intellij edit, server is controlling insertion
+            writeAction(() -> {
+                Runnable runnable = () -> this.editor.getDocument().deleteString(context.getStartOffset(), context.getTailOffset());
 
-            // build up an alternative text edit, as intelliJ unfortunately already changed the document and inserted lookupString for us
-            int lookupStringLength = insertText.length();
-            int endLine = item.getTextEdit().getRange().getEnd().getLine();
-            int endCharacter = item.getTextEdit().getRange().getEnd().getCharacter();
+                CommandProcessor.getInstance()
+                        .executeCommand(project, runnable, "Removing Intellij Completion", "LSPPlugin", editor.getDocument());
+            });
+            context.commitDocument();
 
-            // here we add the lookup string length to the range we want to override, as intellij already inserted it.
-            Position endPosition = new Position(endLine,endCharacter + lookupStringLength);
+            applyEdit(Integer.MAX_VALUE, Collections.singletonList(item.getTextEdit()) ,"text edit", false,true);
+        } else {
+            // client handles insertion, determine a prefix (to allow completions of partially matching items)
+            String lookupStringWithoutPlaceholders = getLookupStringWithoutPlaceholders(item, lookupString);
+            Integer prefixLength = getPrefixLength(context, lookupStringWithoutPlaceholders);
 
-            // finally, the actual range we want to replace
-            TextEdit myTextEdit = new TextEdit(new Range(item.getTextEdit().getRange().getStart(), endPosition), insertText);
-            applyEdit(Integer.MAX_VALUE, Collections.singletonList(myTextEdit) ,"Completion beforeSnippets: " + lookupString, false,true);
+            writeAction(() -> {
+                Runnable runnable = () -> this.editor.getDocument().deleteString(context.getStartOffset() - prefixLength, context.getStartOffset());
+
+                CommandProcessor.getInstance()
+                        .executeCommand(project, runnable, "Removing Prefix", "LSPPlugin", editor.getDocument());
+            });
+            context.commitDocument();
+
         }
+    }
+
+    @NotNull
+    private Integer getPrefixLength(InsertionContext context, String lookupStringWithoutPlaceholders) {
+        // we make a good guess what may be a prefix
+        // first: check if the completions text is partially in the document already is a prefix
+        Integer prefixLength = null;
+        for(int i = lookupStringWithoutPlaceholders.length(); i > 0; i--){
+            if(lookupStringWithoutPlaceholders.startsWith(
+                    this.editor.getDocument().getText().substring(context.getStartOffset() - i, context.getStartOffset()))
+            ) {
+                prefixLength = i;
+                break;
+            }
+        }
+        // check it there are common delimiters: ", ' and a space
+        if(prefixLength == null){
+            for(int i = 0; i < context.getStartOffset(); i++){
+                if("\"' ".contains(this.editor.getDocument().getText().substring(context.getStartOffset() - i - 1, context.getStartOffset() - i))) {
+                    prefixLength = i;
+                    break;
+                }
+            }
+        }
+        if(prefixLength == null){
+            prefixLength = 0;
+        }
+        return prefixLength;
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -1131,7 +1165,7 @@ public class EditorEventManager {
                 String text = edit.getNewText();
                 Range range = edit.getRange();
 
-                if (range != null && StringUtils.isNotEmpty(text)) {
+                if (range != null) {
                     int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
                     int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
                     lspEdits.add(new LSPTextEdit(text, start, end));
