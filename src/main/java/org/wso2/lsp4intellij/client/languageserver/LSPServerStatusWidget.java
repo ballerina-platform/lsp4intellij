@@ -155,7 +155,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
     @NotNull
     @Override
     public String ID() {
-        return projectName + "_" + ext;
+        return projectName != null && ext != null ? projectName + "_" + ext : "anonymous";
     }
 
     private class IconPresentation implements StatusBarWidget.IconPresentation {
