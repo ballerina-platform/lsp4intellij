@@ -1057,6 +1057,9 @@ public class EditorEventManager {
                 "lsp4intellij");
         template.parseSegments();
 
+        // prevent "smart" indent of next line...
+        template.setToIndent(false);
+
         final int[] varIndex = {0};
         variables.forEach(var -> {
             template.addTextSegment(splitInsertText[varIndex[0]]);
