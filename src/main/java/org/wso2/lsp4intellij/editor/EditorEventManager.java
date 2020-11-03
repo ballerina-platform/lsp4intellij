@@ -991,6 +991,8 @@ public class EditorEventManager {
             });
             context.commitDocument();
 
+            item.getTextEdit().setNewText(getLookupStringWithoutPlaceholders(item, lookupString));
+
             applyEdit(Integer.MAX_VALUE, Collections.singletonList(item.getTextEdit()) ,"text edit", false,true);
         } else {
             // client handles insertion, determine a prefix (to allow completions of partially matching items)
