@@ -981,7 +981,7 @@ public class EditorEventManager {
     }
 
     private void applyInitialTextEdit(CompletionItem item, InsertionContext context, String lookupString) {
-        if(item.getTextEdit() != null){
+        if (item.getTextEdit() != null) {
             // remove intellij edit, server is controlling insertion
             writeAction(() -> {
                 Runnable runnable = () -> this.editor.getDocument().deleteString(context.getStartOffset(), context.getTailOffset());
@@ -993,7 +993,7 @@ public class EditorEventManager {
 
             item.getTextEdit().setNewText(getLookupStringWithoutPlaceholders(item, lookupString));
 
-            applyEdit(Integer.MAX_VALUE, Collections.singletonList(item.getTextEdit()) ,"text edit", false,true);
+            applyEdit(Integer.MAX_VALUE, Collections.singletonList(item.getTextEdit()), "text edit", false, true);
         } else {
             // client handles insertion, determine a prefix (to allow completions of partially matching items)
             String lookupStringWithoutPlaceholders = getLookupStringWithoutPlaceholders(item, lookupString);
@@ -1015,24 +1015,28 @@ public class EditorEventManager {
         // we make a good guess what may be a prefix
         // first: check if the completions text is partially in the document already is a prefix
         Integer prefixLength = null;
-        for(int i = lookupStringWithoutPlaceholders.length(); i > 0; i--){
-            if(lookupStringWithoutPlaceholders.startsWith(
+        for (int i = lookupStringWithoutPlaceholders.length(); i > 0; i--) {
+            if (lookupStringWithoutPlaceholders.startsWith(
                     this.editor.getDocument().getText().substring(context.getStartOffset() - i, context.getStartOffset()))
             ) {
                 prefixLength = i;
                 break;
             }
         }
+
+        List<String> delimiters = Arrays.asList("\"", "'", " ");
+        delimiters.addAll(completionTriggers);
+
         // check it there are common delimiters: ", ' and a space
-        if(prefixLength == null){
-            for(int i = 0; i < context.getStartOffset(); i++){
-                if("\"' ".contains(this.editor.getDocument().getText().substring(context.getStartOffset() - i - 1, context.getStartOffset() - i))) {
+        if (prefixLength == null) {
+            for (int i = 0; i < context.getStartOffset(); i++) {
+                if (delimiters.contains(this.editor.getDocument().getText().substring(context.getStartOffset() - i - 1, context.getStartOffset() - i))) {
                     prefixLength = i;
                     break;
                 }
             }
         }
-        if(prefixLength == null){
+        if (prefixLength == null) {
             prefixLength = 0;
         }
         return prefixLength;
@@ -1075,7 +1079,7 @@ public class EditorEventManager {
             template.addTextSegment(splitInsertText[splitInsertText.length - 1]);
         }
         template.setInline(true);
-        if(variables.size() > 0){
+        if (variables.size() > 0) {
             EditorModificationUtil.moveCaretRelatively(editor, -template.getTemplateText().length());
         }
         TemplateManager.getInstance(getProject()).startTemplate(editor, template);
