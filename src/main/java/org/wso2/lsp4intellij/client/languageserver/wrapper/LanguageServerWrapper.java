@@ -682,6 +682,9 @@ public class LanguageServerWrapper {
             alreadyShownCrash = false;
             alreadyShownTimeout = false;
             reloadEditors(project);
+        }else{
+            stop(true);
+            reloadEditors(project);
         }
     }
 
