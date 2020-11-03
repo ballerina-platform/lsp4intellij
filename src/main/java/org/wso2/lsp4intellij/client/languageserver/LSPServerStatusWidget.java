@@ -176,9 +176,8 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                     actions.add(new ShowConnectedFiles());
                 }
                 actions.add(new ShowTimeouts());
-                if (wrapper.isRestartable()) {
-                    actions.add(new Restart());
-                }
+
+                actions.add(new Restart());
 
                 String title = "Server actions";
                 DataContext context = DataManager.getInstance().getDataContext(component);
