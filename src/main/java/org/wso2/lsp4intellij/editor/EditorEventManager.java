@@ -1024,11 +1024,10 @@ public class EditorEventManager {
             }
         }
 
-        List<String> delimiters = Arrays.asList("\"", "'", " ");
-        delimiters.addAll(completionTriggers);
-
-        // check it there are common delimiters: ", ' and a space
+        // check it there are common delimiters
         if (prefixLength == null) {
+            List<String> delimiters = new ArrayList<>(Arrays.asList(" \t\n\r\":{[,]}'".split("")));
+            delimiters.addAll(completionTriggers);
             for (int i = 0; i < context.getStartOffset(); i++) {
                 if (delimiters.contains(this.editor.getDocument().getText().substring(context.getStartOffset() - i - 1, context.getStartOffset() - i))) {
                     prefixLength = i;
