@@ -72,7 +72,7 @@ public class WorkspaceSymbolProvider {
       final LSPIconProvider iconProviderFor = GUIUtils.getIconProviderFor(result.getDefinition());
       final LSPLabelProvider labelProvider = GUIUtils.getLabelProviderFor(result.getDefinition());
       return new LSPNavigationItem(labelProvider.symbolNameFor(information, project),
-              labelProvider.symbolLocationFor(information, project), iconProviderFor.getSymbolIcon(information.getKind()),
+              labelProvider.symbolLocationFor(information, project), iconProviderFor.getSymbolIcon(information),
               project, file,
               location.getRange().getStart().getLine(),
               location.getRange().getStart().getCharacter());
