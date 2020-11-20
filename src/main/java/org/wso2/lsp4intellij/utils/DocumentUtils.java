@@ -160,4 +160,8 @@ public class DocumentUtils {
             }
         });
     }
+
+    public static int getTabSize(Editor editor){
+        return computableReadAction(() -> editor.getSettings().getTabSize(editor.getProject()));
+    }
 }
