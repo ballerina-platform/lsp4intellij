@@ -687,6 +687,7 @@ public class EditorEventManager {
             params.setTextDocument(identifier);
             FormattingOptions options = new FormattingOptions();
             options.setTabSize(DocumentUtils.getTabSize(editor));
+            options.setInsertSpaces(DocumentUtils.shouldUseSpaces(editor));
             params.setOptions(options);
 
             CompletableFuture<List<? extends TextEdit>> request = requestManager.formatting(params);
@@ -720,6 +721,7 @@ public class EditorEventManager {
             // Todo - Make Formatting Options configurable
             FormattingOptions options = new FormattingOptions();
             options.setTabSize(DocumentUtils.getTabSize(editor));
+            options.setInsertSpaces(DocumentUtils.shouldUseSpaces(editor));
             params.setOptions(options);
 
             CompletableFuture<List<? extends TextEdit>> request = requestManager.rangeFormatting(params);
