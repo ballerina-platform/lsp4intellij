@@ -114,8 +114,7 @@ import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
 import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
 import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
 import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.*;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToProjectFolderUri;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToURIString;
 import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
@@ -678,14 +677,15 @@ public class LanguageServerWrapper {
      * Reset language server wrapper state so it can be started again if it was failed earlier.
      */
     public void restart() {
-        if (isRestartable()) {
-            alreadyShownCrash = false;
-            alreadyShownTimeout = false;
+        pool(() ->{
+            if (isRestartable()) {
+                alreadyShownCrash = false;
+                alreadyShownTimeout = false;
+            }else{
+                stop(true);
+            }
             reloadEditors(project);
-        }else{
-            stop(true);
-            reloadEditors(project);
-        }
+        });
     }
 
     /**

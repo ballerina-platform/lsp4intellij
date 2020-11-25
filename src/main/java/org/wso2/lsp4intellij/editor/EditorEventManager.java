@@ -183,7 +183,6 @@ public class EditorEventManager {
 
     public List<String> completionTriggers;
     private List<String> signatureTriggers;
-    private DidChangeTextDocumentParams changesParams;
     private TextDocumentSyncKind syncKind;
     private volatile boolean needSave = false;
     private int version = -1;
@@ -216,8 +215,6 @@ public class EditorEventManager {
         this.caretListener = caretListener;
 
         this.identifier = new TextDocumentIdentifier(FileUtils.editorToURIString(editor));
-        this.changesParams = new DidChangeTextDocumentParams(new VersionedTextDocumentIdentifier(),
-                Collections.singletonList(new TextDocumentContentChangeEvent()));
         this.syncKind = serverOptions.syncKind;
 
         this.completionTriggers = (serverOptions.completionOptions != null
@@ -234,7 +231,6 @@ public class EditorEventManager {
 
         EditorEventManagerBase.uriToManager.put(FileUtils.editorToURIString(editor), this);
         EditorEventManagerBase.editorToManager.put(editor, this);
-        changesParams.getTextDocument().setUri(identifier.getUri());
 
         this.currentHint = null;
     }
@@ -252,11 +248,6 @@ public class EditorEventManager {
     @SuppressWarnings("unused")
     public TextDocumentIdentifier getIdentifier() {
         return identifier;
-    }
-
-    @SuppressWarnings("unused")
-    public DidChangeTextDocumentParams getChangesParams() {
-        return changesParams;
     }
 
     /**
@@ -1303,6 +1294,10 @@ public class EditorEventManager {
         if (event.getDocument() == editor.getDocument()) {
             //Todo - restore when adding hover support
             // long predTime = System.nanoTime(); //So that there are no hover events while typing
+
+            DidChangeTextDocumentParams changesParams = new DidChangeTextDocumentParams(new VersionedTextDocumentIdentifier(),
+                    Collections.singletonList(new TextDocumentContentChangeEvent()));
+            changesParams.getTextDocument().setUri(identifier.getUri());
             changesParams.getTextDocument().setVersion(version++);
 
             if (syncKind == TextDocumentSyncKind.Incremental) {
@@ -1334,7 +1329,7 @@ public class EditorEventManager {
             } else if (syncKind == TextDocumentSyncKind.Full) {
                 changesParams.getContentChanges().get(0).setText(editor.getDocument().getText());
             }
-            requestManager.didChange(changesParams);
+            pool(() -> requestManager.didChange(changesParams));
         } else {
             LOG.error("Wrong document for the EditorEventManager");
         }
