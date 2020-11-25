@@ -987,7 +987,7 @@ public class EditorEventManager {
             applyEdit(Integer.MAX_VALUE, Collections.singletonList(item.getTextEdit()), "text edit", false, true);
         } else {
             // client handles insertion, determine a prefix (to allow completions of partially matching items)
-            Integer prefixLength = getCompletionPrefixLength(context.getStartOffset());
+            int prefixLength = getCompletionPrefixLength(context.getStartOffset());
 
             writeAction(() -> {
                 Runnable runnable = () -> this.editor.getDocument().deleteString(context.getStartOffset() - prefixLength, context.getStartOffset());
@@ -1000,11 +1000,11 @@ public class EditorEventManager {
         }
     }
 
-    @NotNull
-    private Integer getCompletionPrefixLength(int offset) {
+    private int getCompletionPrefixLength(int offset) {
         return getCompletionPrefix(this.editor, offset).length();
     }
 
+    @NotNull
     public String getCompletionPrefix(Editor editor, int offset){
         List<String> delimiters = new ArrayList<>(this.completionTriggers);
         if(delimiters.isEmpty()){
