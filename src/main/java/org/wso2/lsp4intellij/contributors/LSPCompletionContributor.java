@@ -39,7 +39,7 @@ class LSPCompletionContributor extends CompletionContributor {
 
     @Override
     public void fillCompletionVariants(@NotNull CompletionParameters parameters, @NotNull CompletionResultSet result) {
-        CompletionProvider<CompletionParameters> provider = new CompletionProvider<>() {
+        CompletionProvider<CompletionParameters> provider = new CompletionProvider<CompletionParameters>() {
             @Override
             protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
                 try {
