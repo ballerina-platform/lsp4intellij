@@ -61,9 +61,14 @@ class LSPCompletionContributor extends CompletionContributor {
                 }
             }
         };
-        ProcessingContext withoutPrefixContext = new ProcessingContext();
 
-        provider.addCompletionVariants(parameters, withoutPrefixContext, result.withPrefixMatcher(""));
+        Editor editor = parameters.getEditor();
+        int offset = parameters.getOffset();
+
+        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
+        String prefix = manager.getCompletionPrefix(editor, offset);
+
+        provider.addCompletionVariants(parameters, new ProcessingContext(), result.withPrefixMatcher(new PlainPrefixMatcher(prefix)));
         if (result.isStopped()) {
             return;
         }

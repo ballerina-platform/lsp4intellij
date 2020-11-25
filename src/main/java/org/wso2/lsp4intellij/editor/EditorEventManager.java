@@ -996,8 +996,7 @@ public class EditorEventManager {
             applyEdit(Integer.MAX_VALUE, Collections.singletonList(item.getTextEdit()), "text edit", false, true);
         } else {
             // client handles insertion, determine a prefix (to allow completions of partially matching items)
-            String lookupStringWithoutPlaceholders = getLookupStringWithoutPlaceholders(item, lookupString);
-            Integer prefixLength = getPrefixLength(context, lookupStringWithoutPlaceholders);
+            Integer prefixLength = getCompletionPrefixLength(context.getStartOffset());
 
             writeAction(() -> {
                 Runnable runnable = () -> this.editor.getDocument().deleteString(context.getStartOffset() - prefixLength, context.getStartOffset());
@@ -1011,34 +1010,25 @@ public class EditorEventManager {
     }
 
     @NotNull
-    private Integer getPrefixLength(InsertionContext context, String lookupStringWithoutPlaceholders) {
-        // we make a good guess what may be a prefix
-        // first: check if the completions text is partially in the document already is a prefix
-        Integer prefixLength = null;
-        for (int i = lookupStringWithoutPlaceholders.length(); i > 0; i--) {
-            if (lookupStringWithoutPlaceholders.startsWith(
-                    this.editor.getDocument().getText().substring(context.getStartOffset() - i, context.getStartOffset()))
-            ) {
-                prefixLength = i;
-                break;
-            }
-        }
+    private Integer getCompletionPrefixLength(int offset) {
+        return getCompletionPrefix(this.editor, offset).length();
+    }
 
-        // check it there are common delimiters
-        if (prefixLength == null) {
-            List<String> delimiters = new ArrayList<>(Arrays.asList(" \t\n\r\":{[,]}'".split("")));
-            delimiters.addAll(completionTriggers);
-            for (int i = 0; i < context.getStartOffset(); i++) {
-                if (delimiters.contains(this.editor.getDocument().getText().substring(context.getStartOffset() - i - 1, context.getStartOffset() - i))) {
-                    prefixLength = i;
-                    break;
-                }
+    public String getCompletionPrefix(Editor editor, int offset){
+        List<String> delimiters = new ArrayList<>(this.completionTriggers);
+        if(delimiters.isEmpty()){
+            delimiters.addAll(Arrays.asList(" \t\n\r\":{[,]}'".split("")));
+        }
+        StringBuilder s = new StringBuilder();
+        String documentText = editor.getDocument().getText();
+        for (int i = 0; i < offset; i++) {
+            char singleLetter = documentText.charAt(offset - i - 1);
+            if (delimiters.contains(String.valueOf(singleLetter))) {
+                return s.reverse().toString();
             }
+            s.append(singleLetter);
         }
-        if (prefixLength == null) {
-            prefixLength = 0;
-        }
-        return prefixLength;
+        return "";
     }
 
     @SuppressWarnings("WeakerAccess")
