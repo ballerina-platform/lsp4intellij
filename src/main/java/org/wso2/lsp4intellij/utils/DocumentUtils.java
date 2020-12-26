@@ -160,4 +160,14 @@ public class DocumentUtils {
             }
         });
     }
+
+    public static int getTabSize(Editor editor){
+        return computableReadAction(() -> editor.getSettings().getTabSize(editor.getProject()));
+    }
+
+    public static boolean shouldUseSpaces(Editor editor){
+        return computableReadAction(() -> !editor.getSettings().isUseTabCharacter(editor.getProject()));
+    }
+
+
 }
