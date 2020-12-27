@@ -766,6 +766,9 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
 
     @Override
     public boolean equals(Object o) {
+        if( o == this){
+            return true;
+        }
         if(!(o instanceof LSPPsiElement)){
             return false;
         }
