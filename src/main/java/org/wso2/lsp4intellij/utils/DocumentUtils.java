@@ -21,6 +21,8 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiFile;
 import com.intellij.util.DocumentUtil;
 import org.eclipse.lsp4j.Position;
 
@@ -37,6 +39,12 @@ public class DocumentUtils {
     private static Logger LOG = Logger.getInstance(DocumentUtils.class);
     public static final String WIN_SEPARATOR = "\r\n";
     public static final String LINUX_SEPARATOR = "\n";
+
+    public static int getTabSize(Editor editor) {
+        return ApplicationUtils.computableReadAction(() ->{
+            return editor.getSettings().getTabSize(editor.getProject());
+        });
+    }
 
     /**
      * Gets the line at the given offset given an editor and bolds the text between the given offsets
@@ -95,7 +103,10 @@ public class DocumentUtils {
             int line = doc.getLineNumber(offset);
             int lineStart = doc.getLineStartOffset(line);
             String lineTextBeforeOffset = doc.getText(TextRange.create(lineStart, offset));
-            int column = lineTextBeforeOffset.length();
+
+            int tabs = StringUtil.countChars(lineTextBeforeOffset, '\t');
+            int tabSize = getTabSize(editor);
+            int column = lineTextBeforeOffset.length() + tabs - tabs * tabSize ;
             return computableReadAction(() -> new Position(line, column));
         });
     }
@@ -109,33 +120,41 @@ public class DocumentUtils {
      */
     public static int LSPPosToOffset(Editor editor, Position pos) {
         return computableReadAction(() -> {
-            try {
-                if (editor.isDisposed()) {
-                    return -1;
-                }
-
-                Document doc = editor.getDocument();
-                int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()));
-                String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
-                String lineTextForPosition = !lineText.isEmpty() ?
-                        lineText.substring(0, min(lineText.length(), pos.getCharacter())) :
-                        "";
-                int tabs = StringUtil.countChars(lineTextForPosition, '\t');
-                int tabSize = editor.getSettings().getTabSize(editor.getProject());
-                int column = tabs * tabSize + lineTextForPosition.length() - tabs;
-                int offset = editor.logicalPositionToOffset(new LogicalPosition(line, column));
-                if (pos.getCharacter() >= lineText.length()) {
-                    LOG.warn(String.format("LSPPOS outofbounds : %s line : %s column : %d offset : %d", pos,
-                            lineText, column, offset));
-                }
-                int docLength = doc.getTextLength();
-                if (offset > docLength) {
-                    LOG.warn(String.format("Offset greater than text length : %d > %d", offset, docLength));
-                }
-                return Math.min(Math.max(offset, 0), docLength);
-            } catch (IndexOutOfBoundsException e) {
+            if (editor == null) {
                 return -1;
             }
+            if (editor.isDisposed()) {
+                return -2;
+            }
+            // lsp and intellij start lines/columns zero-based
+
+            // FIXME [ms]: "The offsets are based on a UTF-16 string representation.
+            //  So a string of the form a𐐀b the character offset of the character
+            //  a is 0,
+            //  the character offset of 𐐀 is 1
+            //  and the character offset of b is 3 since 𐐀 is represented using two code units in UTF-16."
+            // see https://microsoft.github.io/language-server-protocol/specifications/specification-current/#textDocuments
+
+            Document doc = editor.getDocument();
+            int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
+            String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
+
+            final int endCharInLine = Math.max(0, min(lineText.length(), pos.getCharacter()));
+            String lineTextForPosition = endCharInLine > 0 ? lineText.substring(0, endCharInLine) : "";
+            int tabs = StringUtil.countChars(lineTextForPosition, '\t');
+            int tabSize = getTabSize(editor);
+            int column = tabs * tabSize - tabs + lineTextForPosition.length();
+            int offset = editor.logicalPositionToOffset(new LogicalPosition(line, column));
+            if (pos.getCharacter() >= lineText.length()) {
+                LOG.debug(String.format("LSPPOS outofbounds: %s, line : %s, column : %d, offset : %d", pos,
+                        lineText, column, offset));
+            }
+            int docLength = doc.getTextLength();
+            if (offset > docLength) {
+                LOG.debug(String.format("Offset greater than text length : %d > %d", offset, docLength));
+            }
+            return Math.min(Math.max(offset, 0), docLength);
+
         });
     }
 
