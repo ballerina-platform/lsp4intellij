@@ -27,21 +27,7 @@ import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.KeyWithDefaultValue;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.UserDataHolderBase;
-import com.intellij.psi.ContributedReferenceHost;
-import com.intellij.psi.FileViewProvider;
-import com.intellij.psi.NavigatablePsiElement;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementVisitor;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiInvalidElementAccessException;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.PsiNameIdentifierOwner;
-import com.intellij.psi.PsiNamedElement;
-import com.intellij.psi.PsiPolyVariantReference;
-import com.intellij.psi.PsiReference;
-import com.intellij.psi.PsiReferenceService;
-import com.intellij.psi.ResolveState;
+import com.intellij.psi.*;
 import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.SearchScope;
@@ -63,7 +49,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
     private final Key<KeyFMap> COPYABLE_USER_MAP_KEY = Key.create("COPYABLE_USER_MAP_KEY");
     private final AtomicFieldUpdater<LSPPsiElement, KeyFMap> updater = AtomicFieldUpdater.forFieldOfType(LSPPsiElement.class, KeyFMap.class);
     private final PsiManager manager;
-    private final LSPPsiReference reference;
+    private final org.wso2.lsp4intellij.contributors.psi.LSPPsiReference reference;
     private final Project project;
     private String name;
     private final PsiFile file;
@@ -83,7 +69,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         this.end = end;
         this.file = file;
         manager = PsiManager.getInstance(project);
-        reference = new LSPPsiReference(this);
+        reference = new org.wso2.lsp4intellij.contributors.psi.LSPPsiReference(this);
     }
 
     /**
@@ -776,5 +762,14 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
 
     protected void setUserMap(KeyFMap map) {
         myUserMap = map;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if(!(o instanceof LSPPsiElement)){
+            return false;
+        }
+        final LSPPsiElement element = (LSPPsiElement) o;
+        return start == element.start && end == element.end && name.equals(element.getName()) && file.equals(element.getContainingFile());
     }
 }
