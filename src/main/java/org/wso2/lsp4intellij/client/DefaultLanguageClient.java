@@ -20,6 +20,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.util.ui.UIUtil;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
@@ -29,7 +30,6 @@ import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import javax.swing.*;
-import javax.tools.Diagnostic;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
