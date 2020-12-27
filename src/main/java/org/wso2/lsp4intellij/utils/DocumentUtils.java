@@ -128,13 +128,6 @@ public class DocumentUtils {
             }
             // lsp and intellij start lines/columns zero-based
 
-            // FIXME [ms]: "The offsets are based on a UTF-16 string representation.
-            //  So a string of the form a𐐀b the character offset of the character
-            //  a is 0,
-            //  the character offset of 𐐀 is 1
-            //  and the character offset of b is 3 since 𐐀 is represented using two code units in UTF-16."
-            // see https://microsoft.github.io/language-server-protocol/specifications/specification-current/#textDocuments
-
             Document doc = editor.getDocument();
             int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
