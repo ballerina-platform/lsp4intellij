@@ -79,6 +79,7 @@ import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
@@ -793,7 +794,7 @@ public class EditorEventManager {
      */
     private void requestAndShowDoc(LogicalPosition editorPos, Point point) {
         Position serverPos = computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
-        CompletableFuture<Hover> request = requestManager.hover(new TextDocumentPositionParams(identifier, serverPos));
+        CompletableFuture<Hover> request = requestManager.hover(new HoverParams(identifier, serverPos));
         if (request == null) {
             return;
         }
@@ -802,14 +803,14 @@ public class EditorEventManager {
             wrapper.notifySuccess(Timeouts.HOVER);
 
             if (hover == null) {
-                LOG.warn(String.format("Hover is null for file %s and pos (%d;%d)", identifier.getUri(),
+                LOG.debug(String.format("Hover is null for file %s and pos (%d;%d)", identifier.getUri(),
                         serverPos.getLine(), serverPos.getCharacter()));
                 return;
             }
 
             String string = HoverHandler.getHoverString(hover);
             if (StringUtils.isEmpty(string)) {
-                LOG.warn(String.format("Hover string returned is null for file %s and pos (%d;%d)",
+                LOG.warn(String.format("Hover string returned is empty for file %s and pos (%d;%d)",
                         identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
                 return;
             }
