@@ -28,6 +28,7 @@ import com.intellij.lang.Language;
 import com.intellij.lang.LanguageDocumentation;
 import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
+import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
@@ -60,6 +61,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
+import com.intellij.util.SmartList;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
@@ -1501,9 +1503,16 @@ public class EditorEventManager {
                         int endOffset = editor.getDocument().getLineEndOffset(line);
                         TextRange range = new TextRange(startOffset, endOffset);
 
-                        Annotation annotation = this.anonHolder.createInfoAnnotation(range, codeAction.getTitle());
-                        annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction), range);
-                        this.annotations.add(annotation);
+                        this.anonHolder
+                                .newAnnotation(HighlightSeverity.INFORMATION, codeAction.getTitle())
+                                .range(range)
+                                .withFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction))
+                                .create();
+
+                        SmartList<Annotation> asList = (SmartList<Annotation>) this.anonHolder;
+                        this.annotations.add(asList.get(asList.size() - 1));
+
+
                         diagnosticSyncRequired = true;
                     }
                 }
