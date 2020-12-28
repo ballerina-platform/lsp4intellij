@@ -1419,35 +1419,39 @@ public class EditorEventManager {
                     referencesAction.forManagerAndOffset(this, offset);
                 }
             } else {
-                VirtualFile file = null;
-                try {
-                    file = VfsUtil.findFileByURL(new URL(locUri));
-                } catch (MalformedURLException e1) {
-                    LOG.warn("Syntax Exception occurred for uri: " + locUri);
-                }
-                if (file != null) {
-                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
-                    VirtualFile finalFile = file;
-                    writeAction(() -> {
-                        FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
-                        Editor srcEditor = FileUtils.editorFromVirtualFile(finalFile, project);
-                        if (srcEditor != null) {
-                            Position start = loc.getRange().getStart();
-                            LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(srcEditor, start);
-                            if (logicalPos != null) {
-                                srcEditor.getCaretModel().moveToLogicalPosition(logicalPos);
-                                srcEditor.getScrollingModel().scrollTo(logicalPos, ScrollType.CENTER);
-                            }
-                        }
-                    });
-                } else {
-                    LOG.warn("Empty file for " + locUri);
-                }
+                gotoLocation(loc);
             }
 
             ctrlRange.dispose();
             setCtrlRange(null);
         });
+    }
+
+    public void gotoLocation(Location loc) {
+        VirtualFile file = null;
+        try {
+            file = VfsUtil.findFileByURL(new URL(loc.getUri()));
+        } catch (MalformedURLException e1) {
+            LOG.warn("Syntax Exception occurred for uri: " + loc.getUri());
+        }
+        if (file != null) {
+            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+            VirtualFile finalFile = file;
+            writeAction(() -> {
+                FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
+                Editor srcEditor = FileUtils.editorFromVirtualFile(finalFile, project);
+                if (srcEditor != null) {
+                    Position start = loc.getRange().getStart();
+                    LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(srcEditor, start);
+                    if (logicalPos != null) {
+                        srcEditor.getCaretModel().moveToLogicalPosition(logicalPos);
+                        srcEditor.getScrollingModel().scrollTo(logicalPos, ScrollType.CENTER);
+                    }
+                }
+            });
+        } else {
+            LOG.warn("Empty file for " + loc.getUri());
+        }
     }
 
     public void requestAndShowCodeActions() {
