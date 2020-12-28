@@ -21,8 +21,6 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiFile;
 import com.intellij.util.DocumentUtil;
 import org.eclipse.lsp4j.Position;
 
@@ -99,6 +97,9 @@ public class DocumentUtils {
      */
     public static Position offsetToLSPPos(Editor editor, int offset) {
         return computableReadAction(() -> {
+            if (editor.isDisposed()) {
+                return null;
+            }
             Document doc = editor.getDocument();
             int line = doc.getLineNumber(offset);
             int lineStart = doc.getLineStartOffset(line);
@@ -107,7 +108,7 @@ public class DocumentUtils {
             int tabs = StringUtil.countChars(lineTextBeforeOffset, '\t');
             int tabSize = getTabSize(editor);
             int column = lineTextBeforeOffset.length() + tabs - tabs * tabSize ;
-            return computableReadAction(() -> new Position(line, column));
+            return new Position(line, column);
         });
     }
 
@@ -154,22 +155,18 @@ public class DocumentUtils {
     @Nullable
     public static LogicalPosition getTabsAwarePosition(Editor editor, Position pos) {
         return computableReadAction(() -> {
-            try {
-                if (editor.isDisposed()) {
-                    return null;
-                }
-                Document doc = editor.getDocument();
-                int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()));
-                String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
-                String lineTextForPosition = !lineText.isEmpty() ? lineText.substring(0, min(lineText.length(),
-                        pos.getCharacter())) : "";
-                int tabs = StringUtil.countChars(lineTextForPosition, '\t');
-                int tabSize = editor.getSettings().getTabSize(editor.getProject());
-                int column = tabs * tabSize + lineTextForPosition.length() - tabs;
-                return new LogicalPosition(line, column);
-            } catch (IndexOutOfBoundsException e) {
+            if (editor.isDisposed()) {
                 return null;
             }
+            Document doc = editor.getDocument();
+            int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
+            String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
+            String lineTextForPosition = !lineText.isEmpty() ? lineText.substring(0, min(lineText.length(),
+                    pos.getCharacter())) : "";
+            int tabs = StringUtil.countChars(lineTextForPosition, '\t');
+            int tabSize = getTabSize(editor);
+            int column = tabs * tabSize + lineTextForPosition.length() - tabs;
+            return new LogicalPosition(line, column);
         });
     }
 }
