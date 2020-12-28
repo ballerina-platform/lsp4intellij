@@ -39,9 +39,7 @@ public class DocumentUtils {
     public static final String LINUX_SEPARATOR = "\n";
 
     public static int getTabSize(Editor editor) {
-        return ApplicationUtils.computableReadAction(() ->{
-            return editor.getSettings().getTabSize(editor.getProject());
-        });
+        return ApplicationUtils.computableReadAction(() -> editor.getSettings().getTabSize(editor.getProject()));
     }
 
     /**
@@ -61,8 +59,8 @@ public class DocumentUtils {
             String line = doc.getText(new TextRange(lineStartOff, lineEndOff));
             int startOffsetInLine = startOffset - lineStartOff;
             int endOffsetInLine = endOffset - lineStartOff;
-            return computableReadAction(() -> line.substring(0, startOffsetInLine) + "<b>" + line
-                    .substring(startOffsetInLine, endOffsetInLine) + "</b>" + line.substring(endOffsetInLine));
+            return line.substring(0, startOffsetInLine) + "<b>" + line
+                    .substring(startOffsetInLine, endOffsetInLine) + "</b>" + line.substring(endOffsetInLine);
         });
     }
 
@@ -73,6 +71,7 @@ public class DocumentUtils {
      * @param editor   The editor
      * @return the Position
      */
+    @Nullable
     public static Position logicalToLSPPos(LogicalPosition position, Editor editor) {
         return offsetToLSPPos(editor, editor.logicalPositionToOffset(position));
     }
@@ -84,6 +83,7 @@ public class DocumentUtils {
      * @param editor   The editor
      * @return the Position
      */
+    @Nullable
     public static Position offsetToLSPPos(LogicalPosition position, Editor editor) {
         return offsetToLSPPos(editor, editor.logicalPositionToOffset(position));
     }
@@ -95,6 +95,7 @@ public class DocumentUtils {
      * @param offset The offset
      * @return an LSP position
      */
+    @Nullable
     public static Position offsetToLSPPos(Editor editor, int offset) {
         return computableReadAction(() -> {
             if (editor.isDisposed()) {
@@ -128,9 +129,8 @@ public class DocumentUtils {
                 return -2;
             }
             // lsp and intellij start lines/columns zero-based
-
             Document doc = editor.getDocument();
-            int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
+            int line = Math.max(    0, Math.min(pos.getLine(), doc.getLineCount()-1));
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
 
             final int endCharInLine = Math.max(0, min(lineText.length(), pos.getCharacter()));
