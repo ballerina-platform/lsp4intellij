@@ -26,6 +26,7 @@ import org.eclipse.lsp4j.Position;
 
 import javax.annotation.Nullable;
 
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 
@@ -135,10 +136,10 @@ public class DocumentUtils {
             }
             // lsp and intellij start lines/columns zero-based
             Document doc = editor.getDocument();
-            int line = Math.max(    0, Math.min(pos.getLine(), doc.getLineCount()-1));
+            int line = max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
 
-            final int endCharInLine = Math.max(0, min(lineText.length(), pos.getCharacter()));
+            final int endCharInLine = max(0, min(lineText.length(), pos.getCharacter()));
             String lineTextForPosition = endCharInLine > 0 ? lineText.substring(0, endCharInLine) : "";
             int tabs = StringUtil.countChars(lineTextForPosition, '\t');
             int tabSize = getTabSize(editor);
@@ -152,7 +153,7 @@ public class DocumentUtils {
             if (offset > docLength) {
                 LOG.debug(String.format("Offset greater than text length : %d > %d", offset, docLength));
             }
-            return Math.min(Math.max(offset, 0), docLength);
+            return Math.min(max(offset, 0), docLength);
 
         });
     }
@@ -164,10 +165,10 @@ public class DocumentUtils {
                 return null;
             }
             Document doc = editor.getDocument();
-            int line = Math.max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
+            int line = max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
-            String lineTextForPosition = !lineText.isEmpty() ? lineText.substring(0, min(lineText.length(),
-                    pos.getCharacter())) : "";
+            final int endCharInLine = max(0, min(lineText.length(), pos.getCharacter()));
+            String lineTextForPosition = endCharInLine > 0 ? lineText.substring(0, endCharInLine) : "";
             int tabs = StringUtil.countChars(lineTextForPosition, '\t');
             int tabSize = getTabSize(editor);
             int column = tabs * tabSize + lineTextForPosition.length() - tabs;
