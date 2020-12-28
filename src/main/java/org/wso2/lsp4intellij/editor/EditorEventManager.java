@@ -322,7 +322,8 @@ public class EditorEventManager {
             }
 
             int offset = editor.logicalPositionToOffset(lPos);
-            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRESH) {
+            if ((getIsCtrlDown() || EditorSettingsExternalizable.getInstance().isShowQuickDocOnMouseOverElement())
+                    && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRESH) {
                 if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
                     if (currentHint != null) {
                         currentHint.hide();
