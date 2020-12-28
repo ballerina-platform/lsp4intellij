@@ -59,8 +59,13 @@ public class DocumentUtils {
             String line = doc.getText(new TextRange(lineStartOff, lineEndOff));
             int startOffsetInLine = startOffset - lineStartOff;
             int endOffsetInLine = endOffset - lineStartOff;
-            return line.substring(0, startOffsetInLine) + "<b>" + line
-                    .substring(startOffsetInLine, endOffsetInLine) + "</b>" + line.substring(endOffsetInLine);
+            StringBuilder sb = new StringBuilder();
+            sb.append(line, 0, startOffsetInLine);
+            sb.append("<b>");
+            sb.append(line, startOffsetInLine, endOffsetInLine);
+            sb.append("</b>");
+            sb.append(line, endOffsetInLine, line.length());
+            return sb.toString();
         });
     }
 
