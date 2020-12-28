@@ -67,7 +67,7 @@ public class HoverHandler {
                         result.add(renderer.render(parser.parse(string)));
                     }
                 }
-                return "<html>" + String.join("\n\n", result) + "</html>";
+                return "<html><style>p {margin: 0}</style>" + String.join("\n\n", result) + "</html>";
             } else {
                 return "";
             }
