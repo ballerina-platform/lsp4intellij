@@ -60,7 +60,7 @@ public class DocumentUtils {
             String line = doc.getText(new TextRange(lineStartOff, lineEndOff));
             int startOffsetInLine = startOffset - lineStartOff;
             int endOffsetInLine = endOffset - lineStartOff;
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder( line.length()+7 );
             sb.append(line, 0, startOffsetInLine);
             sb.append("<b>");
             sb.append(line, startOffsetInLine, endOffsetInLine);
