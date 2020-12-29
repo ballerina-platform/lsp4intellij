@@ -15,7 +15,7 @@ repositories {
 }
 
 group = "org.wso2.lsp4intellij"
-version = gitVersionCalculator.calculateVersion("v")
+version = "";// gitVersionCalculator.calculateVersion("v")
 
 intellij {
     version '2020.1'
