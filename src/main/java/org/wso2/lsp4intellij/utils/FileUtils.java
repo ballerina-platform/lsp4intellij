@@ -273,7 +273,7 @@ public class FileUtils {
         return sanitizeURI(VFSToURI(FileDocumentManager.getInstance().getFile(document)));
     }
 
-    @NotNull
+    @Nullable
     public static String uriFromVirtualFile(@NotNull VirtualFile vf) {
         return pathToUri(vf.getCanonicalPath());
     }
