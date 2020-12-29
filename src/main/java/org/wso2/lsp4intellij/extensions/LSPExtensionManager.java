@@ -23,6 +23,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.client.ClientContext;
+import org.wso2.lsp4intellij.client.LanguageClientBase;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
@@ -87,9 +88,9 @@ public interface LSPExtensionManager {
      * </ul>
      * <p>
      * As a starting point you can extend
-     * {@link org.wso2.lsp4intellij.client.DefaultLanguageClient}.
+     * {@link LanguageClientBase}.
      */
-    LanguageClient getExtendedClientFor(ClientContext context);
+    LanguageClientBase getExtendedClientFor(ClientContext context);
 
     /**
      * The icon provider for the Language Server. Override and implement your own or extend the

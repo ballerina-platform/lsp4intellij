@@ -22,7 +22,7 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 
 /**
- * The client context which is received by {@link DefaultLanguageClient}. The context contain
+ * The client context which is received by {@link LanguageClientBase}. The context contain
  * information about the runtime and its components.
  *
  * @author gayanper

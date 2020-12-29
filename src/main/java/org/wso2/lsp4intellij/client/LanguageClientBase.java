@@ -15,12 +15,13 @@
  */
 package org.wso2.lsp4intellij.client;
 
+import com.intellij.notification.*;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.util.ui.UIUtil;
-import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
@@ -36,10 +37,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 
-public class DefaultLanguageClient implements LanguageClient {
+public class LanguageClientBase implements LanguageClient {
 
     @NotNull
-    final private Logger LOG = Logger.getInstance(DefaultLanguageClient.class);
+    final private Logger LOG = Logger.getInstance(LanguageClientBase.class);
     @NotNull
     private final NotificationGroup STICKY_NOTIFICATION_GROUP =
             new NotificationGroup("lsp.message.request", NotificationDisplayType.STICKY_BALLOON, false);
@@ -49,7 +50,7 @@ public class DefaultLanguageClient implements LanguageClient {
     private final ClientContext context;
     protected boolean isModal = false;
 
-    public DefaultLanguageClient(@NotNull ClientContext context) {
+    public LanguageClientBase(@NotNull ClientContext context) {
         this.context = context;
     }
 
