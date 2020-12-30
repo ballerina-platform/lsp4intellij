@@ -179,7 +179,7 @@ With plugin.xml containing;
          - Document symbols 
              ```xml
              <extensions defaultExtensionNs="com.intellij">
-                 <lang.psiStructureViewFactory language="TEXT" implementationClass="org.wso2.lsp4intellij.contributors.symbol.LSPStructureViewFactory"/>
+                 <lang.psiStructureViewFactory language="TEXT" implementationClass="org.wso2.lsp4intellij.contributors.symbol.LSPStructureView"/>
              </extensions>
              ```
 

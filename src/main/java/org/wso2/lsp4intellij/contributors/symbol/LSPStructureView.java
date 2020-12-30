@@ -51,47 +51,47 @@ import java.util.concurrent.TimeoutException;
 
 import static java.lang.Thread.sleep;
 
-public final class LSPStructureViewFactory implements PsiStructureViewFactory {
+public final class LSPStructureView implements PsiStructureViewFactory {
 
   List<TreeElement> treeElements = new ArrayList<>();
 
   void loadSymbols(LSPStructureViewModel lspStructureViewModel, Editor editor, @NotNull PsiFile psiFile){
-      // load data from server
-      final Set<LanguageServerWrapper> wrappers = ServiceManager.getService(IntellijLanguageClient.class).getAllServerWrappersFor(FileUtils.projectToUri(psiFile.getProject()));
-      final Optional<LanguageServerWrapper> wrapperOpt = wrappers.stream().findFirst();
-      if(wrapperOpt.isPresent()) {
-        final LanguageServerWrapper wrapper = wrapperOpt.get();
-        final CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> listCompletableFuture = wrapper.getRequestManager().documentSymbol(new DocumentSymbolParams(new TextDocumentIdentifier(FileUtils.uriFromVirtualFile(psiFile.getVirtualFile()))));
+    // load data from server
+    final Set<LanguageServerWrapper> wrappers = ServiceManager.getService(IntellijLanguageClient.class).getAllServerWrappersFor(FileUtils.projectToUri(psiFile.getProject()));
+    final Optional<LanguageServerWrapper> wrapperOpt = wrappers.stream().findFirst();
+    if(wrapperOpt.isPresent()) {
+      final LanguageServerWrapper wrapper = wrapperOpt.get();
+      final CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> listCompletableFuture = wrapper.getRequestManager().documentSymbol(new DocumentSymbolParams(new TextDocumentIdentifier(FileUtils.uriFromVirtualFile(psiFile.getVirtualFile()))));
 
-        List<Either<SymbolInformation, DocumentSymbol>> eithers;
-        try {
-          eithers = listCompletableFuture.get(Timeout.getTimeout(Timeouts.SYMBOLS), TimeUnit.MILLISECONDS);
-          wrapper.notifySuccess(Timeouts.SYMBOLS);
-          treeElements.clear();
+      List<Either<SymbolInformation, DocumentSymbol>> eithers;
+      try {
+        eithers = listCompletableFuture.get(Timeout.getTimeout(Timeouts.SYMBOLS), TimeUnit.MILLISECONDS);
+        wrapper.notifySuccess(Timeouts.SYMBOLS);
+        treeElements.clear();
 
-          if(eithers != null) {
-            for (Either<SymbolInformation, DocumentSymbol> either : eithers) {
-              if (either.isLeft()) {
-                final SymbolInformation symbolInfo = either.getLeft();
-                treeElements.add(new LSPStructureViewFactory.LSPStructureViewElement(new LSPPsiSymbol(symbolInfo.getKind(), symbolInfo.getName(), psiFile.getProject(), DocumentUtils.LSPPosToOffset(editor, symbolInfo.getLocation().getRange().getStart()), DocumentUtils.LSPPosToOffset(editor, symbolInfo.getLocation().getRange().getEnd()), psiFile)));
-              } else if (either.isRight()) {
-                final DocumentSymbol docSymbol = either.getRight();
+        if(eithers != null) {
+          for (Either<SymbolInformation, DocumentSymbol> either : eithers) {
+            if (either.isLeft()) {
+              final SymbolInformation symbolInfo = either.getLeft();
+              treeElements.add(new LSPStructureView.LSPStructureViewElement(new LSPPsiSymbol(symbolInfo.getKind(), symbolInfo.getName(), psiFile.getProject(), DocumentUtils.LSPPosToOffset(editor, symbolInfo.getLocation().getRange().getStart()), DocumentUtils.LSPPosToOffset(editor, symbolInfo.getLocation().getRange().getEnd()), psiFile)));
+            } else if (either.isRight()) {
+              final DocumentSymbol docSymbol = either.getRight();
 
-                final int start = DocumentUtils.LSPPosToOffset(editor, docSymbol.getRange().getStart());
-                final int end = DocumentUtils.LSPPosToOffset(editor, docSymbol.getRange().getEnd());
-                treeElements.add(new LSPStructureViewFactory.LSPStructureViewElement(
-                        new LSPPsiSymbol(docSymbol.getKind(), docSymbol.getName(), psiFile.getProject(), start, end, psiFile)));
-              }
+              final int start = DocumentUtils.LSPPosToOffset(editor, docSymbol.getRange().getStart());
+              final int end = DocumentUtils.LSPPosToOffset(editor, docSymbol.getRange().getEnd());
+              treeElements.add(new LSPStructureView.LSPStructureViewElement(
+                      new LSPPsiSymbol(docSymbol.getKind(), docSymbol.getName(), psiFile.getProject(), start, end, psiFile)));
             }
           }
-
-          lspStructureViewModel.fireModelUpdate();
-
-        }catch (InterruptedException | ExecutionException | TimeoutException e) {
-          wrapper.notifyFailure(Timeouts.SYMBOLS);
-          e.printStackTrace();
         }
+
+        lspStructureViewModel.fireModelUpdate();
+
+      }catch (InterruptedException | ExecutionException | TimeoutException e) {
+        wrapper.notifyFailure(Timeouts.SYMBOLS);
+        e.printStackTrace();
       }
+    }
   }
 
   @Override
@@ -186,7 +186,7 @@ public final class LSPStructureViewFactory implements PsiStructureViewFactory {
           StructureViewModel.ElementInfoProvider {
 
     public LSPStructureViewModel(PsiFile psiFile) {
-      super(psiFile, new LSPStructureViewFactory.LSPStructureViewElement(psiFile));
+      super(psiFile, new LSPStructureView.LSPStructureViewElement(psiFile));
     }
 
     @Override
@@ -257,7 +257,8 @@ public final class LSPStructureViewFactory implements PsiStructureViewFactory {
 
           @Override
           public @NotNull Collection<TreeElement> getChildren() {
-            return symbolKindListEntry.getValue();
+            final List<TreeElement> value = symbolKindListEntry.getValue();
+            return value == null ? Collections.emptyList() : value;
           }
         });
       }
