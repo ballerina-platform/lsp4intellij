@@ -23,7 +23,7 @@ import org.eclipse.lsp4j.SymbolKind;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.*;
+import javax.swing.Icon;
 
 public class LSPPsiSymbol extends LSPPsiElement{
 

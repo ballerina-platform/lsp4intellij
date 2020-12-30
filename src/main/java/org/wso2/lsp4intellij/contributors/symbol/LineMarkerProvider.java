@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.contributors.symbol;
 
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
@@ -50,7 +51,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-// TODO: [ms] refresh if the file is modified?
+// TODO: [ms] refresh if the file is modified
 // FIXME: [ms] BUG: adds multiple targets?
 public class LineMarkerProvider extends RelatedItemLineMarkerProvider {
 
@@ -74,14 +75,14 @@ public class LineMarkerProvider extends RelatedItemLineMarkerProvider {
     // first: collect for psi that is visible in editor
     // second: rest of file -> we only support psiFile -> covers whole document -> is everywhere visible -> two times visible
     // -> skip second addition -> no duplicates
-    if(!result.isEmpty()){
+    if (!result.isEmpty()) {
       return;
     }
 
     final PsiFile containingFile = element.getContainingFile();
     final VirtualFile virtualFile = containingFile.getVirtualFile();
 
-    if(!FileUtils.isFileSupported(virtualFile)){
+    if (!FileUtils.isFileSupported(virtualFile)) {
       return;
     }
 
@@ -94,12 +95,12 @@ public class LineMarkerProvider extends RelatedItemLineMarkerProvider {
     final LanguageServerWrapper wrapper = wrapperOpt.get();
     final TextDocumentIdentifier textDocument = new TextDocumentIdentifier(FileUtils.uriFromVirtualFile(virtualFile));
     final RequestManager requestManager = wrapper.getRequestManager();
-    if(requestManager == null){
+    if (requestManager == null) {
       return;   // not connected
     }
     final CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> listCompletableFuture = requestManager.documentSymbol(new DocumentSymbolParams(textDocument));
 
-    if(listCompletableFuture == null){
+    if (listCompletableFuture == null) {
       return;
     }
 
@@ -107,17 +108,17 @@ public class LineMarkerProvider extends RelatedItemLineMarkerProvider {
     try {
       eithers = listCompletableFuture.get(Timeout.getTimeout(Timeouts.SYMBOLS), TimeUnit.MILLISECONDS);
       wrapper.notifySuccess(Timeouts.SYMBOLS);
-    }catch (InterruptedException | ExecutionException | TimeoutException e) {
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
       wrapper.notifyFailure(Timeouts.SYMBOLS);
       return;
     }
 
-    if(eithers == null){
+    if (eithers == null) {
       return;
     }
 
     final Document document = FileDocumentManager.getInstance().getDocument(virtualFile);
-    if (document == null){
+    if (document == null) {
       return;
     }
     final Optional<Editor> foundEditor = Arrays.stream(EditorFactory.getInstance().getEditors(document, element.getProject())).findFirst();
@@ -167,13 +168,13 @@ public class LineMarkerProvider extends RelatedItemLineMarkerProvider {
     // get implementation info and apply subtypes
     try {
       final CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation = requestManager.implementation(new ImplementationParams(textDocument, startPos));
-      if(implementation == null){
+      if (implementation == null) {
         return;
       }
       final Either<List<? extends Location>, List<? extends LocationLink>> listEither = implementation.get(Timeout.getTimeout(Timeouts.IMPLEMENTATION), TimeUnit.MILLISECONDS);
       wrapper.notifySuccess(Timeouts.IMPLEMENTATION);
 
-      if (listEither!= null) {
+      if (listEither != null) {
 
         final EditorFactory EFInstance = EditorFactory.getInstance();
         List<LSPPsiElement> targetElements = new ArrayList<>();
@@ -182,14 +183,14 @@ public class LineMarkerProvider extends RelatedItemLineMarkerProvider {
           for (Location location : listEither.getLeft()) {
 
             // get definition range via the editor associated with the file from the uri
-            Document doc = FileDocumentManager.getInstance().getDocument( FileUtils.URIToVFS(location.getUri()) );
-            Editor editor = EFInstance.createViewer( doc, project);
+            Document doc = FileDocumentManager.getInstance().getDocument(FileUtils.URIToVFS(location.getUri()));
+            Editor editor = EFInstance.createViewer(doc, project);
             int start = DocumentUtils.LSPPosToOffset(editor, location.getRange().getStart());
             int end = DocumentUtils.LSPPosToOffset(editor, location.getRange().getEnd());
             String targetname;
-            if(start <0 || end < 0){
+            if (start < 0 || end < 0) {
               targetname = "go to implementation";
-            }else {
+            } else {
               targetname = editor.getDocument().getText(new TextRange(start, end));
             }
             EFInstance.releaseEditor(editor);
@@ -198,13 +199,13 @@ public class LineMarkerProvider extends RelatedItemLineMarkerProvider {
             targetElements.add(new LSPPsiElement(targetname, project, start, end, file));
 
           }
-        }else if (listEither.isRight()) {
+        } else if (listEither.isRight()) {
           for (LocationLink locationLink : listEither.getRight()) {
             // TODO: implement LocationLink
           }
         }
 
-        if(!targetElements.isEmpty()) {
+        if (!targetElements.isEmpty()) {
           NavigationGutterIconBuilder<PsiElement> builder =
                   NavigationGutterIconBuilder.create(AllIcons.Gutter.ImplementedMethod)
                           .setTargets(targetElements)
