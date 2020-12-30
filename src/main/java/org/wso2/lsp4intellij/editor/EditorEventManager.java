@@ -28,6 +28,7 @@ import com.intellij.lang.Language;
 import com.intellij.lang.LanguageDocumentation;
 import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
+import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
@@ -60,6 +61,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
+import com.intellij.util.SmartList;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
@@ -79,6 +81,7 @@ import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
@@ -126,6 +129,7 @@ import java.awt.Point;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -313,7 +317,8 @@ public class EditorEventManager {
             }
 
             int offset = editor.logicalPositionToOffset(lPos);
-            if (getIsCtrlDown() && curTime - ctrlTime > CTRL_THRESH) {
+            if ((getIsCtrlDown() || EditorSettingsExternalizable.getInstance().isShowQuickDocOnMouseOverElement())
+                    && curTime - ctrlTime > CTRL_THRESH) {
                 if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
                     if (currentHint != null) {
                         currentHint.hide();
@@ -562,13 +567,15 @@ public class EditorEventManager {
 
         // Calculates the diagnostic context.
         List<Diagnostic> diagnosticContext = new ArrayList<>();
-        diagnostics.forEach(diagnostic -> {
-            int startOffset = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getStart());
-            int endOffset = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getEnd());
-            if (offset >= startOffset && offset <= endOffset) {
-                diagnosticContext.add(diagnostic);
-            }
-        });
+        synchronized (this.diagnostics) {
+            diagnostics.forEach(diagnostic -> {
+                int startOffset = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getStart());
+                int endOffset = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getEnd());
+                if (offset >= startOffset && offset <= endOffset) {
+                    diagnosticContext.add(diagnostic);
+                }
+            });
+        }
 
         CodeActionContext context = new CodeActionContext(diagnosticContext);
         params.setContext(context);
@@ -785,7 +792,7 @@ public class EditorEventManager {
      */
     private void requestAndShowDoc(LogicalPosition editorPos, Point point) {
         Position serverPos = computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
-        CompletableFuture<Hover> request = requestManager.hover(new TextDocumentPositionParams(identifier, serverPos));
+        CompletableFuture<Hover> request = requestManager.hover(new HoverParams(identifier, serverPos));
         if (request == null) {
             return;
         }
@@ -794,14 +801,14 @@ public class EditorEventManager {
             wrapper.notifySuccess(Timeouts.HOVER);
 
             if (hover == null) {
-                LOG.warn(String.format("Hover is null for file %s and pos (%d;%d)", identifier.getUri(),
+                LOG.debug(String.format("Hover is null for file %s and pos (%d;%d)", identifier.getUri(),
                         serverPos.getLine(), serverPos.getCharacter()));
                 return;
             }
 
             String string = HoverHandler.getHoverString(hover);
             if (StringUtils.isEmpty(string)) {
-                LOG.warn(String.format("Hover string returned is null for file %s and pos (%d;%d)",
+                LOG.warn(String.format("Hover string returned is empty for file %s and pos (%d;%d)",
                         identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
                 return;
             }
@@ -940,7 +947,7 @@ public class EditorEventManager {
 
         if (addTextEdits != null) {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> invokeLater(() -> {
-                applyInitialTextEdit(item, lookupString);
+                applyInitialTextEdit(item, context, lookupString);
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
@@ -955,7 +962,7 @@ public class EditorEventManager {
             }));
         } else if (command != null) {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                applyInitialTextEdit(item, lookupString);
+                applyInitialTextEdit(item, context, lookupString);
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
@@ -966,7 +973,7 @@ public class EditorEventManager {
             });
         } else {
             builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                applyInitialTextEdit(item, lookupString);
+                applyInitialTextEdit(item, context, lookupString);
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
@@ -978,22 +985,55 @@ public class EditorEventManager {
         return builder;
     }
 
-    private void applyInitialTextEdit(CompletionItem item, String lookupString) {
-        if(item.getTextEdit() != null){
-            String insertText = getLookupStringWithoutPlaceholders(item, lookupString);
+    private void applyInitialTextEdit(CompletionItem item, InsertionContext context, String lookupString) {
+        if (item.getTextEdit() != null) {
+            // remove intellij edit, server is controlling insertion
+            writeAction(() -> {
+                Runnable runnable = () -> this.editor.getDocument().deleteString(context.getStartOffset(), context.getTailOffset());
 
-            // build up an alternative text edit, as intelliJ unfortunately already changed the document and inserted lookupString for us
-            int lookupStringLength = insertText.length();
-            int endLine = item.getTextEdit().getRange().getEnd().getLine();
-            int endCharacter = item.getTextEdit().getRange().getEnd().getCharacter();
+                CommandProcessor.getInstance()
+                        .executeCommand(project, runnable, "Removing Intellij Completion", "LSPPlugin", editor.getDocument());
+            });
+            context.commitDocument();
 
-            // here we add the lookup string length to the range we want to override, as intellij already inserted it.
-            Position endPosition = new Position(endLine,endCharacter + lookupStringLength);
+            item.getTextEdit().setNewText(getLookupStringWithoutPlaceholders(item, lookupString));
 
-            // finally, the actual range we want to replace
-            TextEdit myTextEdit = new TextEdit(new Range(item.getTextEdit().getRange().getStart(), endPosition), insertText);
-            applyEdit(Integer.MAX_VALUE, Collections.singletonList(myTextEdit) ,"Completion beforeSnippets: " + lookupString, false,true);
+            applyEdit(Integer.MAX_VALUE, Collections.singletonList(item.getTextEdit()), "text edit", false, true);
+        } else {
+            // client handles insertion, determine a prefix (to allow completions of partially matching items)
+            int prefixLength = getCompletionPrefixLength(context.getStartOffset());
+
+            writeAction(() -> {
+                Runnable runnable = () -> this.editor.getDocument().deleteString(context.getStartOffset() - prefixLength, context.getStartOffset());
+
+                CommandProcessor.getInstance()
+                        .executeCommand(project, runnable, "Removing Prefix", "LSPPlugin", editor.getDocument());
+            });
+            context.commitDocument();
+
         }
+    }
+
+    private int getCompletionPrefixLength(int offset) {
+        return getCompletionPrefix(this.editor, offset).length();
+    }
+
+    @NotNull
+    public String getCompletionPrefix(Editor editor, int offset) {
+        List<String> delimiters = new ArrayList<>(this.completionTriggers);
+        // add whitespace as delimiter, otherwise forced completion does not work
+        delimiters.addAll(Arrays.asList(" \t\n\r".split("")));
+
+        StringBuilder s = new StringBuilder();
+        String documentText = editor.getDocument().getText();
+        for (int i = 0; i < offset; i++) {
+            char singleLetter = documentText.charAt(offset - i - 1);
+            if (delimiters.contains(String.valueOf(singleLetter))) {
+                return s.reverse().toString();
+            }
+            s.append(singleLetter);
+        }
+        return "";
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -1017,6 +1057,9 @@ public class EditorEventManager {
                 "lsp4intellij");
         template.parseSegments();
 
+        // prevent "smart" indent of next line...
+        template.setToIndent(false);
+
         final int[] varIndex = {0};
         variables.forEach(var -> {
             template.addTextSegment(splitInsertText[varIndex[0]]);
@@ -1030,7 +1073,7 @@ public class EditorEventManager {
             template.addTextSegment(splitInsertText[splitInsertText.length - 1]);
         }
         template.setInline(true);
-        if(variables.size() > 0){
+        if (variables.size() > 0) {
             EditorModificationUtil.moveCaretRelatively(editor, -template.getTemplateText().length());
         }
         TemplateManager.getInstance(getProject()).startTemplate(editor, template);
@@ -1125,7 +1168,7 @@ public class EditorEventManager {
                 String text = edit.getNewText();
                 Range range = edit.getRange();
 
-                if (range != null && StringUtils.isNotEmpty(text)) {
+                if (range != null) {
                     int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
                     int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
                     lspEdits.add(new LSPTextEdit(text, start, end));
@@ -1371,35 +1414,39 @@ public class EditorEventManager {
                     referencesAction.forManagerAndOffset(this, offset);
                 }
             } else {
-                VirtualFile file = null;
-                try {
-                    file = VfsUtil.findFileByURL(new URL(locUri));
-                } catch (MalformedURLException e1) {
-                    LOG.warn("Syntax Exception occurred for uri: " + locUri);
-                }
-                if (file != null) {
-                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
-                    VirtualFile finalFile = file;
-                    writeAction(() -> {
-                        FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
-                        Editor srcEditor = FileUtils.editorFromVirtualFile(finalFile, project);
-                        if (srcEditor != null) {
-                            Position start = loc.getRange().getStart();
-                            LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(srcEditor, start);
-                            if (logicalPos != null) {
-                                srcEditor.getCaretModel().moveToLogicalPosition(logicalPos);
-                                srcEditor.getScrollingModel().scrollTo(logicalPos, ScrollType.CENTER);
-                            }
-                        }
-                    });
-                } else {
-                    LOG.warn("Empty file for " + locUri);
-                }
+                gotoLocation(loc);
             }
 
             ctrlRange.dispose();
             setCtrlRange(null);
         });
+    }
+
+    public void gotoLocation(Location loc) {
+        VirtualFile file = null;
+        try {
+            file = VfsUtil.findFileByURL(new URL(loc.getUri()));
+        } catch (MalformedURLException e1) {
+            LOG.warn("Syntax Exception occurred for uri: " + loc.getUri());
+        }
+        if (file != null) {
+            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+            VirtualFile finalFile = file;
+            writeAction(() -> {
+                FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
+                Editor srcEditor = FileUtils.editorFromVirtualFile(finalFile, project);
+                if (srcEditor != null) {
+                    Position start = loc.getRange().getStart();
+                    LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(srcEditor, start);
+                    if (logicalPos != null) {
+                        srcEditor.getCaretModel().moveToLogicalPosition(logicalPos);
+                        srcEditor.getScrollingModel().scrollTo(logicalPos, ScrollType.CENTER);
+                    }
+                }
+            });
+        } else {
+            LOG.warn("Empty file for " + loc.getUri());
+        }
     }
 
     public void requestAndShowCodeActions() {
@@ -1455,9 +1502,16 @@ public class EditorEventManager {
                         int endOffset = editor.getDocument().getLineEndOffset(line);
                         TextRange range = new TextRange(startOffset, endOffset);
 
-                        Annotation annotation = this.anonHolder.createInfoAnnotation(range, codeAction.getTitle());
-                        annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction), range);
-                        this.annotations.add(annotation);
+                        this.anonHolder
+                                .newAnnotation(HighlightSeverity.INFORMATION, codeAction.getTitle())
+                                .range(range)
+                                .withFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction))
+                                .create();
+
+                        SmartList<Annotation> asList = (SmartList<Annotation>) this.anonHolder;
+                        this.annotations.add(asList.get(asList.size() - 1));
+
+
                         diagnosticSyncRequired = true;
                     }
                 }
