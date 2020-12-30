@@ -39,10 +39,6 @@ public class DocumentUtils {
     public static final String WIN_SEPARATOR = "\r\n";
     public static final String LINUX_SEPARATOR = "\n";
 
-    public static int getTabSize(Editor editor) {
-        return ApplicationUtils.computableReadAction(() -> editor.getSettings().getTabSize(editor.getProject()));
-    }
-
     /**
      * Gets the line at the given offset given an editor and bolds the text between the given offsets
      *
@@ -165,7 +161,7 @@ public class DocumentUtils {
                 return null;
             }
             Document doc = editor.getDocument();
-            int line = max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
+            int line = max(0, Math.min(pos.getLine(), doc.getLineCount() - 1));
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
             final int endCharInLine = max(0, min(lineText.length(), pos.getCharacter()));
             String lineTextForPosition = endCharInLine > 0 ? lineText.substring(0, endCharInLine) : "";
@@ -174,5 +170,9 @@ public class DocumentUtils {
             int column = tabs * tabSize + lineTextForPosition.length() - tabs;
             return new LogicalPosition(line, column);
         });
+    }
+
+    public static int getTabSize(Editor editor) {
+        return ApplicationUtils.computableReadAction(() -> editor.getSettings().getTabSize(editor.getProject()));
     }
 }
