@@ -172,6 +172,9 @@ public class DocumentUtils {
         });
     }
 
+    /**
+     * Retrieves the amount of whitespaces a tab represents.
+     */
     public static int getTabSize(Editor editor) {
         return ApplicationUtils.computableReadAction(() -> editor.getSettings().getTabSize(editor.getProject()));
     }
