@@ -35,7 +35,6 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
-import java.util.Set;
 
 public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
 
@@ -53,18 +52,15 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             if (!FileUtils.isFileSupported(virtualFile) || !IntellijLanguageClient.isExtensionSupported(virtualFile)) {
                 return null;
             }
-            String uri = FileUtils.VFSToURI(virtualFile);
-            Set<EditorEventManager> eventManagers = EditorEventManagerBase.managersForUri(uri);
+            EditorEventManager eventManager = EditorEventManagerBase.forEditor(editor);
 
-            if(eventManagers.isEmpty()){
+            if(eventManager == null){
                 return null;
             }
 
             // If the diagnostics list is locked, we need to skip annotating the file.
-            for(EditorEventManager eventManager: eventManagers){
-                if (!(eventManager.isDiagnosticSyncRequired() || eventManager.isCodeActionSyncRequired())) {
-                    return null;
-                }
+            if (!(eventManager.isDiagnosticSyncRequired() || eventManager.isCodeActionSyncRequired())) {
+                return null;
             }
             return RESULT;
         } catch (Exception e) {
@@ -84,27 +80,26 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         VirtualFile virtualFile = file.getVirtualFile();
         if (FileUtils.isFileSupported(virtualFile) && IntellijLanguageClient.isExtensionSupported(virtualFile)) {
             String uri = FileUtils.VFSToURI(virtualFile);
-            Set<EditorEventManager> eventManagers = EditorEventManagerBase.managersForUri(uri);
+            // TODO annotations are applied to a file / document not to an editor. so store them by file and not by editor..
+            EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
 
-            for(EditorEventManager eventManager: eventManagers){
-                if (eventManager.isCodeActionSyncRequired()) {
-                    try {
-                        updateAnnotations(holder, eventManager);
-                    } catch (ConcurrentModificationException e) {
-                        // Todo - Add proper fix to handle concurrent modifications gracefully.
-                        LOG.warn("Error occurred when updating LSP diagnostics due to concurrent modifications.", e);
-                    } catch (Throwable t) {
-                        LOG.warn("Error occurred when updating LSP diagnostics.", t);
-                    }
-                } else if (eventManager.isDiagnosticSyncRequired()) {
-                    try {
-                        createAnnotations(holder, eventManager);
-                    } catch (ConcurrentModificationException e) {
-                        // Todo - Add proper fix to handle concurrent modifications gracefully.
-                        LOG.warn("Error occurred when updating LSP code actions due to concurrent modifications.", e);
-                    } catch (Throwable t) {
-                        LOG.warn("Error occurred when updating LSP code actions.", t);
-                    }
+            if (eventManager.isCodeActionSyncRequired()) {
+                try {
+                    updateAnnotations(holder, eventManager);
+                } catch (ConcurrentModificationException e) {
+                    // Todo - Add proper fix to handle concurrent modifications gracefully.
+                    LOG.warn("Error occurred when updating LSP diagnostics due to concurrent modifications.", e);
+                } catch (Throwable t) {
+                    LOG.warn("Error occurred when updating LSP diagnostics.", t);
+                }
+            } else if (eventManager.isDiagnosticSyncRequired()) {
+                try {
+                    createAnnotations(holder, eventManager);
+                } catch (ConcurrentModificationException e) {
+                    // Todo - Add proper fix to handle concurrent modifications gracefully.
+                    LOG.warn("Error occurred when updating LSP code actions due to concurrent modifications.", e);
+                } catch (Throwable t) {
+                    LOG.warn("Error occurred when updating LSP code actions.", t);
                 }
             }
         }
