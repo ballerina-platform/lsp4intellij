@@ -19,15 +19,13 @@ import com.intellij.codeInsight.completion.CompletionContributor;
 import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionProvider;
 import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.completion.CompletionType;
+import com.intellij.codeInsight.completion.PlainPrefixMatcher;
 import com.intellij.openapi.application.ex.ApplicationUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.ElementPattern;
-import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
 import org.eclipse.lsp4j.Position;
@@ -43,8 +41,9 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 class LSPCompletionContributor extends CompletionContributor {
     private static final Logger LOG = Logger.getInstance(LSPCompletionContributor.class);
 
-    public LSPCompletionContributor() {
-        this.extend(CompletionType.BASIC, usePattern(), new CompletionProvider<CompletionParameters>() {
+    @Override
+    public void fillCompletionVariants(@NotNull CompletionParameters parameters, @NotNull CompletionResultSet result) {
+        CompletionProvider<CompletionParameters> provider = new CompletionProvider<CompletionParameters>() {
             @Override
             protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
                 try {
@@ -65,16 +64,22 @@ class LSPCompletionContributor extends CompletionContributor {
                     LOG.warn("LSP Completions ended with an error", e);
                 }
             }
-        });
-    }
+        };
 
-    /**
-     * Override this methods and provide a {@link ElementPattern} so that the contributor is
-     * triggered at a location that the pattern is matching. The default pattern which this method
-     * returns is <b>Always True</b>
-     */
-    protected ElementPattern<? extends PsiElement> usePattern() {
-        return PlatformPatterns.not(PlatformPatterns.alwaysFalse());
+        Editor editor = parameters.getEditor();
+        int offset = parameters.getOffset();
+
+        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
+        if (manager != null) {
+            String prefix = manager.getCompletionPrefix(editor, offset);
+
+            provider.addCompletionVariants(parameters, new ProcessingContext(), result.withPrefixMatcher(new PlainPrefixMatcher(prefix)));
+            if (result.isStopped()) {
+                return;
+            }
+
+            super.fillCompletionVariants(parameters, result);
+        }
     }
 
     @Override
