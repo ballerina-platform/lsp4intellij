@@ -683,7 +683,7 @@ public class LanguageServerWrapper {
             if (isRestartable()) {
                 alreadyShownCrash = false;
                 alreadyShownTimeout = false;
-            }else{
+            } else {
                 stop(true);
             }
             reloadEditors(project);
