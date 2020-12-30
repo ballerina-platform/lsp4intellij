@@ -28,6 +28,7 @@ import com.intellij.lang.Language;
 import com.intellij.lang.LanguageDocumentation;
 import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
+import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
@@ -60,6 +61,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
+import com.intellij.util.SmartList;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
@@ -1453,35 +1455,39 @@ public class EditorEventManager {
                     referencesAction.forManagerAndOffset(this, offset);
                 }
             } else {
-                VirtualFile file = null;
-                try {
-                    file = VfsUtil.findFileByURL(new URL(locUri));
-                } catch (MalformedURLException e1) {
-                    LOG.warn("Syntax Exception occurred for uri: " + locUri);
-                }
-                if (file != null) {
-                    OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
-                    VirtualFile finalFile = file;
-                    writeAction(() -> {
-                        FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
-                        Editor srcEditor = FileUtils.editorFromVirtualFile(finalFile, project);
-                        if (srcEditor != null) {
-                            Position start = loc.getRange().getStart();
-                            LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(srcEditor, start);
-                            if (logicalPos != null) {
-                                srcEditor.getCaretModel().moveToLogicalPosition(logicalPos);
-                                srcEditor.getScrollingModel().scrollTo(logicalPos, ScrollType.CENTER);
-                            }
-                        }
-                    });
-                } else {
-                    LOG.warn("Empty file for " + locUri);
-                }
+                gotoLocation(loc);
             }
 
             ctrlRange.dispose();
             setCtrlRange(null);
         });
+    }
+
+    public void gotoLocation(Location loc) {
+        VirtualFile file = null;
+        try {
+            file = VfsUtil.findFileByURL(new URL(loc.getUri()));
+        } catch (MalformedURLException e1) {
+            LOG.warn("Syntax Exception occurred for uri: " + loc.getUri());
+        }
+        if (file != null) {
+            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
+            VirtualFile finalFile = file;
+            writeAction(() -> {
+                FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
+                Editor srcEditor = FileUtils.editorFromVirtualFile(finalFile, project);
+                if (srcEditor != null) {
+                    Position start = loc.getRange().getStart();
+                    LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(srcEditor, start);
+                    if (logicalPos != null) {
+                        srcEditor.getCaretModel().moveToLogicalPosition(logicalPos);
+                        srcEditor.getScrollingModel().scrollTo(logicalPos, ScrollType.CENTER);
+                    }
+                }
+            });
+        } else {
+            LOG.warn("Empty file for " + loc.getUri());
+        }
     }
 
     public void requestAndShowCodeActions() {
@@ -1537,9 +1543,16 @@ public class EditorEventManager {
                         int endOffset = editor.getDocument().getLineEndOffset(line);
                         TextRange range = new TextRange(startOffset, endOffset);
 
-                        Annotation annotation = this.anonHolder.createInfoAnnotation(range, codeAction.getTitle());
-                        annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction), range);
-                        this.annotations.add(annotation);
+                        this.anonHolder
+                                .newAnnotation(HighlightSeverity.INFORMATION, codeAction.getTitle())
+                                .range(range)
+                                .withFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction))
+                                .create();
+
+                        SmartList<Annotation> asList = (SmartList<Annotation>) this.anonHolder;
+                        this.annotations.add(asList.get(asList.size() - 1));
+
+
                         diagnosticSyncRequired = true;
                     }
                 }
