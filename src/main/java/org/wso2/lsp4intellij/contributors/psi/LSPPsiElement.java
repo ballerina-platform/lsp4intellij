@@ -764,6 +764,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         myUserMap = map;
     }
 
+    /*
     @Override
     public boolean equals(Object o) {
         if( o == this){
@@ -774,5 +775,5 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         }
         final LSPPsiElement element = (LSPPsiElement) o;
         return start == element.start && end == element.end && name.equals(element.getName()) && file.equals(element.getContainingFile());
-    }
+    }*/
 }

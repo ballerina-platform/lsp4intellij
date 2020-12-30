@@ -22,7 +22,6 @@ import com.intellij.ide.util.treeView.AbstractTreeNode;
 import com.intellij.ide.util.treeView.smartTree.*;
 import com.intellij.lang.PsiStructureViewFactory;
 import com.intellij.navigation.ItemPresentation;
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
@@ -53,11 +52,11 @@ import static java.lang.Thread.sleep;
 
 public final class LSPStructureView implements PsiStructureViewFactory {
 
-  List<TreeElement> treeElements = new ArrayList<>();
+  @NotNull List<TreeElement> treeElements = new ArrayList<>();
 
   void loadSymbols(LSPStructureViewModel lspStructureViewModel, Editor editor, @NotNull PsiFile psiFile){
     // load data from server
-    final Set<LanguageServerWrapper> wrappers = ServiceManager.getService(IntellijLanguageClient.class).getAllServerWrappersFor(FileUtils.projectToUri(psiFile.getProject()));
+    final Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(psiFile.getProject()));
     final Optional<LanguageServerWrapper> wrapperOpt = wrappers.stream().findFirst();
     if(wrapperOpt.isPresent()) {
       final LanguageServerWrapper wrapper = wrapperOpt.get();
@@ -128,7 +127,7 @@ public final class LSPStructureView implements PsiStructureViewFactory {
     };
   }
 
-  class LSPStructureViewElement implements StructureViewTreeElement, SortableTreeElement {
+  private class LSPStructureViewElement implements StructureViewTreeElement, SortableTreeElement {
 
     private final NavigatablePsiElement navigatablePsiElement;
 
@@ -170,7 +169,6 @@ public final class LSPStructureView implements PsiStructureViewFactory {
       return presentation != null ? presentation : new PresentationData();
     }
 
-    @NotNull
     @Override
     public TreeElement[] getChildren() {
       if( navigatablePsiElement instanceof PsiPlainTextFile)
@@ -211,9 +209,7 @@ public final class LSPStructureView implements PsiStructureViewFactory {
 
   }
 
-
-
-  public class SymbolGrouper implements Grouper{
+  private static class SymbolGrouper implements Grouper{
     @NonNls
     public static final String ID = "GROUP_BY_SYMBOLKIND";
 
@@ -226,13 +222,13 @@ public final class LSPStructureView implements PsiStructureViewFactory {
       for (TreeElement o : children) {
         if (o instanceof LSPStructureViewElement) {
           LSPPsiSymbol element = (LSPPsiSymbol) ((LSPStructureViewElement) o).getValue();
-          final List<TreeElement> list = result.computeIfAbsent(element.getKind(), k -> new ArrayList<>());
+          @NotNull final List<TreeElement> list = result.computeIfAbsent(element.getKind(), k -> new ArrayList<>());
           list.add(o);
         }
       }
 
       List<Group> groupList = new ArrayList<>();
-      for (Map.Entry<SymbolKind, List<TreeElement>> symbolKindListEntry : result.entrySet()) {
+      for (@NotNull Map.Entry<SymbolKind, List<TreeElement>> symbolKindListEntry : result.entrySet()) {
         groupList.add(new Group(){
 
           @Override
@@ -256,9 +252,8 @@ public final class LSPStructureView implements PsiStructureViewFactory {
           }
 
           @Override
-          public @NotNull Collection<TreeElement> getChildren() {
-            final List<TreeElement> value = symbolKindListEntry.getValue();
-            return value == null ? Collections.emptyList() : value;
+          public Collection<TreeElement> getChildren() {
+            return symbolKindListEntry.getValue();
           }
         });
       }
