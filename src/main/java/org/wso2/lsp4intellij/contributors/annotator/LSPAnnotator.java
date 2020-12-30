@@ -35,6 +35,7 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
+import java.util.Set;
 
 public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
 
@@ -53,11 +54,17 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
                 return null;
             }
             String uri = FileUtils.VFSToURI(virtualFile);
-            EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
+            Set<EditorEventManager> eventManagers = EditorEventManagerBase.managersForUri(uri);
+
+            if(eventManagers.isEmpty()){
+                return null;
+            }
 
             // If the diagnostics list is locked, we need to skip annotating the file.
-            if (eventManager == null || !(eventManager.isDiagnosticSyncRequired() || eventManager.isCodeActionSyncRequired())) {
-                return null;
+            for(EditorEventManager eventManager: eventManagers){
+                if (!(eventManager.isDiagnosticSyncRequired() || eventManager.isCodeActionSyncRequired())) {
+                    return null;
+                }
             }
             return RESULT;
         } catch (Exception e) {
@@ -77,28 +84,27 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         VirtualFile virtualFile = file.getVirtualFile();
         if (FileUtils.isFileSupported(virtualFile) && IntellijLanguageClient.isExtensionSupported(virtualFile)) {
             String uri = FileUtils.VFSToURI(virtualFile);
-            EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
-            if (eventManager == null) {
-                return;
-            }
+            Set<EditorEventManager> eventManagers = EditorEventManagerBase.managersForUri(uri);
 
-            if (eventManager.isCodeActionSyncRequired()) {
-                try {
-                    updateAnnotations(holder, eventManager);
-                } catch (ConcurrentModificationException e) {
-                    // Todo - Add proper fix to handle concurrent modifications gracefully.
-                    LOG.warn("Error occurred when updating LSP diagnostics due to concurrent modifications.", e);
-                } catch (Throwable t) {
-                    LOG.warn("Error occurred when updating LSP diagnostics.", t);
-                }
-            } else if (eventManager.isDiagnosticSyncRequired()) {
-                try {
-                    createAnnotations(holder, eventManager);
-                } catch (ConcurrentModificationException e) {
-                    // Todo - Add proper fix to handle concurrent modifications gracefully.
-                    LOG.warn("Error occurred when updating LSP code actions due to concurrent modifications.", e);
-                } catch (Throwable t) {
-                    LOG.warn("Error occurred when updating LSP code actions.", t);
+            for(EditorEventManager eventManager: eventManagers){
+                if (eventManager.isCodeActionSyncRequired()) {
+                    try {
+                        updateAnnotations(holder, eventManager);
+                    } catch (ConcurrentModificationException e) {
+                        // Todo - Add proper fix to handle concurrent modifications gracefully.
+                        LOG.warn("Error occurred when updating LSP diagnostics due to concurrent modifications.", e);
+                    } catch (Throwable t) {
+                        LOG.warn("Error occurred when updating LSP diagnostics.", t);
+                    }
+                } else if (eventManager.isDiagnosticSyncRequired()) {
+                    try {
+                        createAnnotations(holder, eventManager);
+                    } catch (ConcurrentModificationException e) {
+                        // Todo - Add proper fix to handle concurrent modifications gracefully.
+                        LOG.warn("Error occurred when updating LSP code actions due to concurrent modifications.", e);
+                    } catch (Throwable t) {
+                        LOG.warn("Error occurred when updating LSP code actions.", t);
+                    }
                 }
             }
         }

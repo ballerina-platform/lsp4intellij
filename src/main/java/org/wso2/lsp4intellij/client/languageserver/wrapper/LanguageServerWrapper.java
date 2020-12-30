@@ -20,16 +20,15 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.remoteServer.util.CloudNotifier;
 import com.intellij.util.PlatformIcons;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeActionCapabilities;
@@ -78,6 +77,7 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequest
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
+import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.listeners.DocumentListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
@@ -93,10 +93,10 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -131,7 +131,9 @@ public class LanguageServerWrapper {
     private final Project project;
     private final HashSet<Editor> toConnect = new HashSet<>();
     private final String projectRootPath;
-    private final Map<String, EditorEventManager> connectedEditors = new ConcurrentHashMap<>();
+    private final HashSet<String> urisUnderLspControl = new HashSet<>();
+    private final HashSet<Editor> connectedEditors = new HashSet<>();
+    private final Map<String, Set<EditorEventManager>> uriToEditorManagers = new HashMap<>();
     private final LSPServerStatusWidget statusWidget;
     private LanguageServer languageServer;
     private LanguageClient client;
@@ -164,17 +166,13 @@ public class LanguageServerWrapper {
         this.extManager = extManager;
     }
 
-    public Map<String, EditorEventManager> getConnectedEditors() {
-        return connectedEditors;
-    }
-
     /**
      * @param uri     A file uri
      * @param project The related project
      * @return The wrapper for the given uri, or None
      */
     public static LanguageServerWrapper forUri(String uri, Project project) {
-        return uriToLanguageServerWrapper.get(new MutablePair<>(uri, FileUtils.projectToUri(project)));
+        return uriToLanguageServerWrapper.get(new ImmutablePair<>(uri, FileUtils.projectToUri(project)));
     }
 
     /**
@@ -182,7 +180,7 @@ public class LanguageServerWrapper {
      * @return The wrapper for the given editor, or None
      */
     public static LanguageServerWrapper forEditor(Editor editor) {
-        return uriToLanguageServerWrapper.get(new MutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
+        return uriToLanguageServerWrapper.get(new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
     }
 
     public LanguageServerDefinition getServerDefinition() {
@@ -198,10 +196,10 @@ public class LanguageServerWrapper {
      */
     public boolean isWillSaveWaitUntil() {
         return Optional.ofNullable(getServerCapabilities())
-          .map(ServerCapabilities::getTextDocumentSync)
-          .map(Either::getRight)
-          .map(TextDocumentSyncOptions::getWillSaveWaitUntil)
-          .orElse(false);
+                .map(ServerCapabilities::getTextDocumentSync)
+                .map(Either::getRight)
+                .map(TextDocumentSyncOptions::getWillSaveWaitUntil)
+                .orElse(false);
     }
 
     /**
@@ -256,11 +254,35 @@ public class LanguageServerWrapper {
     /**
      * Returns the EditorEventManager for a given uri
      *
+     * WARNING: actually a file can be present in multiple editors, this function just gives you one editor. use {@link #getEditorManagersFor(String)} instead
+     * only use for document level events such as open, close, ...
+     *
      * @param uri the URI as a string
      * @return the EditorEventManager (or null)
      */
     public EditorEventManager getEditorManagerFor(String uri) {
-        return connectedEditors.get(uri);
+        FileEditor selectedEditor = FileEditorManager.getInstance(project).getSelectedEditor();
+
+        if (selectedEditor == null) {
+            return null;
+        }
+        VirtualFile currentOpenFile = selectedEditor.getFile();
+        VirtualFile requestedFile = FileUtils.virtualFileFromURI(uri);
+        if (currentOpenFile == null || requestedFile == null) {
+            return null;
+        }
+        if (requestedFile.equals(currentOpenFile)) {
+            return EditorEventManagerBase.forEditor((Editor) FileEditorManager.getInstance(project).getSelectedEditor());
+        }
+        if(uriToEditorManagers.containsKey(uri) && !uriToEditorManagers.get(uri).isEmpty()){
+            return (EditorEventManager) uriToEditorManagers.get(uri).toArray()[0];
+        }
+
+        return null;
+    }
+
+    public Set<EditorEventManager> getEditorManagersFor(String uri) {
+        return uriToEditorManagers.get(uri);
     }
 
     /**
@@ -294,10 +316,13 @@ public class LanguageServerWrapper {
         }
 
         String uri = editorToURIString(editor);
-        uriToLanguageServerWrapper.put(new MutablePair<>(uri, editorToProjectFolderUri(editor)), this);
-        if (connectedEditors.containsKey(uri)) {
+        if (connectedEditors.contains(editor)) {
             return;
         }
+        ImmutablePair<String,String> key = new ImmutablePair<>(uri, editorToProjectFolderUri(editor));
+
+        uriToLanguageServerWrapper.put(key, this);
+
         start();
         if (initializeFuture != null) {
             ServerCapabilities capabilities = getServerCapabilities();
@@ -307,7 +332,7 @@ public class LanguageServerWrapper {
             }
 
             initializeFuture.thenRun(() -> {
-                if (connectedEditors.containsKey(uri)) {
+                if (connectedEditors.contains(editor)) {
                     return;
                 }
                 try {
@@ -342,8 +367,19 @@ public class LanguageServerWrapper {
                         mouseMotionListener.setManager(manager);
                         caretListener.setManager(manager);
                         manager.registerListeners();
-                        connectedEditors.put(uri, manager);
-                        manager.documentOpened();
+                        if(!urisUnderLspControl.contains(uri)){
+                            manager.documentEventManager.registerListeners();
+                        }
+                        urisUnderLspControl.add(uri);
+                        connectedEditors.add(editor);
+                        if (uriToEditorManagers.containsKey(uri)) {
+                            uriToEditorManagers.get(uri).add(manager);
+                        } else {
+                            Set<EditorEventManager> set = new HashSet<>();
+                            set.add(manager);
+                            uriToEditorManagers.put(uri, set);
+                            manager.documentOpened();
+                        }
                         LOG.info("Created a manager for " + uri);
                         synchronized (toConnect) {
                             toConnect.remove(editor);
@@ -405,8 +441,8 @@ public class LanguageServerWrapper {
             if (serverDefinition != null) {
                 serverDefinition.stop(projectRootPath);
             }
-            for (Map.Entry<String, EditorEventManager> ed : connectedEditors.entrySet()) {
-                disconnect(ed.getValue().editor);
+            for (Editor ed : connectedEditors) {
+                disconnect(ed);
             }
             languageServer = null;
             setStatus(STOPPED);
@@ -420,7 +456,7 @@ public class LanguageServerWrapper {
      * @return True if the given file is connected.
      */
     public boolean isConnectedTo(String location) {
-        return connectedEditors.containsKey(location);
+        return urisUnderLspControl.contains(location);
     }
 
     /**
@@ -586,7 +622,7 @@ public class LanguageServerWrapper {
 
     private void reconnect() {
         // Need to copy by value since connected editors gets cleared during 'stop()' invocation.
-        final Set<String> connected = new HashSet<>(connectedEditors.keySet());
+        final Set<String> connected = new HashSet<>(urisUnderLspControl);
         stop(true);
         for (String uri : connected) {
             connect(uri);
@@ -595,7 +631,7 @@ public class LanguageServerWrapper {
 
     public List<String> getConnectedFiles() {
         List<String> connected = new ArrayList<>();
-        connectedEditors.keySet().forEach(s -> {
+        urisUnderLspControl.forEach(s -> {
             try {
                 connected.add(new URI(sanitizeURI(s)).toString());
             } catch (URISyntaxException e) {
@@ -615,11 +651,23 @@ public class LanguageServerWrapper {
      * @param editor The editor
      */
     public void disconnect(Editor editor) {
-        EditorEventManager manager = connectedEditors.remove(editorToURIString(editor));
+        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
+        connectedEditors.remove(editor);
         if (manager != null) {
             manager.removeListeners();
-            manager.documentClosed();
-            uriToLanguageServerWrapper.remove(new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
+            String uri = editorToURIString(editor);
+            Set<EditorEventManager> set = uriToEditorManagers.get(uri);
+            if (set != null) {
+                set.remove(manager);
+                if (set.isEmpty()) {
+                    manager.documentClosed();
+                    manager.documentEventManager.removeListeners();
+
+                    uriToEditorManagers.remove(uri);
+                    urisUnderLspControl.remove(uri);
+                    uriToLanguageServerWrapper.remove(new ImmutablePair<>(uri, editorToProjectFolderUri(editor)));
+                }
+            }
         }
 
         if (connectedEditors.isEmpty()) {
@@ -630,14 +678,29 @@ public class LanguageServerWrapper {
     /**
      * Disconnects an editor from the LanguageServer
      *
+     * WARNING: only use this method if you have no editor instance and you restart all connections to the language server for all open editors
+     * prefer using disconnect(editor)
+     *
      * @param uri        The file uri
      * @param projectUri The project root uri
      */
     public void disconnect(String uri, String projectUri) {
-        EditorEventManager manager = connectedEditors.remove(sanitizeURI(uri));
-        if (manager != null) {
+        uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
+
+        Set<EditorEventManager> managers = uriToEditorManagers.get(uri);
+        for (EditorEventManager manager : managers) {
             manager.removeListeners();
-            manager.documentClosed();
+            manager.documentEventManager.removeListeners();
+            connectedEditors.remove(manager.editor);
+            Set<EditorEventManager> editorEventManagers = uriToEditorManagers.get(uri);
+            if (editorEventManagers != null) {
+                editorEventManagers.remove(manager);
+                if (editorEventManagers.isEmpty()) {
+                    uriToEditorManagers.remove(uri);
+                    manager.documentClosed();
+                }
+            }
+            urisUnderLspControl.remove(uri);
             uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
         }
         if (connectedEditors.isEmpty()) {
@@ -652,17 +715,10 @@ public class LanguageServerWrapper {
     }
 
     private void connect(String uri) {
-        FileEditor[] fileEditors = FileEditorManager.getInstance(project)
-                .getAllEditors(Objects.requireNonNull(FileUtils.URIToVFS(uri)));
+        List<Editor> editors = FileUtils.getAllOpenedEditorsForUri(project, uri);
 
-        List<Editor> editors = new ArrayList<>();
-        for (FileEditor ed : fileEditors) {
-            if (ed instanceof TextEditor) {
-                editors.add(((TextEditor) ed).getEditor());
-            }
-        }
-        if (!editors.isEmpty()) {
-            connect(editors.get(0));
+        for (Editor editor : editors) {
+            connect(editor);
         }
     }
 

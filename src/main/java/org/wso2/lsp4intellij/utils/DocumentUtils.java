@@ -90,11 +90,23 @@ public class DocumentUtils {
      * @return an LSP position
      */
     public static Position offsetToLSPPos(Editor editor, int offset) {
+        Document document = editor.getDocument();
+
+        return offsetToLSPPos(document, offset);
+    }
+
+    /**
+     * Calculates a Position given an editor and an offset
+     *
+     * @param document The editor
+     * @param offset The offset
+     * @return an LSP position
+     */
+    public static Position offsetToLSPPos(Document document, int offset) {
         return computableReadAction(() -> {
-            Document doc = editor.getDocument();
-            int line = doc.getLineNumber(offset);
-            int lineStart = doc.getLineStartOffset(line);
-            String lineTextBeforeOffset = doc.getText(TextRange.create(lineStart, offset));
+            int line = document.getLineNumber(offset);
+            int lineStart = document.getLineStartOffset(line);
+            String lineTextBeforeOffset = document.getText(TextRange.create(lineStart, offset));
             int column = lineTextBeforeOffset.length();
             return computableReadAction(() -> new Position(line, column));
         });

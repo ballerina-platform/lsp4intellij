@@ -108,8 +108,8 @@ public class DefaultLanguageClient implements LanguageClient {
     public void publishDiagnostics(PublishDiagnosticsParams publishDiagnosticsParams) {
         String uri = FileUtils.sanitizeURI(publishDiagnosticsParams.getUri());
         List<Diagnostic> diagnostics = publishDiagnosticsParams.getDiagnostics();
-        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
-        if (manager != null) {
+        Set<EditorEventManager> managers = EditorEventManagerBase.managersForUri(uri);
+        for (EditorEventManager manager: managers) {
             manager.diagnostics(diagnostics);
         }
     }

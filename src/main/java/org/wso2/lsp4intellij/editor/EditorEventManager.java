@@ -173,6 +173,7 @@ import static org.wso2.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
  */
 public class EditorEventManager {
 
+    public final DocumentEventManager documentEventManager;
     protected Logger LOG = Logger.getInstance(EditorEventManager.class);
 
     public Editor editor;
@@ -180,17 +181,14 @@ public class EditorEventManager {
     private Project project;
     private RequestManager requestManager;
     private TextDocumentIdentifier identifier;
-    private DocumentListener documentListener;
     private EditorMouseListener mouseListener;
     private EditorMouseMotionListener mouseMotionListener;
     private LSPCaretListenerImpl caretListener;
 
     public List<String> completionTriggers;
     private List<String> signatureTriggers;
-    private DidChangeTextDocumentParams changesParams;
     private TextDocumentSyncKind syncKind;
     private volatile boolean needSave = false;
-    private int version = -1;
     private long predTime = -1L;
     private long ctrlTime = -1L;
     private boolean isOpen = false;
@@ -204,6 +202,8 @@ public class EditorEventManager {
     private volatile boolean diagnosticSyncRequired = true;
     private volatile boolean codeActionSyncRequired = false;
 
+    private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getQuickDocOnMouseOverElementDelayMillis() * 1000000;
+
     public static final String SNIPPET_PLACEHOLDER_REGEX = "(\\$\\{\\d+:?([^{^}]*)}|\\$\\d+)";
 
     //Todo - Revisit arguments order and add remaining listeners
@@ -212,7 +212,6 @@ public class EditorEventManager {
                               RequestManager requestManager, ServerOptions serverOptions, LanguageServerWrapper wrapper) {
 
         this.editor = editor;
-        this.documentListener = documentListener;
         this.mouseListener = mouseListener;
         this.mouseMotionListener = mouseMotionListener;
         this.requestManager = requestManager;
@@ -220,8 +219,6 @@ public class EditorEventManager {
         this.caretListener = caretListener;
 
         this.identifier = new TextDocumentIdentifier(FileUtils.editorToURIString(editor));
-        this.changesParams = new DidChangeTextDocumentParams(new VersionedTextDocumentIdentifier(),
-                Collections.singletonList(new TextDocumentContentChangeEvent()));
         this.syncKind = serverOptions.syncKind;
 
         this.completionTriggers = (serverOptions.completionOptions != null
@@ -236,11 +233,11 @@ public class EditorEventManager {
 
         this.project = editor.getProject();
 
-        EditorEventManagerBase.uriToManager.put(FileUtils.editorToURIString(editor), this);
-        EditorEventManagerBase.editorToManager.put(editor, this);
-        changesParams.getTextDocument().setUri(identifier.getUri());
+        EditorEventManagerBase.registerManager(this);
 
         this.currentHint = null;
+
+        this.documentEventManager = DocumentEventManager.getOrCreateDocumentManager(editor.getDocument(), documentListener, syncKind, requestManager, wrapper);
     }
 
     @SuppressWarnings("unused")
@@ -256,11 +253,6 @@ public class EditorEventManager {
     @SuppressWarnings("unused")
     public TextDocumentIdentifier getIdentifier() {
         return identifier;
-    }
-
-    @SuppressWarnings("unused")
-    public DidChangeTextDocumentParams getChangesParams() {
-        return changesParams;
     }
 
     /**
@@ -321,7 +313,7 @@ public class EditorEventManager {
             }
 
             int offset = editor.logicalPositionToOffset(lPos);
-            if (getIsCtrlDown() && curTime - ctrlTime > EditorEventManagerBase.CTRL_THRESH) {
+            if (getIsCtrlDown() && curTime - ctrlTime > CTRL_THRESH) {
                 if (getCtrlRange() == null || !getCtrlRange().highlightContainsOffset(offset)) {
                     if (currentHint != null) {
                         currentHint.hide();
@@ -1110,8 +1102,8 @@ public class EditorEventManager {
      * @return The runnable
      */
     public Runnable getEditsRunnable(int version, List<TextEdit> edits, String name, boolean setCaret) {
-        if (version < this.version) {
-            LOG.warn(String.format("Edit version %d is older than current version %d", version, this.version));
+        if (version < this.documentEventManager.getDocumentVersion()) {
+            LOG.warn(String.format("Edit version %d is older than current version %d", version, this.documentEventManager.getDocumentVersion()));
             return null;
         }
         if (edits == null) {
@@ -1212,7 +1204,6 @@ public class EditorEventManager {
      * Adds all the listeners
      */
     public void registerListeners() {
-        editor.getDocument().addDocumentListener(documentListener);
         editor.addEditorMouseListener(mouseListener);
         editor.addEditorMouseMotionListener(mouseMotionListener);
         editor.getCaretModel().addCaretListener(caretListener);
@@ -1224,7 +1215,6 @@ public class EditorEventManager {
      * Removes all the listeners
      */
     public void removeListeners() {
-        editor.getDocument().removeDocumentListener(documentListener);
         editor.removeEditorMouseListener(mouseListener);
         editor.removeEditorMouseMotionListener(mouseMotionListener);
         editor.getCaretModel().removeCaretListener(caretListener);
@@ -1238,10 +1228,10 @@ public class EditorEventManager {
     public void documentClosed() {
         pool(() -> {
             if (this.isOpen) {
-                requestManager.didClose(new DidCloseTextDocumentParams(identifier));
                 isOpen = false;
-                EditorEventManagerBase.editorToManager.remove(editor);
-                EditorEventManagerBase.uriToManager.remove(FileUtils.editorToURIString(editor));
+
+                documentEventManager.documentClosed();
+                EditorEventManagerBase.unregisterManager(this);
             } else {
                 LOG.warn("Editor " + identifier.getUri() + " was already closed");
             }
@@ -1256,11 +1246,8 @@ public class EditorEventManager {
             if (isOpen) {
                 LOG.warn("Editor " + editor + " was already open");
             } else {
-                final String extension = FileDocumentManager.getInstance().getFile(editor.getDocument()).getExtension();
-                requestManager.didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
-                        wrapper.serverDefinition.languageIdFor(extension),
-                        version++,
-                        editor.getDocument().getText())));
+                documentEventManager.documentOpened();
+
                 isOpen = true;
             }
         });
@@ -1271,40 +1258,7 @@ public class EditorEventManager {
             return;
         }
         if (event.getDocument() == editor.getDocument()) {
-            //Todo - restore when adding hover support
-            // long predTime = System.nanoTime(); //So that there are no hover events while typing
-            changesParams.getTextDocument().setVersion(version++);
-
-            if (syncKind == TextDocumentSyncKind.Incremental) {
-                TextDocumentContentChangeEvent changeEvent = changesParams.getContentChanges().get(0);
-                CharSequence newText = event.getNewFragment();
-                int offset = event.getOffset();
-                int newTextLength = event.getNewLength();
-                Position lspPosition = DocumentUtils.offsetToLSPPos(editor, offset);
-                int startLine = lspPosition.getLine();
-                int startColumn = lspPosition.getCharacter();
-                CharSequence oldText = event.getOldFragment();
-
-                //if text was deleted/replaced, calculate the end position of inserted/deleted text
-                int endLine, endColumn;
-                if (oldText.length() > 0) {
-                    endLine = startLine + StringUtil.countNewLines(oldText);
-                    String content = oldText.toString();
-                    String[] oldLines = content.split("\n");
-                    int oldTextLength = oldLines.length == 0 ? 0 : oldLines[oldLines.length - 1].length();
-                    endColumn = content.endsWith("\n") ? 0 : oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
-                } else { //if insert or no text change, the end position is the same
-                    endLine = startLine;
-                    endColumn = startColumn;
-                }
-                Range range = new Range(new Position(startLine, startColumn), new Position(endLine, endColumn));
-                changeEvent.setRange(range);
-                changeEvent.setRangeLength(newTextLength);
-                changeEvent.setText(newText.toString());
-            } else if (syncKind == TextDocumentSyncKind.Full) {
-                changesParams.getContentChanges().get(0).setText(editor.getDocument().getText());
-            }
-            requestManager.didChange(changesParams);
+            documentEventManager.documentChanged(event);
         } else {
             LOG.error("Wrong document for the EditorEventManager");
         }

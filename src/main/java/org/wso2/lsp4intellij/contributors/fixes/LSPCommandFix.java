@@ -58,7 +58,7 @@ public class LSPCommandFix implements IntentionAction {
 
     @Override
     public void invoke(@NotNull Project project, Editor editor, PsiFile psiFile) {
-        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
             manager.executeCommands(singletonList(command));
         }
