@@ -132,14 +132,13 @@ public class DocumentUtils {
             }
             // lsp and intellij start lines/columns zero-based
             Document doc = editor.getDocument();
-            int line = max(0, Math.min(pos.getLine(), doc.getLineCount()-1));
+            int line = max(0, Math.min(pos.getLine(), doc.getLineCount() - 1));
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
 
-            final int endCharInLine = max(0, min(lineText.length(), pos.getCharacter()));
-            String lineTextForPosition = endCharInLine > 0 ? lineText.substring(0, endCharInLine) : "";
-            int tabs = StringUtil.countChars(lineTextForPosition, '\t');
+            final int positionInLine = max(0, min(lineText.length(), pos.getCharacter()));
+            int tabs = StringUtil.countChars(lineText, '\t', 0, positionInLine, false);
             int tabSize = getTabSize(editor);
-            int column = tabs * tabSize - tabs + lineTextForPosition.length();
+            int column = positionInLine + tabs * (tabSize - 1);
             int offset = editor.logicalPositionToOffset(new LogicalPosition(line, column));
             if (pos.getCharacter() >= lineText.length()) {
                 LOG.debug(String.format("LSPPOS outofbounds: %s, line : %s, column : %d, offset : %d", pos,
@@ -165,11 +164,10 @@ public class DocumentUtils {
             Document doc = editor.getDocument();
             int line = max(0, Math.min(pos.getLine(), doc.getLineCount() - 1));
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
-            final int endCharInLine = max(0, min(lineText.length(), pos.getCharacter()));
-            String lineTextForPosition = endCharInLine > 0 ? lineText.substring(0, endCharInLine) : "";
-            int tabs = StringUtil.countChars(lineTextForPosition, '\t');
+            final int positionInLine = max(0, min(lineText.length(), pos.getCharacter()));
+            int tabs = StringUtil.countChars(lineText, '\t', 0, positionInLine, false);
             int tabSize = getTabSize(editor);
-            int column = tabs * tabSize + lineTextForPosition.length() - tabs;
+            int column = positionInLine + tabs * (tabSize - 1);
             return new LogicalPosition(line, column);
         });
     }
