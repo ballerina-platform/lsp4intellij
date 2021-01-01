@@ -110,7 +110,7 @@ public class DocumentUtils {
 
             int tabs = StringUtil.countChars(lineTextBeforeOffset, '\t');
             int tabSize = getTabSize(editor);
-            int column = lineTextBeforeOffset.length() + tabs - tabs * tabSize ;
+            int column = lineTextBeforeOffset.length() - tabs * (tabSize - 1);
             return new Position(line, column);
         });
     }
