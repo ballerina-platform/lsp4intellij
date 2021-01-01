@@ -89,6 +89,18 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     }
 
     /**
+     * Use it to initialize the server connection for the given project (useful if no editor is launched)
+     */
+    public void initProjectConnections(@NotNull Project project) {
+        String projectStr = FileUtils.projectToUri(project);
+        // find serverdefinition keys for this project and try to start a wrapper
+        extToServerDefinition.entrySet().stream().filter(e -> e.getKey().getRight().equals(projectStr)).forEach(entry -> {
+            updateLanguageWrapperContainers(project, entry.getKey(), entry.getValue()).start();
+        });
+
+    }
+
+    /**
      * Adds a new server definition, attached to the given file extension.
      * This definition will be applicable for any project, since a specific project is not defined.
      * Plugin developers can register their application-level language server definitions using this API.
@@ -230,29 +242,39 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
                 LOG.warn("Could not find a server definition for " + ext);
                 return;
             }
-            LanguageServerWrapper wrapper = extToLanguageWrapper.get(new MutablePair<>(ext, projectUri));
-            if (wrapper == null) {
-                LOG.info("Instantiating wrapper for " + ext + " : " + projectUri);
-                if (extToExtManager.get(ext) != null) {
-                    wrapper = new LanguageServerWrapper(serverDefinition, project, extToExtManager.get(ext));
-                } else {
-                    wrapper = new LanguageServerWrapper(serverDefinition, project);
-                }
-                String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
-                for (String ex : exts) {
-                    extToLanguageWrapper.put(new ImmutablePair<>(ex, projectUri), wrapper);
-                }
+            // Update project mapping for language servers.
+            LanguageServerWrapper wrapper = updateLanguageWrapperContainers(project, new ImmutablePair<>(ext, projectUri), serverDefinition);
 
-                // Update project mapping for language servers.
-                Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers
-                        .computeIfAbsent(projectUri, k -> new HashSet<>());
-                wrappers.add(wrapper);
-            } else {
-                LOG.info("Wrapper already existing for " + ext + " , " + projectUri);
-            }
             LOG.info("Adding file " + fileName);
             wrapper.connect(editor);
         });
+    }
+
+    private static synchronized LanguageServerWrapper updateLanguageWrapperContainers(Project project, final Pair<String, String> key, LanguageServerDefinition serverDefinition) {
+        String projectUri = FileUtils.projectToUri(project);
+        LanguageServerWrapper wrapper = extToLanguageWrapper.get(key);
+        String ext = key.getLeft();
+        if (wrapper == null) {
+            LOG.info("Instantiating wrapper for " + ext + " : " + projectUri);
+            if (extToExtManager.get(ext) != null) {
+                wrapper = new LanguageServerWrapper(serverDefinition, project, extToExtManager.get(ext));
+            } else {
+                wrapper = new LanguageServerWrapper(serverDefinition, project);
+            }
+            String[] exts = serverDefinition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
+            for (String ex : exts) {
+                extToLanguageWrapper.put(new ImmutablePair<>(ex, projectUri), wrapper);
+            }
+
+            Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers
+                    .computeIfAbsent(projectUri, k -> new HashSet<>());
+            wrappers.add(wrapper);
+
+        } else {
+            LOG.info("Wrapper already existing for " + ext + " , " + projectUri);
+        }
+
+        return wrapper;
     }
 
     /**

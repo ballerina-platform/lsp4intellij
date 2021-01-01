@@ -152,6 +152,8 @@ public class DocumentUtils {
             return Math.min(max(offset, 0), docLength);
 
         });
+    
+      
     }
 
     @Nullable
@@ -176,6 +178,12 @@ public class DocumentUtils {
      * Retrieves the amount of whitespaces a tab represents.
      */
     public static int getTabSize(Editor editor) {
-        return ApplicationUtils.computableReadAction(() -> editor.getSettings().getTabSize(editor.getProject()));
+        return computableReadAction(() -> editor.getSettings().getTabSize(editor.getProject()));
     }
+
+    public static boolean shouldUseSpaces(Editor editor){
+        return computableReadAction(() -> !editor.getSettings().isUseTabCharacter(editor.getProject()));
+    }
+
+
 }
