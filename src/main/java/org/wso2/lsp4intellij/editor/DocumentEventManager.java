@@ -47,7 +47,6 @@ public class DocumentEventManager {
     private final Document document;
     private final DocumentListener documentListener;
     private final TextDocumentSyncKind syncKind;
-    private final RequestManager requestManager;
     private final LanguageServerWrapper wrapper;
     private final TextDocumentIdentifier identifier;
     private int version = -1;
@@ -56,22 +55,21 @@ public class DocumentEventManager {
 
     private final Set<Document> openDocuments = new HashSet<>();
 
-    DocumentEventManager(Document document, DocumentListener documentListener, TextDocumentSyncKind syncKind, RequestManager requestManager, LanguageServerWrapper wrapper){
+    DocumentEventManager(Document document, DocumentListener documentListener, TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper){
         this.document = document;
         this.documentListener = documentListener;
         this.syncKind = syncKind;
-        this.requestManager = requestManager;
         this.wrapper = wrapper;
         this.identifier = new TextDocumentIdentifier(FileUtils.documentToUri(document));
     }
 
-    public static DocumentEventManager getOrCreateDocumentManager(Document document, DocumentListener listener, TextDocumentSyncKind syncKind, RequestManager requestManager, LanguageServerWrapper wrapper){
+    public static DocumentEventManager getOrCreateDocumentManager(Document document, DocumentListener listener, TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper){
         DocumentEventManager manager = uriToDocumentEventManager.get(FileUtils.documentToUri(document));
         if(manager != null){
             return manager;
         }
 
-        manager = new DocumentEventManager(document, listener, syncKind, requestManager, wrapper);
+        manager = new DocumentEventManager(document, listener, syncKind, wrapper);
 
         uriToDocumentEventManager.put(FileUtils.documentToUri(document), manager);
         return manager;
@@ -126,7 +124,7 @@ public class DocumentEventManager {
         } else if (syncKind == TextDocumentSyncKind.Full) {
             changesParams.getContentChanges().get(0).setText(document.getText());
         }
-        ApplicationUtils.pool(() -> requestManager.didChange(changesParams));
+        ApplicationUtils.pool(() -> wrapper.getRequestManager().didChange(changesParams));
     }
 
     public void documentOpened() {
@@ -135,7 +133,7 @@ public class DocumentEventManager {
         } else {
             openDocuments.add(document);
             final String extension = FileDocumentManager.getInstance().getFile(document).getExtension();
-            requestManager.didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
+            wrapper.getRequestManager().didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
                     wrapper.serverDefinition.languageIdFor(extension),
                     version++,
                     document.getText())));
@@ -149,7 +147,7 @@ public class DocumentEventManager {
             LOG.warn("trying to close document which is still open in another editor!");
         }else{
             openDocuments.remove(document);
-            requestManager.didClose(new DidCloseTextDocumentParams(identifier));
+            wrapper.getRequestManager().didClose(new DidCloseTextDocumentParams(identifier));
         }
     }
 }

@@ -416,6 +416,9 @@ public class LanguageServerWrapper {
      * Only if the exit flag is true, particular server instance will exit.
      */
     public void stop(boolean exit) {
+        if(this.status == STOPPED){
+            return;
+        }
         try {
             if (initializeFuture != null) {
                 initializeFuture.cancel(true);
@@ -442,7 +445,7 @@ public class LanguageServerWrapper {
             if (serverDefinition != null) {
                 serverDefinition.stop(projectRootPath);
             }
-            for (Editor ed : connectedEditors) {
+            for (Editor ed : new HashSet<>(connectedEditors)) {
                 disconnect(ed);
             }
             languageServer = null;

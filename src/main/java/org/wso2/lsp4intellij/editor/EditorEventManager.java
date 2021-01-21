@@ -93,14 +93,11 @@ import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SignatureHelp;
 import org.eclipse.lsp4j.SignatureInformation;
-import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
-import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentPositionParams;
 import org.eclipse.lsp4j.TextDocumentSaveReason;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
-import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WillSaveTextDocumentParams;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
@@ -171,7 +168,7 @@ import static org.wso2.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
  * mouseMotionListener A listener for mouse movement
  * documentListener    A listener for keystrokes
  * selectionListener   A listener for selection changes in the editor
- * requestManager      The related RequestManager, connected to the right LanguageServer
+ * wrapper.getRequestManager()      The related wrapper.getRequestManager(), connected to the right LanguageServer
  * serverOptions       The options of the server regarding completion, signatureHelp, syncKind, etc
  * wrapper             The corresponding LanguageServerWrapper
  */
@@ -183,7 +180,6 @@ public class EditorEventManager {
     public Editor editor;
     public LanguageServerWrapper wrapper;
     private Project project;
-    private RequestManager requestManager;
     private TextDocumentIdentifier identifier;
     private EditorMouseListener mouseListener;
     private EditorMouseMotionListener mouseMotionListener;
@@ -213,12 +209,11 @@ public class EditorEventManager {
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
                               EditorMouseMotionListener mouseMotionListener, LSPCaretListenerImpl caretListener,
-                              RequestManager requestManager, ServerOptions serverOptions, LanguageServerWrapper wrapper) {
+                              RequestManager requestmanager, ServerOptions serverOptions, LanguageServerWrapper wrapper) {
 
         this.editor = editor;
         this.mouseListener = mouseListener;
         this.mouseMotionListener = mouseMotionListener;
-        this.requestManager = requestManager;
         this.wrapper = wrapper;
         this.caretListener = caretListener;
 
@@ -241,7 +236,7 @@ public class EditorEventManager {
 
         this.currentHint = null;
 
-        this.documentEventManager = DocumentEventManager.getOrCreateDocumentManager(editor.getDocument(), documentListener, syncKind, requestManager, wrapper);
+        this.documentEventManager = DocumentEventManager.getOrCreateDocumentManager(editor.getDocument(), documentListener, syncKind, wrapper);
     }
 
     @SuppressWarnings("unused")
@@ -251,7 +246,7 @@ public class EditorEventManager {
 
     @SuppressWarnings("unused")
     public RequestManager getRequestManager() {
-        return requestManager;
+        return wrapper.getRequestManager();
     }
 
     @SuppressWarnings("unused")
@@ -403,7 +398,7 @@ public class EditorEventManager {
     private Location requestDefinition(Position position) {
         TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, position);
         CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> request =
-                requestManager.definition(params);
+                wrapper.getRequestManager().definition(params);
 
         if (request == null) {
             return null;
@@ -445,7 +440,7 @@ public class EditorEventManager {
         ReferenceParams params = new ReferenceParams(new ReferenceContext(getOriginalElement));
         params.setPosition(lspPos);
         params.setTextDocument(identifier);
-        CompletableFuture<List<? extends Location>> request = requestManager.references(params);
+        CompletableFuture<List<? extends Location>> request = wrapper.getRequestManager().references(params);
         if (request != null) {
             try {
                 List<? extends Location> res = request.get(getTimeout(REFERENCES), TimeUnit.MILLISECONDS);
@@ -579,7 +574,7 @@ public class EditorEventManager {
 
         CodeActionContext context = new CodeActionContext(diagnosticContext);
         params.setContext(context);
-        CompletableFuture<List<Either<Command, CodeAction>>> future = requestManager.codeAction(params);
+        CompletableFuture<List<Either<Command, CodeAction>>> future = wrapper.getRequestManager().codeAction(params);
         if (future != null) {
             try {
                 List<Either<Command, CodeAction>> res = future.get(getTimeout(CODEACTION), TimeUnit.MILLISECONDS);
@@ -610,7 +605,7 @@ public class EditorEventManager {
         Point point = editor.logicalPositionToXY(lPos);
         TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, DocumentUtils.logicalToLSPPos(lPos, editor));
         pool(() -> {
-            CompletableFuture<SignatureHelp> future = requestManager.signatureHelp(params);
+            CompletableFuture<SignatureHelp> future = wrapper.getRequestManager().signatureHelp(params);
             if (future == null) {
                 return;
             }
@@ -689,7 +684,7 @@ public class EditorEventManager {
             options.setInsertSpaces(DocumentUtils.shouldUseSpaces(editor));
             params.setOptions(options);
 
-            CompletableFuture<List<? extends TextEdit>> request = requestManager.formatting(params);
+            CompletableFuture<List<? extends TextEdit>> request = wrapper.getRequestManager().formatting(params);
             if (request == null) {
                 return;
             }
@@ -723,7 +718,7 @@ public class EditorEventManager {
             options.setInsertSpaces(DocumentUtils.shouldUseSpaces(editor));
             params.setOptions(options);
 
-            CompletableFuture<List<? extends TextEdit>> request = requestManager.rangeFormatting(params);
+            CompletableFuture<List<? extends TextEdit>> request = wrapper.getRequestManager().rangeFormatting(params);
             if (request == null) {
                 return;
             }
@@ -756,7 +751,7 @@ public class EditorEventManager {
             }
             Position servPos = DocumentUtils.offsetToLSPPos(editor, offset);
             RenameParams params = new RenameParams(identifier, servPos, renameTo);
-            CompletableFuture<WorkspaceEdit> request = requestManager.rename(params);
+            CompletableFuture<WorkspaceEdit> request = wrapper.getRequestManager().rename(params);
             if (request != null) {
                 request.thenAccept(res -> {
                     WorkspaceEditHandler
@@ -792,7 +787,7 @@ public class EditorEventManager {
      */
     private void requestAndShowDoc(LogicalPosition editorPos, Point point) {
         Position serverPos = computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
-        CompletableFuture<Hover> request = requestManager.hover(new HoverParams(identifier, serverPos));
+        CompletableFuture<Hover> request = wrapper.getRequestManager().hover(new HoverParams(identifier, serverPos));
         if (request == null) {
             return;
         }
@@ -844,7 +839,7 @@ public class EditorEventManager {
     public Iterable<? extends LookupElement> completion(Position pos) {
 
         List<LookupElement> lookupItems = new ArrayList<>();
-        CompletableFuture<Either<List<CompletionItem>, CompletionList>> request = requestManager
+        CompletableFuture<Either<List<CompletionItem>, CompletionList>> request = wrapper.getRequestManager()
                 .completion(new CompletionParams(identifier, pos));
         if (request == null) {
             return lookupItems;
@@ -1223,7 +1218,7 @@ public class EditorEventManager {
                 ExecuteCommandParams params = new ExecuteCommandParams();
                 params.setArguments(c.getArguments());
                 params.setCommand(c.getCommand());
-                return requestManager.executeCommand(params);
+                return wrapper.getRequestManager().executeCommand(params);
             }).filter(Objects::nonNull).forEach(f -> {
                 try {
                     f.get(getTimeout(EXECUTE_COMMAND), TimeUnit.MILLISECONDS);
@@ -1314,7 +1309,7 @@ public class EditorEventManager {
         pool(() -> {
             if (!editor.isDisposed()) {
                 DidSaveTextDocumentParams params = new DidSaveTextDocumentParams(identifier, editor.getDocument().getText());
-                requestManager.didSave(params);
+                wrapper.getRequestManager().didSave(params);
             }
         });
     }
@@ -1329,7 +1324,7 @@ public class EditorEventManager {
         } else
             pool(() -> {
                 if (!editor.isDisposed()) {
-                    requestManager.willSave(new WillSaveTextDocumentParams(identifier, TextDocumentSaveReason.Manual));
+                    wrapper.getRequestManager().willSave(new WillSaveTextDocumentParams(identifier, TextDocumentSaveReason.Manual));
                 }
             });
     }
@@ -1346,7 +1341,7 @@ public class EditorEventManager {
                 }
                 WillSaveTextDocumentParams params = new WillSaveTextDocumentParams(identifier,
                         TextDocumentSaveReason.Manual);
-                CompletableFuture<List<TextEdit>> future = requestManager.willSaveWaitUntil(params);
+                CompletableFuture<List<TextEdit>> future = wrapper.getRequestManager().willSaveWaitUntil(params);
                 if (future != null) {
                     try {
                         List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
