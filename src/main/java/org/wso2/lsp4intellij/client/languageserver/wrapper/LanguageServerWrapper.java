@@ -31,45 +31,23 @@ import com.intellij.util.PlatformIcons;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.eclipse.lsp4j.ClientCapabilities;
-import org.eclipse.lsp4j.CodeActionCapabilities;
-import org.eclipse.lsp4j.CompletionCapabilities;
-import org.eclipse.lsp4j.CompletionItemCapabilities;
-import org.eclipse.lsp4j.DefinitionCapabilities;
-import org.eclipse.lsp4j.DidChangeWatchedFilesCapabilities;
-import org.eclipse.lsp4j.DocumentHighlightCapabilities;
-import org.eclipse.lsp4j.ExecuteCommandCapabilities;
-import org.eclipse.lsp4j.FormattingCapabilities;
-import org.eclipse.lsp4j.HoverCapabilities;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
-import org.eclipse.lsp4j.OnTypeFormattingCapabilities;
-import org.eclipse.lsp4j.RangeFormattingCapabilities;
-import org.eclipse.lsp4j.ReferencesCapabilities;
-import org.eclipse.lsp4j.RenameCapabilities;
-import org.eclipse.lsp4j.SemanticHighlightingCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
-import org.eclipse.lsp4j.SignatureHelpCapabilities;
-import org.eclipse.lsp4j.SymbolCapabilities;
-import org.eclipse.lsp4j.SynchronizationCapabilities;
-import org.eclipse.lsp4j.TextDocumentClientCapabilities;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextDocumentSyncOptions;
-import org.eclipse.lsp4j.WorkspaceClientCapabilities;
-import org.eclipse.lsp4j.WorkspaceEditCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Message;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage;
-import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
-import org.wso2.lsp4intellij.client.DefaultLanguageClient;
+import org.wso2.lsp4intellij.client.LanguageClientBase;
 import org.wso2.lsp4intellij.client.ServerWrapperBaseClientContext;
 import org.wso2.lsp4intellij.client.languageserver.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
@@ -135,7 +113,7 @@ public class LanguageServerWrapper {
     private final Map<String, EditorEventManager> connectedEditors = new ConcurrentHashMap<>();
     private final LSPServerStatusWidget statusWidget;
     private LanguageServer languageServer;
-    private LanguageClient client;
+    private LanguageClientBase client;
     private RequestManager requestManager;
     private InitializeResult initializeResult;
     private Future<?> launcherFuture;
@@ -446,7 +424,7 @@ public class LanguageServerWrapper {
                 Pair<InputStream, OutputStream> streams = serverDefinition.start(projectRootPath);
                 InputStream inputStream = streams.getKey();
                 OutputStream outputStream = streams.getValue();
-                InitializeParams initParams = getInitParams();
+                InitializeParams initParams = client.getInitParams(projectRootPath);
                 ExecutorService executorService = Executors.newCachedThreadPool();
                 MessageHandler messageHandler = new MessageHandler(serverDefinition.getServerListener(), () -> getStatus() != STOPPED);
                 if (extManager != null && extManager.getExtendedServerInterface() != null) {
@@ -459,7 +437,7 @@ public class LanguageServerWrapper {
                     languageServer = launcher.getRemoteProxy();
                     launcherFuture = launcher.startListening();
                 } else {
-                    client = new DefaultLanguageClient(new ServerWrapperBaseClientContext(this));
+                    client = new LanguageClientBase(new ServerWrapperBaseClientContext(this));
                     Launcher<LanguageServer> launcher = Launcher
                             .createLauncher(client, LanguageServer.class, inputStream, outputStream, executorService,
                                     messageHandler);
@@ -493,41 +471,6 @@ public class LanguageServerWrapper {
                 removeServerWrapper();
             }
         }
-    }
-
-    private InitializeParams getInitParams() {
-        InitializeParams initParams = new InitializeParams();
-        initParams.setRootUri(FileUtils.pathToUri(projectRootPath));
-        //TODO update capabilities when implemented
-        WorkspaceClientCapabilities workspaceClientCapabilities = new WorkspaceClientCapabilities();
-        workspaceClientCapabilities.setApplyEdit(true);
-        workspaceClientCapabilities.setDidChangeWatchedFiles(new DidChangeWatchedFilesCapabilities());
-        workspaceClientCapabilities.setExecuteCommand(new ExecuteCommandCapabilities());
-        workspaceClientCapabilities.setWorkspaceEdit(new WorkspaceEditCapabilities());
-        workspaceClientCapabilities.setSymbol(new SymbolCapabilities());
-        workspaceClientCapabilities.setWorkspaceFolders(false);
-        workspaceClientCapabilities.setConfiguration(false);
-
-        TextDocumentClientCapabilities textDocumentClientCapabilities = new TextDocumentClientCapabilities();
-        textDocumentClientCapabilities.setCodeAction(new CodeActionCapabilities());
-        textDocumentClientCapabilities.setCompletion(new CompletionCapabilities(new CompletionItemCapabilities(true)));
-        textDocumentClientCapabilities.setDefinition(new DefinitionCapabilities());
-        textDocumentClientCapabilities.setDocumentHighlight(new DocumentHighlightCapabilities());
-        textDocumentClientCapabilities.setFormatting(new FormattingCapabilities());
-        textDocumentClientCapabilities.setHover(new HoverCapabilities());
-        textDocumentClientCapabilities.setOnTypeFormatting(new OnTypeFormattingCapabilities());
-        textDocumentClientCapabilities.setRangeFormatting(new RangeFormattingCapabilities());
-        textDocumentClientCapabilities.setReferences(new ReferencesCapabilities());
-        textDocumentClientCapabilities.setRename(new RenameCapabilities());
-        textDocumentClientCapabilities.setSemanticHighlightingCapabilities(new SemanticHighlightingCapabilities(false));
-        textDocumentClientCapabilities.setSignatureHelp(new SignatureHelpCapabilities());
-        textDocumentClientCapabilities.setSynchronization(new SynchronizationCapabilities(true, true, true));
-        initParams.setCapabilities(
-                new ClientCapabilities(workspaceClientCapabilities, textDocumentClientCapabilities, null));
-        initParams.setInitializationOptions(
-                serverDefinition.getInitializationOptions(URI.create(initParams.getRootUri())));
-
-        return initParams;
     }
 
     public void logMessage(Message message) {
