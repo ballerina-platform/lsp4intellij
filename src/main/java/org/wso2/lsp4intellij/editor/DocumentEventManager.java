@@ -51,11 +51,11 @@ public class DocumentEventManager {
     private final TextDocumentIdentifier identifier;
     private int version = -1;
     protected Logger LOG = Logger.getInstance(EditorEventManager.class);
-    private static final Map<String, DocumentEventManager> uriToDocumentEventManager = new HashMap<>();
+    public static final Map<String, DocumentEventManager> uriToDocumentEventManager = new HashMap<>();
 
     private final Set<Document> openDocuments = new HashSet<>();
 
-    DocumentEventManager(Document document, DocumentListener documentListener, TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper){
+    DocumentEventManager(Document document, DocumentListener documentListener, TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper) {
         this.document = document;
         this.documentListener = documentListener;
         this.syncKind = syncKind;
@@ -63,9 +63,9 @@ public class DocumentEventManager {
         this.identifier = new TextDocumentIdentifier(FileUtils.documentToUri(document));
     }
 
-    public static DocumentEventManager getOrCreateDocumentManager(Document document, DocumentListener listener, TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper){
+    public static DocumentEventManager getOrCreateDocumentManager(Document document, DocumentListener listener, TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper) {
         DocumentEventManager manager = uriToDocumentEventManager.get(FileUtils.documentToUri(document));
-        if(manager != null){
+        if (manager != null) {
             return manager;
         }
 
@@ -83,7 +83,7 @@ public class DocumentEventManager {
         document.addDocumentListener(documentListener);
     }
 
-    public int getDocumentVersion(){
+    public int getDocumentVersion() {
         return this.version;
     }
 
@@ -141,11 +141,11 @@ public class DocumentEventManager {
     }
 
     public void documentClosed() {
-        if(!openDocuments.contains(document)) {
+        if (!openDocuments.contains(document)) {
             LOG.warn("trying to close document which is not open");
-        }else if(EditorEventManagerBase.managersForUri(FileUtils.documentToUri(document)).size() > 1){
+        } else if (EditorEventManagerBase.managersForUri(FileUtils.documentToUri(document)).size() > 1) {
             LOG.warn("trying to close document which is still open in another editor!");
-        }else{
+        } else {
             openDocuments.remove(document);
             wrapper.getRequestManager().didClose(new DidCloseTextDocumentParams(identifier));
         }

@@ -30,9 +30,9 @@ import javax.swing.Icon;
 
 public class LSPDefaultIconProvider extends LSPIconProvider {
 
-    private static Icon STARTED = IconLoader.getIcon("/images/started.png");
-    private static Icon STARTING = IconLoader.getIcon("/images/starting.png");
-    private static Icon STOPPED = IconLoader.getIcon("/images/stopped.png");
+    private static Icon GREEN = IconLoader.getIcon("/images/started.png");
+    private static Icon YELLOW = IconLoader.getIcon("/images/starting.png");
+    private static Icon RED = IconLoader.getIcon("/images/stopped.png");
 
     public Icon getCompletionIcon(CompletionItemKind kind) {
 
@@ -103,10 +103,11 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
 
     public Map<ServerStatus, Icon> getStatusIcons() {
         Map<ServerStatus, Icon> statusIconMap = new HashMap<>();
-        statusIconMap.put(ServerStatus.STOPPED, STOPPED);
-        statusIconMap.put(ServerStatus.STARTING, STARTING);
-        statusIconMap.put(ServerStatus.STARTED, STARTING);
-        statusIconMap.put(ServerStatus.INITIALIZED, STARTED);
+        statusIconMap.put(ServerStatus.STOPPED, RED);
+        statusIconMap.put(ServerStatus.STARTING, YELLOW);
+        statusIconMap.put(ServerStatus.STARTED, YELLOW);
+        statusIconMap.put(ServerStatus.INITIALIZED, GREEN);
+        statusIconMap.put(ServerStatus.STOPPING, YELLOW);
         return statusIconMap;
     }
 

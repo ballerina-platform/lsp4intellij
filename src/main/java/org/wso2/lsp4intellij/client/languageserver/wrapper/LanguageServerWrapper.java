@@ -76,6 +76,7 @@ import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
+import org.wso2.lsp4intellij.editor.DocumentEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
@@ -84,6 +85,7 @@ import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.Timeouts;
+import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
 
@@ -111,6 +113,7 @@ import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZ
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTING;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPED;
+import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STOPPING;
 import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
 import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
 import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
@@ -174,6 +177,10 @@ public class LanguageServerWrapper {
      */
     public static LanguageServerWrapper forUri(String uri, Project project) {
         return uriToLanguageServerWrapper.get(new ImmutablePair<>(uri, FileUtils.projectToUri(project)));
+    }
+
+    public static LanguageServerWrapper forVirtualFile(VirtualFile file, Project project) {
+        return uriToLanguageServerWrapper.get(new ImmutablePair<>(FileUtils.VFSToURI(file), FileUtils.projectToUri(project)));
     }
 
     /**
@@ -254,7 +261,7 @@ public class LanguageServerWrapper {
 
     /**
      * Returns the EditorEventManager for a given uri
-     *
+     * <p>
      * WARNING: actually a file can be present in multiple editors, this function just gives you one editor. use {@link #getEditorManagersFor(String)} instead
      * only use for document level events such as open, close, ...
      *
@@ -275,7 +282,7 @@ public class LanguageServerWrapper {
         if (requestedFile.equals(currentOpenFile)) {
             return EditorEventManagerBase.forEditor((Editor) FileEditorManager.getInstance(project).getSelectedEditor());
         }
-        if(uriToEditorManagers.containsKey(uri) && !uriToEditorManagers.get(uri).isEmpty()){
+        if (uriToEditorManagers.containsKey(uri) && !uriToEditorManagers.get(uri).isEmpty()) {
             return (EditorEventManager) uriToEditorManagers.get(uri).toArray()[0];
         }
 
@@ -320,7 +327,7 @@ public class LanguageServerWrapper {
         if (connectedEditors.contains(editor)) {
             return;
         }
-        ImmutablePair<String,String> key = new ImmutablePair<>(uri, editorToProjectFolderUri(editor));
+        ImmutablePair<String, String> key = new ImmutablePair<>(uri, editorToProjectFolderUri(editor));
 
         uriToLanguageServerWrapper.put(key, this);
 
@@ -368,7 +375,7 @@ public class LanguageServerWrapper {
                         mouseMotionListener.setManager(manager);
                         caretListener.setManager(manager);
                         manager.registerListeners();
-                        if(!urisUnderLspControl.contains(uri)){
+                        if (!urisUnderLspControl.contains(uri)) {
                             manager.documentEventManager.registerListeners();
                         }
                         urisUnderLspControl.add(uri);
@@ -385,7 +392,7 @@ public class LanguageServerWrapper {
                         synchronized (toConnect) {
                             toConnect.remove(editor);
                         }
-                        for (Editor ed : toConnect) {
+                        for (Editor ed : new HashSet<>(toConnect)) {
                             connect(ed);
                         }
                         // Triggers annotators since this is the first editor which starts the LS
@@ -416,16 +423,16 @@ public class LanguageServerWrapper {
      * Only if the exit flag is true, particular server instance will exit.
      */
     public void stop(boolean exit) {
-        if(this.status == STOPPED){
+        if (this.status == STOPPED || this.status == STOPPING) {
             return;
         }
+        setStatus(STOPPING);
+
+        if (initializeFuture != null) {
+            initializeFuture.cancel(true);
+        }
+
         try {
-            if (initializeFuture != null) {
-                initializeFuture.cancel(true);
-                initializeFuture = null;
-            }
-            initializeResult = null;
-            capabilitiesAlreadyRequested = false;
             if (languageServer != null) {
                 CompletableFuture<Object> shutdown = languageServer.shutdown();
                 shutdown.get(getTimeout(SHUTDOWN), TimeUnit.MILLISECONDS);
@@ -437,10 +444,10 @@ public class LanguageServerWrapper {
         } catch (Exception e) {
             // most likely closed externally.
             notifyFailure(Timeouts.SHUTDOWN);
+            LOG.warn("exception occured while trying to shut down", e);
         } finally {
             if (launcherFuture != null) {
                 launcherFuture.cancel(true);
-                launcherFuture = null;
             }
             if (serverDefinition != null) {
                 serverDefinition.stop(projectRootPath);
@@ -448,6 +455,17 @@ public class LanguageServerWrapper {
             for (Editor ed : new HashSet<>(connectedEditors)) {
                 disconnect(ed);
             }
+
+            ApplicationUtils.restartPool();
+            // sadly this whole editor closing stuff runs asynchronously, so we cannot be sure the state is really clean here...
+            // therefore clear the mapping from here as it should be empty by now.
+            DocumentEventManager.uriToDocumentEventManager.clear();
+            uriToEditorManagers.clear();
+            urisUnderLspControl.clear();
+            launcherFuture = null;
+            capabilitiesAlreadyRequested = false;
+            initializeResult = null;
+            initializeFuture = null;
             languageServer = null;
             setStatus(STOPPED);
         }
@@ -681,7 +699,7 @@ public class LanguageServerWrapper {
 
     /**
      * Disconnects an editor from the LanguageServer
-     *
+     * <p>
      * WARNING: only use this method if you have no editor instance and you restart all connections to the language server for all open editors
      * prefer using disconnect(editor)
      *

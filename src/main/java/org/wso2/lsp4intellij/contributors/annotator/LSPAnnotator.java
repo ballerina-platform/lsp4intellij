@@ -27,6 +27,8 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
+import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
@@ -54,7 +56,7 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             }
             EditorEventManager eventManager = EditorEventManagerBase.forEditor(editor);
 
-            if(eventManager == null){
+            if (eventManager == null) {
                 return null;
             }
 
@@ -76,6 +78,10 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
 
     @Override
     public void apply(@NotNull PsiFile file, Object annotationResult, @NotNull AnnotationHolder holder) {
+
+        if (LanguageServerWrapper.forVirtualFile(file.getVirtualFile(), file.getProject()).getStatus() != ServerStatus.INITIALIZED) {
+            return;
+        }
 
         VirtualFile virtualFile = file.getVirtualFile();
         if (FileUtils.isFileSupported(virtualFile) && IntellijLanguageClient.isExtensionSupported(virtualFile)) {

@@ -114,17 +114,17 @@ public class EditorEventManagerBase {
                     uriToManagers.get(key).remove(manager);
                 }
             });
-            if(value.isEmpty()) {
+            if (value.isEmpty()) {
                 uriToManagers.remove(key);
             }
         });
     }
 
-    public static void registerManager(EditorEventManager manager){
+    public static void registerManager(EditorEventManager manager) {
         String uri = FileUtils.editorToURIString(manager.editor);
-        if(EditorEventManagerBase.uriToManagers.containsKey(uri)){
+        if (EditorEventManagerBase.uriToManagers.containsKey(uri)) {
             EditorEventManagerBase.uriToManagers.get(uri).add(manager);
-        }else{
+        } else {
             HashSet<EditorEventManager> set = new HashSet<>();
             set.add(manager);
             EditorEventManagerBase.uriToManagers.put(uri, set);
