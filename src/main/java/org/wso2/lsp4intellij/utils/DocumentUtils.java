@@ -151,8 +151,8 @@ public class DocumentUtils {
             return Math.min(max(offset, 0), docLength);
 
         });
-    
-      
+
+
     }
 
     @Nullable

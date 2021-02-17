@@ -283,7 +283,7 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      * @param editor the editor.
      */
     public static void editorClosed(Editor editor) {
-        VirtualFile file = FileDocumentManager.getInstance().getFile(editor.getDocument());
+        VirtualFile file = FileUtils.virtualFileFromEditor(editor);
         if (!FileUtils.isFileSupported(file)) {
             LOG.debug("Handling close on a editor which host a LightVirtual/Null file");
             return;

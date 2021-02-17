@@ -32,7 +32,8 @@ import org.eclipse.lsp4j.DiagnosticTag;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
-import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
+import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
@@ -69,11 +70,14 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             if (!FileUtils.isFileSupported(virtualFile) || !IntellijLanguageClient.isExtensionSupported(virtualFile)) {
                 return null;
             }
-            String uri = FileUtils.VFSToURI(virtualFile);
-            EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
+            EditorEventManager eventManager = EditorEventManagerBase.forEditor(editor);
+
+            if (eventManager == null) {
+                return null;
+            }
 
             // If the diagnostics list is locked, we need to skip annotating the file.
-            if (eventManager == null || !(eventManager.isDiagnosticSyncRequired() || eventManager.isCodeActionSyncRequired())) {
+            if (!(eventManager.isDiagnosticSyncRequired() || eventManager.isCodeActionSyncRequired())) {
                 return null;
             }
             return RESULT;
@@ -91,13 +95,15 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
     @Override
     public void apply(@NotNull PsiFile file, Object annotationResult, @NotNull AnnotationHolder holder) {
 
+        if (LanguageServerWrapper.forVirtualFile(file.getVirtualFile(), file.getProject()).getStatus() != ServerStatus.INITIALIZED) {
+            return;
+        }
+
         VirtualFile virtualFile = file.getVirtualFile();
         if (FileUtils.isFileSupported(virtualFile) && IntellijLanguageClient.isExtensionSupported(virtualFile)) {
             String uri = FileUtils.VFSToURI(virtualFile);
+            // TODO annotations are applied to a file / document not to an editor. so store them by file and not by editor..
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
-            if (eventManager == null) {
-                return;
-            }
 
             if (eventManager.isCodeActionSyncRequired()) {
                 try {

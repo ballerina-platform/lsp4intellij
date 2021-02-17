@@ -16,6 +16,7 @@
 package org.wso2.lsp4intellij.requests;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.ui.UIUtil;
 import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.options.MutableDataSet;
@@ -67,7 +68,7 @@ public class HoverHandler {
                         result.add(renderer.render(parser.parse(string)));
                     }
                 }
-                return "<html><style>p {margin: 0}</style>" + String.join("\n\n", result) + "</html>";
+                return "<html><style>p {margin: 0; color: " + (UIUtil.isUnderDarcula() ? "rgb(187,187,187)" : "black") + ";</style>" + String.join("\n\n", result) + "</html>";
             } else {
                 return "";
             }
