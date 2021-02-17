@@ -23,6 +23,7 @@ import com.intellij.codeInsight.completion.PlainPrefixMatcher;
 import com.intellij.openapi.application.ex.ApplicationUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -89,9 +90,9 @@ class LSPCompletionContributor extends CompletionContributor {
             return false;
         }
 
-        String uri = FileUtils.VFSToURI(file);
-        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
-        if (manager == null) {
+        Editor editor = FileEditorManager.getInstance(position.getProject()).getSelectedTextEditor();
+        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
+        if (editor == null || manager == null) {
             return false;
         }
         for (String triggerChar : manager.completionTriggers) {

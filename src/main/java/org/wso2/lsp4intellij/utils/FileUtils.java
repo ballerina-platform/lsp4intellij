@@ -82,6 +82,28 @@ public class FileUtils {
         });
     }
 
+    public static List<Editor> getAllOpenedEditorsForUri(Project project, String uri) {
+        VirtualFile file = virtualFileFromURI(uri);
+        return getAllOpenedEditorsForVirtualFile(project, file);
+    }
+
+    public static List<Editor> getAllOpenedEditorsForVirtualFile(Project project, VirtualFile file) {
+        return computableReadAction(() -> {
+            List<Editor> editors = new ArrayList<>();
+            FileEditor[] allEditors = FileEditorManager.getInstance(project).getAllEditors(file);
+            for (FileEditor fEditor : allEditors) {
+                if (fEditor instanceof TextEditor) {
+                    Editor editor = ((TextEditor) fEditor).getEditor();
+                    if (editor.isDisposed() || !isEditorSupported(editor)) {
+                        continue;
+                    }
+                    editors.add(editor);
+                }
+            }
+            return editors;
+        });
+    }
+
     /**
      * This can be used to instantly apply a language server definition without restarting the IDE.
      */
@@ -162,6 +184,10 @@ public class FileUtils {
      */
     public static String editorToURIString(Editor editor) {
         return sanitizeURI(VFSToURI(FileDocumentManager.getInstance().getFile(editor.getDocument())));
+    }
+
+    public static VirtualFile virtualFileFromEditor(Editor editor) {
+        return FileDocumentManager.getInstance().getFile(editor.getDocument());
     }
 
     /**
@@ -323,7 +349,7 @@ public class FileUtils {
      * Checks if the file in editor is supported by this LS client library.
      */
     public static boolean isEditorSupported(@NotNull Editor editor) {
-        return isFileSupported(FileDocumentManager.getInstance().getFile(editor.getDocument())) &&
+        return isFileSupported(virtualFileFromEditor(editor)) &&
                 isFileContentSupported(editor);
     }
 

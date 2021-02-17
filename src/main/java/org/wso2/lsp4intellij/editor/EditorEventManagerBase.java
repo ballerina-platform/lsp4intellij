@@ -16,20 +16,22 @@
 package org.wso2.lsp4intellij.editor;
 
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.ex.EditorSettingsExternalizable;
+import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.OSUtils;
 
 import java.awt.KeyboardFocusManager;
 import java.awt.event.KeyEvent;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorEventManagerBase {
 
-    public static final Map<String, EditorEventManager> uriToManager = new ConcurrentHashMap<>();
-    public static final Map<Editor, EditorEventManager> editorToManager = new ConcurrentHashMap<>();
+    private static final Map<String, Set<EditorEventManager>> uriToManagers = new ConcurrentHashMap<>();
+    private static final Map<Editor, EditorEventManager> editorToManager = new ConcurrentHashMap<>();
     private static final int CTRL_KEY_CODE = OSUtils.isMac() ? KeyEvent.VK_META : KeyEvent.VK_CONTROL;
-    protected static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getQuickDocOnMouseOverElementDelayMillis() * 1000000;
     private volatile static boolean isKeyPressed = false;
     private volatile static boolean isCtrlDown = false;
     private volatile static CtrlRangeMarker ctrlRange;
@@ -80,26 +82,65 @@ public class EditorEventManagerBase {
         EditorEventManagerBase.isKeyPressed = isKeyPressed;
     }
 
-    /**
-     * @param uri A file uri
-     * @return The manager for the given uri, or None
-     */
-    public static EditorEventManager forUri(String uri) {
-        prune();
-        return uri == null ? null : uriToManager.get(uri);
+    public static Set<EditorEventManager> managersForUri(String uri) {
+        return uriToManagers.get(uri);
     }
 
+    /**
+     * WARNING: avoid using this function! It only gives you one editorEventManager, not all and not the one of the current editor.
+     * Only use for operations which are file-level (save, open, close,...) otherwise use {@link #managersForUri(String)} or {@link #forEditor(Editor)}
+     */
+    public static EditorEventManager forUri(String uri) {
+        if (uri == null) {
+            return null;
+        }
+        Set<EditorEventManager> managers = managersForUri(uri);
+        if (managers != null && !managers.isEmpty()) {
+            return (EditorEventManager) managers.toArray()[0];
+        }
+        return null;
+    }
+
+
     private static void prune() {
-        editorToManager.forEach((key, value) -> {
+        new HashMap<>(editorToManager).forEach((key, value) -> {
             if (!value.wrapper.isActive()) {
                 editorToManager.remove(key);
             }
         });
-        uriToManager.forEach((key, value) -> {
-            if (!value.wrapper.isActive()) {
-                editorToManager.remove(key);
+        new HashMap<>(uriToManagers).forEach((key, value) -> {
+            value.forEach((manager) -> {
+                if (!manager.wrapper.isActive()) {
+                    uriToManagers.get(key).remove(manager);
+                }
+            });
+            if (value.isEmpty()) {
+                uriToManagers.remove(key);
             }
         });
+    }
+
+    public static void registerManager(EditorEventManager manager) {
+        String uri = FileUtils.editorToURIString(manager.editor);
+        if (EditorEventManagerBase.uriToManagers.containsKey(uri)) {
+            EditorEventManagerBase.uriToManagers.get(uri).add(manager);
+        } else {
+            HashSet<EditorEventManager> set = new HashSet<>();
+            set.add(manager);
+            EditorEventManagerBase.uriToManagers.put(uri, set);
+        }
+        EditorEventManagerBase.editorToManager.put(manager.editor, manager);
+    }
+
+    public static void unregisterManager(EditorEventManager manager) {
+        EditorEventManagerBase.editorToManager.remove(manager.editor);
+
+        String uri = FileUtils.editorToURIString(manager.editor);
+        Set<EditorEventManager> set = EditorEventManagerBase.uriToManagers.get(uri);
+        set.remove(manager);
+        if (set.isEmpty()) {
+            EditorEventManagerBase.uriToManagers.remove(uri);
+        }
     }
 
     /**
