@@ -459,7 +459,7 @@ public class LanguageServerWrapper {
             ApplicationUtils.restartPool();
             // sadly this whole editor closing stuff runs asynchronously, so we cannot be sure the state is really clean here...
             // therefore clear the mapping from here as it should be empty by now.
-            DocumentEventManager.uriToDocumentEventManager.clear();
+            DocumentEventManager.clearState();
             uriToEditorManagers.clear();
             urisUnderLspControl.clear();
             launcherFuture = null;

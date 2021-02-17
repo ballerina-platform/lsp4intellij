@@ -52,7 +52,7 @@ public class DocumentEventManager {
     private final TextDocumentIdentifier identifier;
     private int version = -1;
     protected Logger LOG = Logger.getInstance(EditorEventManager.class);
-    public static final Map<String, DocumentEventManager> uriToDocumentEventManager = new HashMap<>();
+    private static final Map<String, DocumentEventManager> uriToDocumentEventManager = new HashMap<>();
 
     private final Set<Document> openDocuments = new HashSet<>();
 
@@ -62,6 +62,10 @@ public class DocumentEventManager {
         this.syncKind = syncKind;
         this.wrapper = wrapper;
         this.identifier = new TextDocumentIdentifier(FileUtils.documentToUri(document));
+    }
+
+    public static void clearState() {
+        uriToDocumentEventManager.clear();
     }
 
     public static DocumentEventManager getOrCreateDocumentManager(Document document, DocumentListener listener, TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper) {
