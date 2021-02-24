@@ -16,6 +16,7 @@
 package org.wso2.lsp4intellij.contributors.icon;
 
 import org.eclipse.lsp4j.CompletionItemKind;
+import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.SymbolKind;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
@@ -32,4 +33,15 @@ public abstract class LSPIconProvider {
     public abstract Icon getSymbolIcon(SymbolKind kind);
 
     public abstract boolean isSpecificFor(LanguageServerDefinition serverDefinition);
+
+    /**
+     * Return icon for symbol based on the symbol information. This method must only be used if you need more than the
+     * symbol kind to decide the icon which needs to be used. Otherwise always prefer implementing
+     * {@link #getSymbolIcon(SymbolKind)}.
+     *
+     * @return default implementation delegates to {@link #getSymbolIcon(SymbolKind)}.
+     */
+    public Icon getSymbolIcon(SymbolInformation information) {
+        return getSymbolIcon(information.getKind());
+    }
 }

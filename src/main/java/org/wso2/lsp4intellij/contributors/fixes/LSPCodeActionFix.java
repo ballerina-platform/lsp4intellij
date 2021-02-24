@@ -62,7 +62,7 @@ public class LSPCodeActionFix implements IntentionAction {
         if (codeAction.getEdit() != null) {
             WorkspaceEditHandler.applyEdit(codeAction.getEdit(), codeAction.getTitle());
         }
-        EditorEventManager manager = EditorEventManagerBase.forUri(uri);
+        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
             manager.executeCommands(Collections.singletonList(codeAction.getCommand()));
         }

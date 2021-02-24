@@ -17,7 +17,7 @@ jobs:
         with:
           java-version: ${{ matrix.java_version }}
       - name: Build with Gradle
-        run: ./gradlew check --stacktrace
+        run: ./gradlew check --scan --stacktrace
       - name: Archive test results
         if: failure()
         uses: actions/upload-artifact@v1
