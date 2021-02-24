@@ -105,6 +105,11 @@ public class DocumentEventManager {
             CharSequence newText = event.getNewFragment();
             int offset = event.getOffset();
             int newTextLength = event.getNewLength();
+            Set<EditorEventManager> managersForUri = EditorEventManagerBase.managersForUri(FileUtils.documentToUri(document));
+            if (managersForUri == null || managersForUri.isEmpty()) {
+                LOG.warn("no manager associated with uri");
+                return;
+            }
             EditorEventManager editorEventManager = EditorEventManagerBase.managersForUri(FileUtils.documentToUri(document)).iterator().next();
             if (editorEventManager == null) {
                 LOG.warn("no editor associated with document");
@@ -112,6 +117,9 @@ public class DocumentEventManager {
             }
             Editor editor = editorEventManager.editor;
             Position lspPosition = DocumentUtils.offsetToLSPPos(editor, offset);
+            if (lspPosition == null) {
+                return;
+            }
             int startLine = lspPosition.getLine();
             int startColumn = lspPosition.getCharacter();
             CharSequence oldText = event.getOldFragment();
