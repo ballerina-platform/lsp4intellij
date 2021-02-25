@@ -169,7 +169,7 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         diagnostics.forEach(d -> {
             Annotation annotation = createAnnotation(editor, holder, d);
             if (annotation != null) {
-                if (d.getTags().contains(DiagnosticTag.Deprecated)) {
+                if (d.getTags() != null && d.getTags().contains(DiagnosticTag.Deprecated)) {
                     annotation.setHighlightType(ProblemHighlightType.LIKE_DEPRECATED);
                 }
                 annotations.add(annotation);
