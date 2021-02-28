@@ -81,6 +81,11 @@ public final class GUIUtils {
         JTextPane textPane = new JTextPane();
         textPane.setEditorKit(new HTMLEditorKit());
         textPane.setText(string);
+        int width = textPane.getPreferredSize().width;
+        if (width > 600) {
+            // max-width does not seem to be supported, so use this rather ugly hack...
+            textPane.setText(string.replace("<style>", "<style>p {width: 600px}\n"));
+        }
         textPane.setEditable(false);
         textPane.addHyperlinkListener(e -> {
             if ((e.getEventType() == HyperlinkEvent.EventType.ACTIVATED)
@@ -92,7 +97,7 @@ public final class GUIUtils {
                         final Project project = editor.getProject();
                         Optional<? extends Pair<Project, VirtualFile>> fileToOpen = Optional.ofNullable(project).map(
                                 p -> Optional.ofNullable(VfsUtil.findFileByURL(e.getURL()))
-                            .map(f -> new ImmutablePair<>(p, f))).orElse(Optional.empty());
+                                        .map(f -> new ImmutablePair<>(p, f))).orElse(Optional.empty());
 
                         fileToOpen.ifPresent(f -> {
                             final OpenFileDescriptor descriptor = new OpenFileDescriptor(f.getLeft(), f.getRight());
