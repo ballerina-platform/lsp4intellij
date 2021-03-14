@@ -98,7 +98,8 @@ public class DocumentEventManager {
                 Collections.singletonList(new TextDocumentContentChangeEvent()));
         changesParams.getTextDocument().setUri(identifier.getUri());
 
-        changesParams.getTextDocument().setVersion(version++);
+
+        changesParams.getTextDocument().setVersion(++version);
 
         if (syncKind == TextDocumentSyncKind.Incremental) {
             TextDocumentContentChangeEvent changeEvent = changesParams.getContentChanges().get(0);
@@ -146,7 +147,7 @@ public class DocumentEventManager {
             final String extension = FileDocumentManager.getInstance().getFile(document).getExtension();
             wrapper.getRequestManager().didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
                     wrapper.serverDefinition.languageIdFor(extension),
-                    version++,
+                    ++version,
                     document.getText())));
         }
     }

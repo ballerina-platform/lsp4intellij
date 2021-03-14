@@ -32,6 +32,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeActionCapabilities;
+import org.eclipse.lsp4j.CodeActionLiteralSupportCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionItemCapabilities;
 import org.eclipse.lsp4j.DefinitionCapabilities;
@@ -567,6 +568,7 @@ public class LanguageServerWrapper {
 
         TextDocumentClientCapabilities textDocumentClientCapabilities = new TextDocumentClientCapabilities();
         textDocumentClientCapabilities.setCodeAction(new CodeActionCapabilities());
+        textDocumentClientCapabilities.getCodeAction().setCodeActionLiteralSupport(new CodeActionLiteralSupportCapabilities());
         textDocumentClientCapabilities.setCompletion(new CompletionCapabilities(new CompletionItemCapabilities(true)));
         textDocumentClientCapabilities.setDefinition(new DefinitionCapabilities());
         textDocumentClientCapabilities.setDocumentHighlight(new DocumentHighlightCapabilities());
