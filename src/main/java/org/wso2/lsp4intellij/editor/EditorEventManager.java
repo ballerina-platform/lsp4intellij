@@ -1148,6 +1148,10 @@ public class EditorEventManager {
             LOG.warn("Received edits list is null.");
             return null;
         }
+        if (editor.isDisposed()) {
+            LOG.warn("Text edits couldn't be applied as the editor is already disposed.");
+            return null;
+        }
         Document document = editor.getDocument();
         if (!document.isWritable()) {
             LOG.warn("Document is not writable");

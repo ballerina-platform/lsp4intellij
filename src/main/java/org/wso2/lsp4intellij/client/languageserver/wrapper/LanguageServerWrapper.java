@@ -712,6 +712,9 @@ public class LanguageServerWrapper {
         uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
 
         Set<EditorEventManager> managers = uriToEditorManagers.get(uri);
+        if (managers == null) {
+            return;
+        }
         for (EditorEventManager manager : managers) {
             manager.removeListeners();
             manager.documentEventManager.removeListeners();
