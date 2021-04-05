@@ -1149,7 +1149,7 @@ public class EditorEventManager {
             return null;
         }
         if (editor.isDisposed()) {
-            LOG.warn("The edit is disposed.");
+            LOG.warn("Text edits couldn't be applied as the editor is already disposed.");
             return null;
         }
         Document document = editor.getDocument();
