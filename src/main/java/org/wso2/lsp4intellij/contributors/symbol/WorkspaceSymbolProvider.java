@@ -39,6 +39,7 @@ import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServ
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 import org.wso2.lsp4intellij.contributors.label.LSPLabelProvider;
+import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
@@ -83,10 +84,10 @@ public class WorkspaceSymbolProvider {
 
   @SuppressWarnings("squid:S2142")
   private Stream<LSPSymbolResult> collectSymbol(LanguageServerWrapper wrapper,
-      RequestManager requestManager,
-      WorkspaceSymbolParams symbolParams) {
+                                                RequestManager requestManager,
+                                                WorkspaceSymbolParams symbolParams) {
     final CompletableFuture<List<? extends SymbolInformation>> request = requestManager
-        .symbol(symbolParams);
+            .symbol(symbolParams);
 
     if (request == null) {
       return Stream.empty();
@@ -94,13 +95,15 @@ public class WorkspaceSymbolProvider {
 
     try {
       List<? extends SymbolInformation> symbolInformations = request
-          .get(20000, TimeUnit.MILLISECONDS);
-      wrapper.notifySuccess(Timeouts.SYMBOLS);
-      return symbolInformations.stream()
-          .map(si -> new LSPSymbolResult(si, wrapper.getServerDefinition()));
+              .get(Timeout.getTimeout(Timeouts.WORKSPACESYMBOLS), TimeUnit.MILLISECONDS);
+      wrapper.notifySuccess(Timeouts.WORKSPACESYMBOLS);
+      if( symbolInformations != null){
+        return symbolInformations.stream()
+                .map(si -> new LSPSymbolResult(si, wrapper.getServerDefinition()));
+      }
     } catch (TimeoutException e) {
       LOG.warn(e);
-      wrapper.notifyFailure(Timeouts.SYMBOLS);
+      wrapper.notifyFailure(Timeouts.WORKSPACESYMBOLS);
     } catch (ExecutionException | InterruptedException e) {
       LOG.warn(e);
       wrapper.crashed(e);
