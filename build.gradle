@@ -1,6 +1,6 @@
 plugins {
     id "jacoco"
-    id "org.jetbrains.intellij" version "0.4.9"
+    id "org.jetbrains.intellij" version "0.7.3"
     id "com.github.hierynomus.license" version "0.15.0"
     id "com.github.gradle-git-version-calculator" version "1.1.0"
     id 'net.researchgate.release' version '2.6.0'
@@ -12,6 +12,12 @@ plugins {
 
 repositories {
     mavenCentral()
+}
+
+tasks{
+    runPluginVerifier {
+        ideVersions = "2021.1"
+    }
 }
 
 group = "org.wso2.lsp4intellij"
@@ -40,6 +46,9 @@ sourceSets {
         }
     }
 }
+
+sourceCompatibility = 11
+targetCompatibility = 11
 
 license {
     header = rootProject.file("resources/license/HEADER.txt")
