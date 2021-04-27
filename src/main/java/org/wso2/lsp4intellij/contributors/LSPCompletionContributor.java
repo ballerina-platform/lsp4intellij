@@ -23,18 +23,14 @@ import com.intellij.codeInsight.completion.PlainPrefixMatcher;
 import com.intellij.openapi.application.ex.ApplicationUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
 import org.eclipse.lsp4j.Position;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
-import org.wso2.lsp4intellij.utils.FileUtils;
 
 /**
  * The completion contributor for the LSP
@@ -81,25 +77,5 @@ class LSPCompletionContributor extends CompletionContributor {
 
             super.fillCompletionVariants(parameters, result);
         }
-    }
-
-    @Override
-    public boolean invokeAutoPopup(@NotNull PsiElement position, char typeChar) {
-        final VirtualFile file = position.getContainingFile().getVirtualFile();
-        if (!FileUtils.isFileSupported(file)) {
-            return false;
-        }
-
-        Editor editor = FileEditorManager.getInstance(position.getProject()).getSelectedTextEditor();
-        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
-        if (editor == null || manager == null) {
-            return false;
-        }
-        for (String triggerChar : manager.completionTriggers) {
-            if (triggerChar != null && triggerChar.length() == 1 && triggerChar.charAt(0) == typeChar) {
-                return true;
-            }
-        }
-        return false;
     }
 }

@@ -24,6 +24,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.impl.status.widget.StatusBarWidgetsManager;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.remoteServer.util.CloudNotifier;
@@ -71,7 +72,7 @@ import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.DefaultLanguageClient;
 import org.wso2.lsp4intellij.client.ServerWrapperBaseClientContext;
-import org.wso2.lsp4intellij.client.languageserver.LSPServerStatusWidget;
+import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
@@ -86,6 +87,7 @@ import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.Timeouts;
+import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
@@ -139,7 +141,6 @@ public class LanguageServerWrapper {
     private final HashSet<String> urisUnderLspControl = new HashSet<>();
     private final HashSet<Editor> connectedEditors = new HashSet<>();
     private final Map<String, Set<EditorEventManager>> uriToEditorManagers = new HashMap<>();
-    private final LSPServerStatusWidget statusWidget;
     private LanguageServer languageServer;
     private LanguageClient client;
     private RequestManager requestManager;
@@ -153,6 +154,7 @@ public class LanguageServerWrapper {
     private volatile ServerStatus status = STOPPED;
     private static final Map<Pair<String, String>, LanguageServerWrapper> uriToLanguageServerWrapper =
             new ConcurrentHashMap<>();
+    private static final Map<Project, LanguageServerWrapper> projectToLanguageServerWrapper = new ConcurrentHashMap<>();
     private static final Logger LOG = Logger.getInstance(LanguageServerWrapper.class);
     private static final CloudNotifier notifier = new CloudNotifier("Language Server Protocol client");
 
@@ -167,8 +169,8 @@ public class LanguageServerWrapper {
         // We need to keep the project rootPath in addition to the project instance, since we cannot get the project
         // base path if the project is disposed.
         this.projectRootPath = project.getBasePath();
-        this.statusWidget = LSPServerStatusWidget.createWidgetFor(this);
         this.extManager = extManager;
+        projectToLanguageServerWrapper.put(project, this);
     }
 
     /**
@@ -190,6 +192,10 @@ public class LanguageServerWrapper {
      */
     public static LanguageServerWrapper forEditor(Editor editor) {
         return uriToLanguageServerWrapper.get(new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
+    }
+
+    public static LanguageServerWrapper forProject(Project project) {
+        return projectToLanguageServerWrapper.get(project);
     }
 
     public LanguageServerDefinition getServerDefinition() {
@@ -249,7 +255,7 @@ public class LanguageServerWrapper {
     }
 
     public void notifyResult(Timeouts timeouts, boolean success) {
-        statusWidget.notifyResult(timeouts, success);
+        getWidget().notifyResult(timeouts, success);
     }
 
     public void notifySuccess(Timeouts timeouts) {
@@ -578,7 +584,6 @@ public class LanguageServerWrapper {
         textDocumentClientCapabilities.setRangeFormatting(new RangeFormattingCapabilities());
         textDocumentClientCapabilities.setReferences(new ReferencesCapabilities());
         textDocumentClientCapabilities.setRename(new RenameCapabilities());
-        textDocumentClientCapabilities.setSemanticHighlightingCapabilities(new SemanticHighlightingCapabilities(false));
         textDocumentClientCapabilities.setSignatureHelp(new SignatureHelpCapabilities());
         textDocumentClientCapabilities.setSynchronization(new SynchronizationCapabilities(true, true, true));
         initParams.setCapabilities(
@@ -609,7 +614,8 @@ public class LanguageServerWrapper {
 
     private void setStatus(ServerStatus status) {
         this.status = status;
-        statusWidget.setStatus(status);
+        LSPServerStatusWidget widget = getWidget();
+        widget.setStatus(status);
     }
 
     public void crashed(Exception e) {
@@ -666,7 +672,7 @@ public class LanguageServerWrapper {
     }
 
     public void removeWidget() {
-        statusWidget.dispose();
+        getWidget().dispose();
     }
 
     /**
@@ -770,6 +776,15 @@ public class LanguageServerWrapper {
             }
             reloadEditors(project);
         });
+    }
+
+    private LSPServerStatusWidget getWidget() {
+        LSPServerStatusWidgetFactory factory = ((LSPServerStatusWidgetFactory) project.getService(StatusBarWidgetsManager.class).findWidgetFactory("LSP"));
+        if (factory != null) {
+            return factory.getWidget(project);
+        } else {
+            return null;
+        }
     }
 
     /**

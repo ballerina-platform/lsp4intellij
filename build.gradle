@@ -18,7 +18,7 @@ group = "org.wso2.lsp4intellij"
 version = gitVersionCalculator.calculateVersion("v")
 
 intellij {
-    version '2020.1'
+    version '2021.1'
     type 'IC'
     updateSinceUntilBuild false
 }

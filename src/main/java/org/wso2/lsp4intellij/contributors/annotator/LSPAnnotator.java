@@ -133,9 +133,9 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             return;
         }
         annotations.forEach(annotation -> {
-            // TODO: Use 'newAnnotation'; 'createAnnotation' is deprecated.
-            Annotation anon = holder.createAnnotation(annotation.getSeverity(),
-                    new TextRange(annotation.getStartOffset(), annotation.getEndOffset()), annotation.getMessage());
+            holder.newAnnotation(annotation.getSeverity(), annotation.getMessage());
+            SmartList<Annotation> asList = (SmartList<Annotation>) holder;
+            Annotation anon = asList.get(asList.size() - 1);
 
             if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
                 return;

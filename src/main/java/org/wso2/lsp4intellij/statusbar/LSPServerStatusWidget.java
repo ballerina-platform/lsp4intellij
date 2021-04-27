@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wso2.lsp4intellij.client.languageserver;
+package org.wso2.lsp4intellij.statusbar;
 
 import com.intellij.ide.DataManager;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
@@ -27,6 +28,7 @@ import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.ListPopup;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.StatusBarWidget;
+import com.intellij.openapi.wm.StatusBarWidgetFactory;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.ui.awt.RelativePoint;
 import com.intellij.util.Consumer;
@@ -34,7 +36,9 @@ import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
@@ -50,52 +54,18 @@ import javax.swing.*;
 
 public class LSPServerStatusWidget implements StatusBarWidget {
 
-    private static final Map<Project, List<String>> widgetIDs = new HashMap<>();
     private final Map<Timeouts, Pair<Integer, Integer>> timeouts = new HashMap<>();
-    private final LanguageServerWrapper wrapper;
-    private final String ext;
     private final Project project;
     private final String projectName;
-    private final Map<ServerStatus, Icon> icons;
     private ServerStatus status = ServerStatus.STOPPED;
 
-    private LSPServerStatusWidget(LanguageServerWrapper wrapper) {
-        this.wrapper = wrapper;
-        this.ext = wrapper.getServerDefinition().ext;
-        this.project = wrapper.getProject();
+    LSPServerStatusWidget(Project project) {
+        this.project = project;
         this.projectName = project.getName();
-        this.icons = GUIUtils.getIconProviderFor(wrapper.getServerDefinition()).getStatusIcons();
 
         for (Timeouts t : Timeouts.values()) {
             timeouts.put(t, new MutablePair<>(0, 0));
         }
-    }
-
-    /**
-     * Creates a widget given a LanguageServerWrapper and adds it to the status bar
-     *
-     * @param wrapper The wrapper
-     * @return The widget
-     */
-    public static LSPServerStatusWidget createWidgetFor(LanguageServerWrapper wrapper) {
-        LSPServerStatusWidget widget = new LSPServerStatusWidget(wrapper);
-        Project project = wrapper.getProject();
-        StatusBar statusBar = WindowManager.getInstance().getStatusBar(project);
-
-        if (widgetIDs.get(project) == null || widgetIDs.get(project).isEmpty()) {
-            ArrayList<String> list = new ArrayList<>();
-            list.add("Position");
-            widgetIDs.put(project, list);
-        }
-
-        statusBar.addWidget(widget, "before " + widgetIDs.get(project).get(0), project);
-        widgetIDs.get(project).add(0, widget.ID());
-        return widget;
-    }
-
-    private static void removeWidgetID(LSPServerStatusWidget widget) {
-        Project project = widget.wrapper.getProject();
-        widgetIDs.get(project).remove(widget.ID());
     }
 
     public void notifyResult(Timeouts timeout, Boolean success) {
@@ -107,12 +77,6 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         }
     }
 
-    // this method will be removed from the API in 2020.2
-    public IconPresentation getPresentation(@NotNull PlatformType type) {
-        return new IconPresentation();
-    }
-
-    // this method will used starting from 2020.2 as the icon presentation API
     public IconPresentation getPresentation() {
         return new IconPresentation();
     }
@@ -145,23 +109,34 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         WindowManager manager = WindowManager.getInstance();
         if (manager != null && project != null && !project.isDisposed()) {
             StatusBar statusBar = manager.getStatusBar(project);
-            LSPServerStatusWidget.removeWidgetID(this);
             if (statusBar != null)
-                ApplicationUtils.invokeLater(() -> statusBar.removeWidget(ID()));
-
+                ApplicationUtils.invokeLater(() -> {
+                    StatusBarWidgetFactory factory = ServiceManager.getService(StatusBarWidgetFactory.class);
+                    factory.disposeWidget(this);
+                });
         }
     }
 
     @NotNull
     @Override
     public String ID() {
-        return projectName != null && ext != null ? projectName + "_" + ext : "anonymous";
+        return "LSP";
+    }
+
+    public Project getProject() {
+        return project;
     }
 
     private class IconPresentation implements StatusBarWidget.IconPresentation {
         @Nullable
         @Override
         public Icon getIcon() {
+            LanguageServerWrapper wrapper = LanguageServerWrapper.forProject(project);
+            Map<ServerStatus, Icon> icons = new LSPDefaultIconProvider().getStatusIcons();
+            if (wrapper != null) {
+                icons = GUIUtils.getIconProviderFor(wrapper.getServerDefinition())
+                        .getStatusIcons();
+            }
             return icons.get(status);
         }
 
@@ -172,14 +147,14 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                 JBPopupFactory.ActionSelectionAid mnemonics = JBPopupFactory.ActionSelectionAid.MNEMONICS;
                 Component component = t.getComponent();
                 List<AnAction> actions = new ArrayList<>();
-                if (wrapper.getStatus() == ServerStatus.INITIALIZED) {
+                if (LanguageServerWrapper.forProject(project).getStatus() == ServerStatus.INITIALIZED) {
                     actions.add(new ShowConnectedFiles());
                 }
                 actions.add(new ShowTimeouts());
 
                 actions.add(new Restart());
 
-                String title = "Server actions";
+                String title = "Server Actions";
                 DataContext context = DataManager.getInstance().getDataContext(component);
                 DefaultActionGroup group = new DefaultActionGroup(actions);
                 ListPopup popup = JBPopupFactory.getInstance()
@@ -198,7 +173,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
                 StringBuilder connectedFiles = new StringBuilder("Connected files :");
-                wrapper.getConnectedFiles().forEach(f -> connectedFiles.append(System.lineSeparator()).append(f));
+                LanguageServerWrapper.forProject(project).getConnectedFiles().forEach(f -> connectedFiles.append(System.lineSeparator()).append(f));
                 Messages.showInfoMessage(connectedFiles.toString(), "Connected Files");
             }
         }
@@ -243,14 +218,19 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
             @Override
             public void actionPerformed(@NotNull AnActionEvent anActionEvent) {
-                wrapper.restart();
+                LanguageServerWrapper.forProject(project).restart();
             }
 
         }
 
         @Override
         public String getTooltipText() {
-            return "Language server for extension " + ext + ", project " + projectName;
+            LanguageServerWrapper wrapper = LanguageServerWrapper.forProject(project);
+            if (wrapper == null) {
+                return "Language server, project " + projectName;
+            } else {
+                return "Language server for extension " + wrapper.getServerDefinition().ext + ", project " + projectName;
+            }
         }
     }
 }
