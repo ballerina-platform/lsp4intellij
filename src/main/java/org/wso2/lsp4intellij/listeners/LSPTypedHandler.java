@@ -44,7 +44,7 @@ public class LSPTypedHandler extends TypedHandlerDelegate {
     }
 
     @Override
-    public @NotNull Result checkAutoPopup(char charTyped, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
+    public Result checkAutoPopup(char charTyped, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
         if (!FileUtils.isFileSupported(file.getVirtualFile())) {
             return Result.CONTINUE;
         }
