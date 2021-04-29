@@ -14,8 +14,9 @@ see also jetbrains documentation: https://plugins.jetbrains.com/docs/intellij/pl
     <extensions defaultExtensionNs="com.intellij">
         <!-- register a preloading activity. You need to init IntellijLanguageClient with your config, see readme -->
         <preloadingActivity implementation="your.plugin.MyPreloadingActivity" id="your.plugin.MyPreloadingActivity"/>
-        <!-- future refactoring: Use service based architecture -->
-        <!-- <applicationService serviceImplementation="org.wso2.lsp4intellij.IntellijLanguageClient"/> -->
+
+        <!-- register intellijLanguageClient as a Service OR as a plugin component (see readme)... -->
+        <applicationService serviceImplementation="org.wso2.lsp4intellij.IntellijLanguageClient"/>
 
         <!-- register a listener on editor events, required for lsp file sync -->
         <editorFactoryListener implementation="org.wso2.lsp4intellij.listeners.LSPEditorListener"/>
