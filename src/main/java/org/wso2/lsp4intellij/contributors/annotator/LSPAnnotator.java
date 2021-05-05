@@ -31,7 +31,6 @@ import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DiagnosticTag;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
@@ -67,7 +66,7 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             VirtualFile virtualFile = file.getVirtualFile();
 
             // If the file is not supported, we skips the annotation by returning null.
-            if (!FileUtils.isFileSupported(virtualFile) || !IntellijLanguageClient.isExtensionSupported(virtualFile)) {
+            if (!FileUtils.isFileSupported(virtualFile) || !FileUtils.isFileSupported(virtualFile)) {
                 return null;
             }
             EditorEventManager eventManager = EditorEventManagerBase.forEditor(editor);
@@ -100,7 +99,7 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         }
 
         VirtualFile virtualFile = file.getVirtualFile();
-        if (FileUtils.isFileSupported(virtualFile) && IntellijLanguageClient.isExtensionSupported(virtualFile)) {
+        if (FileUtils.isFileSupported(virtualFile) && FileUtils.isFileSupported(virtualFile)) {
             String uri = FileUtils.VFSToURI(virtualFile);
             // TODO annotations are applied to a file / document not to an editor. so store them by file and not by editor..
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);

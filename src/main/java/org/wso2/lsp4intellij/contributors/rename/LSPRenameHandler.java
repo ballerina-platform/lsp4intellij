@@ -39,10 +39,10 @@ import com.intellij.refactoring.rename.inplace.InplaceRefactoring;
 import com.intellij.refactoring.rename.inplace.MemberInplaceRenameHandler;
 import com.intellij.refactoring.rename.inplace.MemberInplaceRenamer;
 import org.jetbrains.annotations.NotNull;
-import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
+import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.List;
 
@@ -127,7 +127,7 @@ public class LSPRenameHandler implements RenameHandler {
         if (psiElement instanceof PsiFile || psiElement instanceof LSPPsiElement) {
             return true;
         } else {
-            return IntellijLanguageClient.isExtensionSupported(psiFile.getVirtualFile());
+            return FileUtils.isFileSupported(psiFile.getVirtualFile());
         }
     }
 

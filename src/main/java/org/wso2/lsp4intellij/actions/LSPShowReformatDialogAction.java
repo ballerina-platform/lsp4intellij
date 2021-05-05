@@ -30,9 +30,9 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
-import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
+import org.wso2.lsp4intellij.utils.FileUtils;
 
 /**
  * Class overriding the default action handling the Reformat dialog event (CTRL+ALT+SHIFT+L by default)
@@ -51,7 +51,7 @@ public class LSPShowReformatDialogAction extends ShowReformatFileDialog implemen
             PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
             VirtualFile virFile = FileDocumentManager.getInstance().getFile(editor.getDocument());
             boolean alreadySupported = !LanguageFormatting.INSTANCE.allForLanguage(psiFile.getLanguage()).isEmpty();
-            if (!alreadySupported && IntellijLanguageClient.isExtensionSupported(virFile)) {
+            if (!alreadySupported && FileUtils.isFileSupported(virFile)) {
                 boolean hasSelection = editor.getSelectionModel().hasSelection();
                 LayoutCodeDialog dialog = new LayoutCodeDialog(project, psiFile, hasSelection, HELP_ID);
                 dialog.show();

@@ -23,6 +23,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Disposer;
@@ -57,11 +58,12 @@ import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
 
 public class IntellijLanguageClient implements ApplicationComponent, Disposable {
 
-    private static Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
+    private static final Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
     private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new ConcurrentHashMap<>();
-    private static Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
-    private static Map<Pair<String, String>, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
-    private static Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
+    private static final Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
+    private static final Map<Pair<String, String>, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
+    private static final Map<Pair<Class<? extends FileType>, String>, LanguageServerDefinition> fileTypeToServerDefinition = new ConcurrentHashMap<>();
+    private static final Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
     private static final Predicate<LanguageServerWrapper> RUNNING = (s) -> s.getStatus() != ServerStatus.STOPPED;
 
     @Override
@@ -91,13 +93,15 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     /**
      * Use it to initialize the server connection for the given project (useful if no editor is launched)
      */
+    @SuppressWarnings("unused")
     public void initProjectConnections(@NotNull Project project) {
         String projectStr = FileUtils.projectToUri(project);
         // find serverdefinition keys for this project and try to start a wrapper
-        extToServerDefinition.entrySet().stream().filter(e -> e.getKey().getRight().equals(projectStr)).forEach(entry -> {
-            updateLanguageWrapperContainers(project, entry.getKey(), entry.getValue()).start();
-        });
+        extToServerDefinition.entrySet().stream().filter(e -> e.getKey().getRight().equals(projectStr)).forEach(entry ->
+            updateLanguageWrapperContainers(project, entry.getKey(), entry.getValue()).start());
 
+        fileTypeToServerDefinition.entrySet().stream().filter(e -> e.getKey().getRight().equals(projectStr)).forEach(entry ->
+            updateLanguageWrapperContainers(project, new ImmutablePair<>(entry.getValue().ext, projectStr), entry.getValue()).start());
     }
 
     /**
@@ -118,7 +122,6 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      *
      * @param definition The server definition
      */
-    @SuppressWarnings("unused")
     public static void addServerDefinition(@NotNull LanguageServerDefinition definition, @Nullable Project project) {
         if (project != null) {
             processDefinition(definition, FileUtils.projectToUri(project));
@@ -128,6 +131,23 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
             reloadAllEditors();
         }
         LOG.info("Added definition for " + definition);
+    }
+
+    @SuppressWarnings("unused")
+    public static void addServerDefinition(@NotNull FileType type, @NotNull LanguageServerDefinition definition) {
+        addServerDefinition(type, definition, null);
+    }
+
+    public static void addServerDefinition(@NotNull FileType type, @NotNull LanguageServerDefinition definition, @Nullable Project project) {
+        String projectUri = project == null ? "" : FileUtils.projectToUri(project);
+        ImmutablePair<Class<? extends FileType>, String> key = ImmutablePair.of(type.getClass(), projectUri);
+        fileTypeToServerDefinition.put(key, definition);
+
+        if(project != null) {
+            reloadEditors(project);
+        } else {
+            reloadAllEditors();
+        }
     }
 
     /**
@@ -162,10 +182,10 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      * @return All registered LSP protocol extension managers.
      */
     public static LSPExtensionManager getExtensionManagerFor(String fileExt) {
-        if (extToExtManager.containsKey(fileExt)) {
-            return extToExtManager.get(fileExt);
+        if (fileExt == null || !extToExtManager.containsKey(fileExt)) {
+            return null;
         }
-        return null;
+        return extToExtManager.get(fileExt);
     }
 
     /**
@@ -175,6 +195,15 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     public static boolean isExtensionSupported(VirtualFile virtualFile) {
         return extToServerDefinition.keySet().stream().anyMatch(keyMap ->
                 keyMap.getLeft().equals(virtualFile.getExtension()) || (virtualFile.getName().matches(keyMap.getLeft())));
+    }
+
+    /**
+     * @param virtualFile The virtual file instance to be validated
+     * @return True if there is a LanguageServer supporting this extension, false otherwise
+     */
+    public static boolean isFileTypeSupported(VirtualFile virtualFile) {
+        return fileTypeToServerDefinition.keySet().stream().anyMatch(keyMap ->
+            keyMap.getLeft().equals(virtualFile.getFileType().getClass()));
     }
 
     /**
@@ -238,11 +267,27 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
                 }
             }
 
+            FileType type = file.getFileType();
+            if (serverDefinition == null) {
+                ImmutablePair<Class<? extends FileType>, String> key = new ImmutablePair<>(type.getClass(), projectUri);
+                serverDefinition = fileTypeToServerDefinition.get(key);
+            }
+
+            if (serverDefinition == null) {
+                ImmutablePair<Class<? extends FileType>, String> key = new ImmutablePair<>(type.getClass(), "");
+                serverDefinition = fileTypeToServerDefinition.get(key);
+            }
+
+            if(serverDefinition != null && (ext == null || ext.equals(""))) {
+                ext = serverDefinition.ext;
+            }
+
             if (serverDefinition == null) {
                 LOG.warn("Could not find a server definition for " + ext);
                 return;
             }
             // Update project mapping for language servers.
+            // TODO: would make a lot more sense if this was a mapping of language wrapper to defnitions (and projects)
             LanguageServerWrapper wrapper = updateLanguageWrapperContainers(project, new ImmutablePair<>(ext, projectUri), serverDefinition);
 
             LOG.info("Adding file " + fileName);
