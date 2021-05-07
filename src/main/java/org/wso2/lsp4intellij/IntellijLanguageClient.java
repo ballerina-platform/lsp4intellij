@@ -271,15 +271,17 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
             if (serverDefinition == null) {
                 ImmutablePair<Class<? extends FileType>, String> key = new ImmutablePair<>(type.getClass(), projectUri);
                 serverDefinition = fileTypeToServerDefinition.get(key);
+                if(serverDefinition != null) {
+                    ext = serverDefinition.ext;
+                }
             }
 
             if (serverDefinition == null) {
                 ImmutablePair<Class<? extends FileType>, String> key = new ImmutablePair<>(type.getClass(), "");
                 serverDefinition = fileTypeToServerDefinition.get(key);
-            }
-
-            if(serverDefinition != null && (ext == null || ext.equals(""))) {
-                ext = serverDefinition.ext;
+                if(serverDefinition != null) {
+                    ext = serverDefinition.ext;
+                }
             }
 
             if (serverDefinition == null) {
