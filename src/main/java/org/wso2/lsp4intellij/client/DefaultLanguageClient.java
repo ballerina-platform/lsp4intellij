@@ -15,7 +15,11 @@
  */
 package org.wso2.lsp4intellij.client;
 
-import com.intellij.notification.*;
+import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationAction;
+import com.intellij.notification.NotificationGroup;
+import com.intellij.notification.NotificationGroupManager;
+import com.intellij.notification.NotificationType;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -42,8 +46,7 @@ public class DefaultLanguageClient implements LanguageClient {
     @NotNull
     final private Logger LOG = Logger.getInstance(DefaultLanguageClient.class);
     @NotNull
-    private final NotificationGroup STICKY_NOTIFICATION_GROUP =
-            new NotificationGroup("lsp.message.request", NotificationDisplayType.STICKY_BALLOON, false);
+    private final NotificationGroup STICKY_NOTIFICATION_GROUP = NotificationGroupManager.getInstance().getNotificationGroup("lsp");
     @NotNull
     final private Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
     @NotNull
@@ -264,10 +267,5 @@ public class DefaultLanguageClient implements LanguageClient {
     @NotNull
     protected final ClientContext getContext() {
         return context;
-    }
-
-    @Override
-    public void semanticHighlighting(SemanticHighlightingParams params) {
-        // Todo
     }
 }

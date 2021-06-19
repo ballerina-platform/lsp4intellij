@@ -43,89 +43,10 @@ For instructions on adding **Lsp4IntelliJ** as a dependency when using the below
   - sbt
 
 >**Info:** - The Maven publishing process is currently WIP. Thus, the possibility to add LSP4IntelliJ as a dependency will be available soon in the Maven central.
-  
-### 2. Add the language server definition
 
-1. Instantiate a concrete subclass of the
-[LanguageServerDefinition](src/main/java/org/wso2/lsp4intellij/client/languageserver/serverdefinition/LanguageServerDefinition.java).
-
-    You can use the following concrete class:
-    
-    - **RawCommandServerDefinition(string fileExtension, string[] command)** 
-        
-        This definition can be used to start a language server using a command. 
-        
-        * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
-    
-        * If you want to bind your language server definition only with a specific set of files, you can use that 
-        specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
-        
-        Examples: 
-        
-        Ballerina Language Server 
-        ```java
-        new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
-        ```
-        
-        BSL Language Server
-        ```java
-        String[] command = new String[]{"java","-jar","path/to/language-server.jar"};
-        new RawCommandServerDefinition("bsl,os",command);
-        ```
-       
-   - **ProcessBuilderServerDefinition(string fileExtension, string[] command)** 
-               
-       This definition is an extended form of the **RawCommandServerDefinition**, which accepts 
-       `java.lang.ProcessBuilder` instances so that the users will have more controllability over the language
-        server
-        process to be created.
-       
-       * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
-   
-       * If you want to bind your language server definition only with a specific set of files, you can use that 
-       specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
-       
-       Examples: 
-       
-       Ballerina Language Server 
-       ```java
-       ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
-       new ProcessBuilderServerDefinition("bal", process);
-       ```
-       
-       BSL Language Server
-       ```java
-       ProcessBuilder process = new ProcessBuilder("java","-jar","path/to/language-server.jar");
-       new ProcessBuilderServerDefinition("bsl,os", process);
-       ```
-               
-    > **Note:** All of the above implementations will use server stdin/stdout to communicate.
-
-2. To register any of the aforementioned options, implement a preloading activity in your plugin as shown 
-below.
-
->**Tip:** For other options you can use instead of implementing a preloading activity, go to [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/) 
-to)
-
-Example:
-
-```java
-public class BallerinaPreloadingActivity extends PreloadingActivity {
-    IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
-}
-```
-
-With plugin.xml containing;
-
-```xml
-<extensions defaultExtensionNs="com.intellij">
-    <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" 
-                        id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
-</extensions>
-```
-
-### 3. Add configurations to the plugin.xml file
-   
+### 2. Add a plugin.xml file
+<details>
+<summary>deprecated "components"-based setup</summary>
   1. Add `IntellijLanguageClient` as an application component. 
        ```xml
        <application-components>
@@ -194,9 +115,92 @@ With plugin.xml containing;
             ```
         
    > **Note:** You do not need any additional configurations for the other features.
-      
+</details>
+
+Copy the example plugin.xml [here](resources/plugin.xml.example) and place it under `src/resources/META-INF` in your plugin and adjust it to your needs.
+
+### 3. Add a preloading activity to configure LSP
+
+Implement a preloading activity in your plugin as shown below.
+
+>**Tip:** For other options you can use instead of implementing a preloading activity, go to [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/)
+to)
+
+Example:
+
+```java
+public class BallerinaPreloadingActivity extends PreloadingActivity {
+    public void preload(ProgressIndicator indicator) {
+        IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
+    }
+}
+```
+
+With plugin.xml containing;
+
+```xml
+<extensions defaultExtensionNs="com.intellij">
+    <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" 
+                        id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
+</extensions>
+```
+
 If you have connected to your language server successfully, you will see a green icon at the bottom-right side of your 
 IDE when opening a file that has a registered file extension as shown below.
+
+#### Alternative ways to connect to a language server
+Aside RawCommandServerDefinition there are several classes implementing [LanguageServerDefinition](src/main/java/org/wso2/lsp4intellij/client/languageserver/serverdefinition/LanguageServerDefinition.java).
+
+You can use the following concrete class:
+
+- **RawCommandServerDefinition(string fileExtension, string[] command)**
+
+  This definition can be used to start a language server using a command.
+
+    * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
+
+    * If you want to bind your language server definition only with a specific set of files, you can use that
+      specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
+
+  Examples:
+
+  Ballerina Language Server
+    ```java
+    new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
+    ```
+
+  BSL Language Server
+    ```java
+    String[] command = new String[]{"java","-jar","path/to/language-server.jar"};
+    new RawCommandServerDefinition("bsl,os",command);
+    ```
+
+- **ProcessBuilderServerDefinition(string fileExtension, string[] command)**
+
+  This definition is an extended form of the **RawCommandServerDefinition**, which accepts
+  `java.lang.ProcessBuilder` instances so that the users will have more controllability over the language
+  server
+  process to be created.
+
+    * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
+
+    * If you want to bind your language server definition only with a specific set of files, you can use that
+      specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
+
+  Examples:
+
+  Ballerina Language Server
+    ```java
+    ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
+    new ProcessBuilderServerDefinition("bal", process);
+    ```
+
+  BSL Language Server
+    ```java
+    ProcessBuilder process = new ProcessBuilder("java","-jar","path/to/language-server.jar");
+    new ProcessBuilderServerDefinition("bsl,os", process);
+    ```
+> **Note:** All of the above implementations will use server stdin/stdout to communicate.
 
 ![](resources/images/lang-server-connect.gif)
    

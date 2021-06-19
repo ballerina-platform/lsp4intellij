@@ -71,10 +71,8 @@ import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
+import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.DidChangeTextDocumentParams;
-import org.eclipse.lsp4j.DidCloseTextDocumentParams;
-import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentRangeFormattingParams;
@@ -92,9 +90,9 @@ import org.eclipse.lsp4j.ReferenceContext;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SignatureHelp;
+import org.eclipse.lsp4j.SignatureHelpParams;
 import org.eclipse.lsp4j.SignatureInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
-import org.eclipse.lsp4j.TextDocumentPositionParams;
 import org.eclipse.lsp4j.TextDocumentSaveReason;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
@@ -202,7 +200,7 @@ public class EditorEventManager {
     private volatile boolean diagnosticSyncRequired = true;
     private volatile boolean codeActionSyncRequired = false;
 
-    private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getQuickDocOnMouseOverElementDelayMillis() * 1000000;
+    private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getTooltipsDelay() * 1000000;
 
     public static final String SNIPPET_PLACEHOLDER_REGEX = "(\\$\\{\\d+:?([^{^}]*)}|\\$\\d+)";
 
@@ -396,7 +394,7 @@ public class EditorEventManager {
      * @return The location of the definition
      */
     private Location requestDefinition(Position position) {
-        TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, position);
+        DefinitionParams params = new DefinitionParams(identifier, position);
         CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> request =
                 wrapper.getRequestManager().definition(params);
 
@@ -437,7 +435,8 @@ public class EditorEventManager {
      */
     public Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement, boolean close) {
         Position lspPos = DocumentUtils.offsetToLSPPos(editor, offset);
-        ReferenceParams params = new ReferenceParams(new ReferenceContext(getOriginalElement));
+        TextDocumentIdentifier textDocumentIdentifier = new TextDocumentIdentifier(FileUtils.editorToURIString(editor));
+        ReferenceParams params = new ReferenceParams(textDocumentIdentifier, lspPos, new ReferenceContext(getOriginalElement));
         params.setPosition(lspPos);
         params.setTextDocument(identifier);
         CompletableFuture<List<? extends Location>> request = wrapper.getRequestManager().references(params);
@@ -603,7 +602,7 @@ public class EditorEventManager {
         }
         LogicalPosition lPos = editor.getCaretModel().getCurrentCaret().getLogicalPosition();
         Point point = editor.logicalPositionToXY(lPos);
-        TextDocumentPositionParams params = new TextDocumentPositionParams(identifier, DocumentUtils.logicalToLSPPos(lPos, editor));
+        SignatureHelpParams params = new SignatureHelpParams(identifier, DocumentUtils.logicalToLSPPos(lPos, editor));
         pool(() -> {
             CompletableFuture<SignatureHelp> future = wrapper.getRequestManager().signatureHelp(params);
             if (future == null) {

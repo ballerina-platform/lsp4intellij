@@ -60,7 +60,7 @@ public class FileUtilsTest {
         PowerMockito.when(fileEditorManagerEx.getAllEditors(file))
                 .thenReturn(new FileEditor[]{textEditor})
                 .thenReturn(new FileEditor[0]);
-        PowerMockito.when(FileEditorManager.getInstance(project)).thenReturn(fileEditorManagerEx);
+        PowerMockito.when(FileEditorManager.getInstance(project)).thenAnswer(invocation -> fileEditorManagerEx);
 
         Assert.assertEquals(editor, FileUtils.editorFromVirtualFile(file, project));
 
@@ -175,7 +175,7 @@ public class FileUtilsTest {
         PowerMockito.spy(FileUtils.class);
         Project project = PowerMockito.mock(Project.class);
         PowerMockito.when(project.getBasePath()).thenReturn("test");
-        PowerMockito.when(FileUtils.pathToUri(Mockito.anyString())).thenReturn("fooBar");
+        PowerMockito.when(FileUtils.pathToUri(Mockito.anyString())).thenAnswer(invocation -> "fooBar");
 
         Assert.assertEquals("fooBar", FileUtils.projectToUri(project));
     }
@@ -203,7 +203,7 @@ public class FileUtilsTest {
         PowerMockito.mockStatic(FileDocumentManager.class);
         FileDocumentManager fileDocumentManager = PowerMockito.mock(FileDocumentManager.class);
         PowerMockito.when(fileDocumentManager.getFile(Mockito.mock(Document.class))).thenReturn(virtualFile1);
-        PowerMockito.when(FileDocumentManager.getInstance()).thenReturn(fileDocumentManager);
+        PowerMockito.when(FileDocumentManager.getInstance()).thenAnswer(invocation -> fileDocumentManager);
 
         Assert.assertFalse(FileUtils.isEditorSupported(Mockito.mock(Editor.class)));
     }

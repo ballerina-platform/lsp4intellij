@@ -25,7 +25,6 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
-import com.intellij.util.SmartList;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DiagnosticTag;
@@ -133,9 +132,7 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             return;
         }
         annotations.forEach(annotation -> {
-            // TODO: Use 'newAnnotation'; 'createAnnotation' is deprecated.
-            Annotation anon = holder.createAnnotation(annotation.getSeverity(),
-                    new TextRange(annotation.getStartOffset(), annotation.getEndOffset()), annotation.getMessage());
+            Annotation anon = holder.newAnnotation(annotation.getSeverity(), annotation.getMessage()).createAnnotation();
 
             if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
                 return;
@@ -153,12 +150,9 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         }
         final TextRange range = new TextRange(start, end);
 
-        holder.newAnnotation(lspToIntellijAnnotationsMap.get(diagnostic.getSeverity()), diagnostic.getMessage())
+        return holder.newAnnotation(lspToIntellijAnnotationsMap.get(diagnostic.getSeverity()), diagnostic.getMessage())
                 .range(range)
-                .create();
-
-        SmartList<Annotation> asList = (SmartList<Annotation>) holder;
-        return asList.get(asList.size() - 1);
+                .createAnnotation();
     }
 
     private void createAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {

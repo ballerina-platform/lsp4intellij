@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.listeners;
 
+import com.intellij.codeInsight.AutoPopupController;
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
@@ -38,6 +39,24 @@ public class LSPTypedHandler extends TypedHandlerDelegate {
         EditorEventManager eventManager = EditorEventManagerBase.forEditor(editor);
         if (eventManager != null) {
             eventManager.characterTyped(c);
+        }
+        return Result.CONTINUE;
+    }
+
+    @Override
+    public Result checkAutoPopup(char charTyped, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
+        if (!FileUtils.isFileSupported(file.getVirtualFile())) {
+            return Result.CONTINUE;
+        }
+
+        EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
+        if (manager == null) {
+            return Result.CONTINUE;
+        }
+        for (String triggerChar : manager.completionTriggers) {
+            if (triggerChar != null && triggerChar.length() == 1 && triggerChar.charAt(0) == charTyped) {
+                return Result.STOP;
+            }
         }
         return Result.CONTINUE;
     }

@@ -31,7 +31,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiNameIdentifierOwner;
 import com.intellij.psi.PsiNamedElement;
-import com.intellij.psi.impl.source.tree.injected.InjectedLanguageUtil;
+import com.intellij.psi.impl.source.tree.injected.InjectedLanguageEditorUtil;
 import com.intellij.refactoring.rename.PsiElementRenameHandler;
 import com.intellij.refactoring.rename.RenameHandler;
 import com.intellij.refactoring.rename.RenamePsiElementProcessor;
@@ -45,6 +45,8 @@ import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
 import java.util.List;
+
+import static com.intellij.openapi.command.impl.StartMarkAction.START_MARK_ACTION_KEY;
 
 /**
  * The LSP based rename handler implementation.
@@ -78,7 +80,7 @@ public class LSPRenameHandler implements RenameHandler {
         if (elementToRename instanceof PsiNameIdentifierOwner) {
             RenamePsiElementProcessor processor = RenamePsiElementProcessor.forElement(elementToRename);
             if (processor.isInplaceRenameSupported()) {
-                StartMarkAction startMarkAction = StartMarkAction.canStart(elementToRename.getProject());
+                StartMarkAction startMarkAction = editor.getUserData(START_MARK_ACTION_KEY);
                 if (startMarkAction == null || (processor.substituteElementToRename(elementToRename, editor)
                         == elementToRename)) {
                     processor.substituteElementToRename(elementToRename, editor, new Pass<PsiElement>() {
@@ -98,7 +100,7 @@ public class LSPRenameHandler implements RenameHandler {
                 InplaceRefactoring inplaceRefactoring = editor.getUserData(InplaceRefactoring.INPLACE_RENAMER);
                 if ((inplaceRefactoring instanceof MemberInplaceRenamer)) {
                     TemplateState templateState = TemplateManagerImpl
-                            .getTemplateState(InjectedLanguageUtil.getTopLevelEditor(editor));
+                            .getTemplateState(InjectedLanguageEditorUtil.getTopLevelEditor(editor));
                     if (templateState != null) {
                         templateState.gotoEnd(true);
                     }

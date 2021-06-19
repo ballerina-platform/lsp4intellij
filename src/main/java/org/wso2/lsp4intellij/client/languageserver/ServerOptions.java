@@ -40,7 +40,6 @@ public class ServerOptions {
     public DocumentOnTypeFormattingOptions documentOnTypeFormattingOptions;
     public DocumentLinkOptions documentLinkOptions;
     public ExecuteCommandOptions executeCommandOptions;
-    public SemanticHighlightingServerCapabilities semanticHighlightingOptions;
 
     public ServerOptions(ServerCapabilities serverCapabilities) {
 
@@ -58,6 +57,5 @@ public class ServerOptions {
         this.documentOnTypeFormattingOptions = capabilities.getDocumentOnTypeFormattingProvider();
         this.documentLinkOptions = capabilities.getDocumentLinkProvider();
         this.executeCommandOptions = capabilities.getExecuteCommandProvider();
-        this.semanticHighlightingOptions = capabilities.getSemanticHighlighting();
     }
 }

@@ -63,33 +63,6 @@ public class LSPRenameProcessor extends RenamePsiElementProcessor {
     }
 
     @NotNull
-    @Override
-    public Collection<PsiReference> findReferences(@NotNull PsiElement element) {
-        return findReferences(element, false);
-    }
-
-    // Todo - remove and change the minimum compatible version to IDEA 2019.2, once this deprecated method is removed.
-    @NotNull
-    @SuppressWarnings("unused")
-    public Collection<PsiReference> findReferences(@NotNull PsiElement element, boolean searchInCommentsAndStrings) {
-        if (element instanceof LSPPsiElement) {
-            if (elements.contains(element)) {
-                return elements.stream().map(PsiElement::getReference).filter(Objects::nonNull).collect(Collectors.toList());
-            } else {
-                EditorEventManager manager = EditorEventManagerBase.forEditor(FileUtils.editorFromPsiFile(element.getContainingFile()));
-                if (manager != null) {
-                    Pair<List<PsiElement>, List<VirtualFile>> refs = manager.references(element.getTextOffset(), true, false);
-                    if (refs.getFirst() != null && refs.getSecond() != null) {
-                        addEditors(refs.getSecond());
-                        return refs.getFirst().stream().map(PsiElement::getReference).filter(Objects::nonNull).collect(Collectors.toList());
-                    }
-                }
-            }
-        }
-        return new ArrayList<>();
-    }
-
-    @NotNull
     @SuppressWarnings("unused")
     public Collection<PsiReference> findReferences(@NotNull PsiElement element, @NotNull SearchScope searchScope,
                                                    boolean searchInCommentsAndStrings) {
