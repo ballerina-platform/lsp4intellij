@@ -16,8 +16,10 @@
 package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.vfs.VirtualFile;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 
 import java.io.IOException;
@@ -100,8 +102,17 @@ public class LanguageServerDefinition {
     /**
      * Return language id for the given extension. if there is no langauge ids registered then the
      * return value will be the value of <code>extension</code>.
+     * @param file is the file to get the language id for
      */
-    public String languageIdFor(String extension) {
-        return languageIds.getOrDefault(extension, extension);
+    public String languageIdFor(@NotNull VirtualFile file) {
+        // TODO: probably makes sense to map file types to lang ids
+        String id = languageIds.get(file.getExtension());
+        if (id == null) {
+            id = file.getExtension();
+        }
+        if(id == null) {
+            id = ext;
+        }
+        return id;
     }
 }

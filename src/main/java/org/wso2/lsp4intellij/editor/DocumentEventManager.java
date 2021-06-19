@@ -22,27 +22,14 @@ import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.util.text.StringUtil;
-import org.eclipse.lsp4j.DidChangeTextDocumentParams;
-import org.eclipse.lsp4j.DidCloseTextDocumentParams;
-import org.eclipse.lsp4j.DidOpenTextDocumentParams;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
-import org.eclipse.lsp4j.TextDocumentIdentifier;
-import org.eclipse.lsp4j.TextDocumentItem;
-import org.eclipse.lsp4j.TextDocumentSyncKind;
-import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
-import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
+import com.intellij.openapi.vfs.VirtualFile;
+import org.eclipse.lsp4j.*;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class DocumentEventManager {
     private final Document document;
@@ -152,9 +139,10 @@ public class DocumentEventManager {
             LOG.warn("trying to send open notification for document which was already opened!");
         } else {
             openDocuments.add(document);
-            final String extension = FileDocumentManager.getInstance().getFile(document).getExtension();
+            VirtualFile file = FileDocumentManager.getInstance().getFile(document);
+            String languageId = wrapper.serverDefinition.languageIdFor(file);
             wrapper.getRequestManager().didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
-                    wrapper.serverDefinition.languageIdFor(extension),
+                    languageId,
                     ++version,
                     document.getText())));
         }

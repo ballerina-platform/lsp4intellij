@@ -322,7 +322,7 @@ public class FileUtils {
             return false;
         }
 
-        return IntellijLanguageClient.isExtensionSupported(file);
+        return IntellijLanguageClient.isExtensionSupported(file) || IntellijLanguageClient.isFileTypeSupported(file);
     }
 
     /**

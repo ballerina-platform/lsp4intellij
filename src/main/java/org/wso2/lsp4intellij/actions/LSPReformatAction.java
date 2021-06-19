@@ -25,8 +25,8 @@ import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
-import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.requests.ReformatHandler;
+import org.wso2.lsp4intellij.utils.FileUtils;
 
 /**
  * Action overriding the default reformat action
@@ -43,8 +43,8 @@ public class LSPReformatAction extends ReformatCodeAction implements DumbAware {
             return;
         }
         PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
-        if (LanguageFormatting.INSTANCE.allForLanguage(file.getLanguage()).isEmpty() && IntellijLanguageClient
-                .isExtensionSupported(file.getVirtualFile())) {
+        if (LanguageFormatting.INSTANCE.allForLanguage(file.getLanguage()).isEmpty() && FileUtils
+                .isFileSupported(file.getVirtualFile())) {
             // if editor hasSelection, only reformat selection, not reformat the whole file
             if (editor.getSelectionModel().hasSelection()) {
                 ReformatHandler.reformatSelection(editor);
