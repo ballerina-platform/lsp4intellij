@@ -672,7 +672,10 @@ public class LanguageServerWrapper {
     }
 
     public void removeWidget() {
-        getWidget().dispose();
+        LSPServerStatusWidget widget = getWidget();
+        if (widget != null) {
+            widget.dispose();
+        }
     }
 
     /**
