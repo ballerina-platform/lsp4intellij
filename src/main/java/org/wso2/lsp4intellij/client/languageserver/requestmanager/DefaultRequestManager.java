@@ -225,7 +225,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<? extends SymbolInformation>> symbol(WorkspaceSymbolParams params) {
         if (checkStatus()) {
             try {
-                return serverCapabilities.getWorkspaceSymbolProvider() ? workspaceService.symbol(params) : null;
+                return Optional.ofNullable(serverCapabilities.getWorkspaceSymbolProvider()).orElse(false) ?
+                        workspaceService.symbol(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -397,7 +398,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getReferencesProvider()) ? textDocumentService.references(params) : null;
+                return Optional.ofNullable(serverCapabilities.getReferencesProvider()).orElse(false) ?
+                        textDocumentService.references(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -415,7 +417,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<? extends DocumentHighlight>> documentHighlight(DocumentHighlightParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentHighlightProvider()) ? textDocumentService.documentHighlight(params) : null;
+                return Optional.ofNullable(serverCapabilities.getDocumentHighlightProvider()).orElse(false) ?
+                        textDocumentService.documentHighlight(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -428,7 +431,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(DocumentSymbolParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentSymbolProvider()) ? textDocumentService.documentSymbol(params) : null;
+                return Optional.ofNullable(serverCapabilities.getDocumentSymbolProvider()).orElse(false) ?
+                        textDocumentService.documentSymbol(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -441,7 +445,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentFormattingProvider()) ? textDocumentService.formatting(params) : null;
+                return Optional.ofNullable(serverCapabilities.getDocumentFormattingProvider()).orElse(false) ?
+                        textDocumentService.formatting(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -487,7 +492,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDefinitionProvider()) ? textDocumentService.definition(params) : null;
+                return Optional.ofNullable(serverCapabilities.getDefinitionProvider()).orElse(false) ?
+                        textDocumentService.definition(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -555,8 +561,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<DocumentLink> documentLinkResolve(DocumentLink unresolved) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentLinkProvider() != null && serverCapabilities
-                        .getDocumentLinkProvider().getResolveProvider()) ?
+                return serverCapabilities.getDocumentLinkProvider() != null && Optional.ofNullable(serverCapabilities
+                        .getDocumentLinkProvider().getResolveProvider()).orElse(false) ?
                         textDocumentService.documentLinkResolve(unresolved) :
                         null;
             } catch (Exception e) {
