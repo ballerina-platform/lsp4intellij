@@ -55,9 +55,6 @@ public interface RequestManager extends LanguageClient, TextDocumentService, Wor
     @Override
     void publishDiagnostics(PublishDiagnosticsParams publishDiagnosticsParams);
 
-    @Override
-    void semanticHighlighting(SemanticHighlightingParams params);
-
     //--------------------------------------Client2Server-------------------------------------------------------------//
 
     // General
@@ -81,9 +78,6 @@ public interface RequestManager extends LanguageClient, TextDocumentService, Wor
 
     @Override
     void didChangeWatchedFiles(DidChangeWatchedFilesParams params);
-
-    @Override
-    CompletableFuture<List<? extends SymbolInformation>> symbol(WorkspaceSymbolParams params);
 
     @Override
     CompletableFuture<Object> executeCommand(ExecuteCommandParams params);

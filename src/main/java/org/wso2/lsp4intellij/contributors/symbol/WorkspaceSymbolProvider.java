@@ -29,9 +29,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.intellij.openapi.vfs.VirtualFile;
-import org.eclipse.lsp4j.Location;
-import org.eclipse.lsp4j.SymbolInformation;
-import org.eclipse.lsp4j.WorkspaceSymbolParams;
+import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
@@ -64,7 +63,8 @@ public class WorkspaceSymbolProvider {
   }
 
   private LSPNavigationItem createNavigationItem(LSPSymbolResult result, Project project) {
-    final SymbolInformation information = result.getSymbolInformation();
+    final SymbolInformation information = (result.getSymbolInformation() != null) ?
+            result.getSymbolInformation() : from(result.getWorkspaceSymbol());
     final Location location = information.getLocation();
     final VirtualFile file = FileUtils.URIToVFS(location.getUri());
 
@@ -81,11 +81,29 @@ public class WorkspaceSymbolProvider {
     }
   }
 
+  private SymbolInformation from(WorkspaceSymbol symbol) {
+    SymbolInformation information = new SymbolInformation();
+    information.setContainerName(symbol.getContainerName());
+    information.setKind(symbol.getKind());
+    information.setName(symbol.getName());
+    if(symbol.getLocation().isLeft()) {
+      information.setLocation(symbol.getLocation().getLeft());
+    } else {
+      information.setLocation(new Location());
+      information.getLocation().setUri(symbol.getLocation().getRight().getUri());
+    }
+    information.setTags(symbol.getTags());
+    if(symbol.getTags() != null) {
+      information.setDeprecated(symbol.getTags().contains(SymbolTag.Deprecated));
+    }
+    return information;
+  }
+
   @SuppressWarnings("squid:S2142")
   private Stream<LSPSymbolResult> collectSymbol(LanguageServerWrapper wrapper,
       RequestManager requestManager,
       WorkspaceSymbolParams symbolParams) {
-    final CompletableFuture<List<? extends SymbolInformation>> request = requestManager
+    final CompletableFuture<Either<List<? extends SymbolInformation>, List<? extends WorkspaceSymbol>>> request = requestManager
         .symbol(symbolParams);
 
     if (request == null) {
@@ -93,11 +111,14 @@ public class WorkspaceSymbolProvider {
     }
 
     try {
-      List<? extends SymbolInformation> symbolInformations = request
+      Either<List<? extends SymbolInformation>, List<? extends WorkspaceSymbol>> symbolInformations = request
           .get(20000, TimeUnit.MILLISECONDS);
       wrapper.notifySuccess(Timeouts.SYMBOLS);
-      return symbolInformations.stream()
-          .map(si -> new LSPSymbolResult(si, wrapper.getServerDefinition()));
+      if(symbolInformations.isLeft()) {
+        return symbolInformations.getLeft().stream().map(si -> new LSPSymbolResult(si, wrapper.getServerDefinition()));
+      } else if (symbolInformations.isRight()) {
+        return symbolInformations.getRight().stream().map(si -> new LSPSymbolResult(si, wrapper.getServerDefinition()));
+      }
     } catch (TimeoutException e) {
       LOG.warn(e);
       wrapper.notifyFailure(Timeouts.SYMBOLS);
@@ -111,11 +132,18 @@ public class WorkspaceSymbolProvider {
   private static class LSPSymbolResult {
 
     private SymbolInformation symbolInformation;
+    private WorkspaceSymbol workspaceSymbol;
     private LanguageServerDefinition definition;
 
     public LSPSymbolResult(SymbolInformation symbolInformation,
         LanguageServerDefinition definition) {
       this.symbolInformation = symbolInformation;
+      this.definition = definition;
+    }
+
+    public LSPSymbolResult(WorkspaceSymbol workspaceSymbol,
+                           LanguageServerDefinition definition) {
+      this.workspaceSymbol = workspaceSymbol;
       this.definition = definition;
     }
 
@@ -125,6 +153,10 @@ public class WorkspaceSymbolProvider {
 
     public LanguageServerDefinition getDefinition() {
       return definition;
+    }
+
+    public WorkspaceSymbol getWorkspaceSymbol() {
+      return workspaceSymbol;
     }
   }
 }
