@@ -49,7 +49,6 @@ import org.eclipse.lsp4j.OnTypeFormattingCapabilities;
 import org.eclipse.lsp4j.RangeFormattingCapabilities;
 import org.eclipse.lsp4j.ReferencesCapabilities;
 import org.eclipse.lsp4j.RenameCapabilities;
-import org.eclipse.lsp4j.SemanticHighlightingCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SignatureHelpCapabilities;
 import org.eclipse.lsp4j.SymbolCapabilities;
