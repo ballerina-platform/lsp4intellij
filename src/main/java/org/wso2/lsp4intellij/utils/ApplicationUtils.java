@@ -53,18 +53,21 @@ public class ApplicationUtils {
     }
 
     static public void restartPool() {
-        EXECUTOR_SERVICE.shutdown();
-        try {
-            EXECUTOR_SERVICE.awaitTermination(IntellijLanguageClient.getTimeout(Timeouts.SHUTDOWN), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException ignored) {
-        }
+        ExecutorService esToShutdown = EXECUTOR_SERVICE;
         EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
                 EXECUTOR_SERVICE.shutdownNow();
             }
-        });    }
+        });
+
+        esToShutdown.shutdown();
+        try {
+            esToShutdown.awaitTermination(IntellijLanguageClient.getTimeout(Timeouts.SHUTDOWN), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {
+        }
+    }
 
     static public <T> T computableReadAction(Computable<T> computable) {
         return ApplicationManager.getApplication().runReadAction(computable);
