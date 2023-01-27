@@ -255,7 +255,7 @@ public class LanguageServerWrapper {
     }
 
     public void notifyResult(Timeouts timeouts, boolean success) {
-        getWidget().notifyResult(timeouts, success);
+        getWidget().ifPresent(widget -> widget.notifyResult(timeouts, success));
     }
 
     public void notifySuccess(Timeouts timeouts) {
@@ -614,8 +614,7 @@ public class LanguageServerWrapper {
 
     private void setStatus(ServerStatus status) {
         this.status = status;
-        LSPServerStatusWidget widget = getWidget();
-        widget.setStatus(status);
+        getWidget().ifPresent(widget -> widget.setStatus(status));
     }
 
     public void crashed(Exception e) {
@@ -672,10 +671,7 @@ public class LanguageServerWrapper {
     }
 
     public void removeWidget() {
-        LSPServerStatusWidget widget = getWidget();
-        if (widget != null) {
-            widget.dispose();
-        }
+        getWidget().ifPresent(LSPServerStatusWidget::dispose);
     }
 
     /**
@@ -781,12 +777,12 @@ public class LanguageServerWrapper {
         });
     }
 
-    private LSPServerStatusWidget getWidget() {
+    private Optional<LSPServerStatusWidget> getWidget() {
         LSPServerStatusWidgetFactory factory = ((LSPServerStatusWidgetFactory) project.getService(StatusBarWidgetsManager.class).findWidgetFactory("LSP"));
         if (factory != null) {
-            return factory.getWidget(project);
+            return Optional.of(factory.getWidget(project));
         } else {
-            return null;
+            return Optional.empty();
         }
     }
 
