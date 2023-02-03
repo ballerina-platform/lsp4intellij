@@ -88,7 +88,6 @@ import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
 
@@ -463,7 +462,6 @@ public class LanguageServerWrapper {
                 disconnect(ed);
             }
 
-            ApplicationUtils.restartPool();
             // sadly this whole editor closing stuff runs asynchronously, so we cannot be sure the state is really clean here...
             // therefore clear the mapping from here as it should be empty by now.
             DocumentEventManager.clearState();
