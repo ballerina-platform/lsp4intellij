@@ -33,6 +33,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeActionCapabilities;
+import org.eclipse.lsp4j.CodeActionKindCapabilities;
 import org.eclipse.lsp4j.CodeActionLiteralSupportCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionItemCapabilities;
@@ -49,7 +50,6 @@ import org.eclipse.lsp4j.OnTypeFormattingCapabilities;
 import org.eclipse.lsp4j.RangeFormattingCapabilities;
 import org.eclipse.lsp4j.ReferencesCapabilities;
 import org.eclipse.lsp4j.RenameCapabilities;
-import org.eclipse.lsp4j.SemanticHighlightingCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SignatureHelpCapabilities;
 import org.eclipse.lsp4j.SymbolCapabilities;
@@ -88,7 +88,6 @@ import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
 
@@ -255,7 +254,7 @@ public class LanguageServerWrapper {
     }
 
     public void notifyResult(Timeouts timeouts, boolean success) {
-        getWidget().notifyResult(timeouts, success);
+        getWidget().ifPresent(widget -> widget.notifyResult(timeouts, success));
     }
 
     public void notifySuccess(Timeouts timeouts) {
@@ -463,7 +462,6 @@ public class LanguageServerWrapper {
                 disconnect(ed);
             }
 
-            ApplicationUtils.restartPool();
             // sadly this whole editor closing stuff runs asynchronously, so we cannot be sure the state is really clean here...
             // therefore clear the mapping from here as it should be empty by now.
             DocumentEventManager.clearState();
@@ -574,7 +572,7 @@ public class LanguageServerWrapper {
 
         TextDocumentClientCapabilities textDocumentClientCapabilities = new TextDocumentClientCapabilities();
         textDocumentClientCapabilities.setCodeAction(new CodeActionCapabilities());
-        textDocumentClientCapabilities.getCodeAction().setCodeActionLiteralSupport(new CodeActionLiteralSupportCapabilities());
+        textDocumentClientCapabilities.getCodeAction().setCodeActionLiteralSupport(new CodeActionLiteralSupportCapabilities(new CodeActionKindCapabilities()));
         textDocumentClientCapabilities.setCompletion(new CompletionCapabilities(new CompletionItemCapabilities(true)));
         textDocumentClientCapabilities.setDefinition(new DefinitionCapabilities());
         textDocumentClientCapabilities.setDocumentHighlight(new DocumentHighlightCapabilities());
@@ -614,8 +612,7 @@ public class LanguageServerWrapper {
 
     private void setStatus(ServerStatus status) {
         this.status = status;
-        LSPServerStatusWidget widget = getWidget();
-        widget.setStatus(status);
+        getWidget().ifPresent(widget -> widget.setStatus(status));
     }
 
     public void crashed(Exception e) {
@@ -672,10 +669,7 @@ public class LanguageServerWrapper {
     }
 
     public void removeWidget() {
-        LSPServerStatusWidget widget = getWidget();
-        if (widget != null) {
-            widget.dispose();
-        }
+        getWidget().ifPresent(LSPServerStatusWidget::dispose);
     }
 
     /**
@@ -781,12 +775,12 @@ public class LanguageServerWrapper {
         });
     }
 
-    private LSPServerStatusWidget getWidget() {
+    private Optional<LSPServerStatusWidget> getWidget() {
         LSPServerStatusWidgetFactory factory = ((LSPServerStatusWidgetFactory) project.getService(StatusBarWidgetsManager.class).findWidgetFactory("LSP"));
         if (factory != null) {
-            return factory.getWidget(project);
+            return Optional.of(factory.getWidget(project));
         } else {
-            return null;
+            return Optional.empty();
         }
     }
 

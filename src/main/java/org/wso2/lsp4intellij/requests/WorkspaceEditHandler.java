@@ -59,6 +59,7 @@ import java.util.stream.Stream;
 
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
+import static org.wso2.lsp4intellij.utils.DocumentUtils.toEither;
 
 /**
  * An Object handling WorkspaceEdits
@@ -134,7 +135,7 @@ public class WorkspaceEditHandler {
                         EditorEventManager manager = EditorEventManagerBase.forUri(uri);
                         if (manager != null) {
                             curProject[0] = manager.editor.getProject();
-                            toApply.add(manager.getEditsRunnable(version, textEdit.getEdits(), newName, true));
+                            toApply.add(manager.getEditsRunnable(version, toEither(textEdit.getEdits()), newName, true));
                         } else {
                             toApply.add(
                                     manageUnopenedEditor(textEdit.getEdits(), uri, version, openedEditors, curProject,
@@ -155,7 +156,7 @@ public class WorkspaceEditHandler {
                     EditorEventManager manager = EditorEventManagerBase.forUri(uri);
                     if (manager != null) {
                         curProject[0] = manager.editor.getProject();
-                        toApply.add(manager.getEditsRunnable(Integer.MAX_VALUE, lChanges, newName, true));
+                        toApply.add(manager.getEditsRunnable(Integer.MAX_VALUE, toEither(lChanges), newName, true));
                     } else {
                         toApply.add(manageUnopenedEditor(lChanges, uri, Integer.MAX_VALUE, openedEditors, curProject,
                                 newName));
@@ -215,7 +216,7 @@ public class WorkspaceEditHandler {
         Runnable runnable = null;
         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
-            runnable = manager.getEditsRunnable(version, edits, name, true);
+            runnable = manager.getEditsRunnable(version, toEither(edits), name, true);
         }
         return runnable;
     }

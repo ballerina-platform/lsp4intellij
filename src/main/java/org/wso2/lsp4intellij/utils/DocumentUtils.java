@@ -22,9 +22,15 @@ import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.DocumentUtil;
+import org.eclipse.lsp4j.InsertReplaceEdit;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 import javax.annotation.Nullable;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -181,6 +187,10 @@ public class DocumentUtils {
 
     public static boolean shouldUseSpaces(Editor editor){
         return computableReadAction(() -> !editor.getSettings().isUseTabCharacter(editor.getProject()));
+    }
+
+    public static List<Either<TextEdit, InsertReplaceEdit>> toEither(List<TextEdit> edits) {
+        return edits.stream().map(Either::<TextEdit, InsertReplaceEdit>forLeft).collect(Collectors.toList());
     }
 
 
