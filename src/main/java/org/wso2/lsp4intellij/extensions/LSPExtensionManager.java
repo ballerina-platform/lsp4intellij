@@ -24,7 +24,6 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.client.ClientContext;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
-import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
@@ -50,7 +49,7 @@ public interface LSPExtensionManager {
      * As a starting point you can extend
      * {@link org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager}.
      */
-    <T extends DefaultRequestManager> T getExtendedRequestManagerFor(LanguageServerWrapper wrapper,
+    RequestManager getExtendedRequestManagerFor(LanguageServerWrapper wrapper,
                                                                      LanguageServer server, LanguageClient client,
                                                                      ServerCapabilities serverCapabilities);
 
@@ -65,7 +64,7 @@ public interface LSPExtensionManager {
      * As a starting point you can extend
      * {@link org.wso2.lsp4intellij.editor.EditorEventManager}.
      */
-    <T extends EditorEventManager> T getExtendedEditorEventManagerFor(Editor editor, DocumentListener documentListener,
+    EditorEventManager getExtendedEditorEventManagerFor(Editor editor, DocumentListener documentListener,
                                                                       EditorMouseListenerImpl mouseListener,
                                                                       EditorMouseMotionListenerImpl mouseMotionListener,
                                                                       LSPCaretListenerImpl caretListener,
