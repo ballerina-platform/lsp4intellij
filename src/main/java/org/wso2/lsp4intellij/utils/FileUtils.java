@@ -25,6 +25,7 @@ import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.util.io.FileUtilRt;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
@@ -364,7 +365,7 @@ public class FileUtils {
             if (file == null) {
                 return true;
             }
-            LSPExtensionManager lspExtManager = IntellijLanguageClient.getExtensionManagerFor(file.getVirtualFile().getExtension());
+            LSPExtensionManager lspExtManager = IntellijLanguageClient.getExtensionManagerFor(FileUtilRt.getExtension(file.getName()));
             if (lspExtManager == null) {
                 return true;
             }
