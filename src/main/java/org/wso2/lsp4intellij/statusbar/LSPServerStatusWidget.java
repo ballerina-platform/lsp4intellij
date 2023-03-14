@@ -39,6 +39,7 @@ import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
+import org.wso2.lsp4intellij.notifiers.ServerStatusNotifier;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
@@ -52,7 +53,7 @@ import java.util.Map;
 
 import javax.swing.*;
 
-public class LSPServerStatusWidget implements StatusBarWidget {
+public class LSPServerStatusWidget implements StatusBarWidget, ServerStatusNotifier {
 
     private final Map<Timeouts, Pair<Integer, Integer>> timeouts = new HashMap<>();
     private final Project project;
@@ -66,6 +67,8 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         for (Timeouts t : Timeouts.values()) {
             timeouts.put(t, new MutablePair<>(0, 0));
         }
+
+        project.getMessageBus().connect().subscribe(ServerStatusNotifier.SERVER_STATUS_TOPIC, this);
     }
 
     public void notifyResult(Timeouts timeout, Boolean success) {
@@ -77,22 +80,18 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         }
     }
 
+    @Override
+    public void serverStatusChanged(ServerStatus oldStatus, ServerStatus newStatus) {
+        this.status = newStatus;
+        updateWidget();
+    }
+
     public IconPresentation getPresentation() {
         return new IconPresentation();
     }
 
     @Override
     public void install(@NotNull StatusBar statusBar) {
-    }
-
-    /**
-     * Sets the status of the server
-     *
-     * @param status The new status
-     */
-    public void setStatus(ServerStatus status) {
-        this.status = status;
-        updateWidget();
     }
 
     private void updateWidget() {

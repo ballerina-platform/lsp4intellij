@@ -72,6 +72,7 @@ import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.DefaultLanguageClient;
 import org.wso2.lsp4intellij.client.ServerWrapperBaseClientContext;
+import org.wso2.lsp4intellij.notifiers.ServerStatusNotifier;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
@@ -157,6 +158,8 @@ public class LanguageServerWrapper {
     private static final Logger LOG = Logger.getInstance(LanguageServerWrapper.class);
     private static final CloudNotifier notifier = new CloudNotifier("Language Server Protocol client");
 
+    private final ServerStatusNotifier serverStatusNotifier;
+
     public LanguageServerWrapper(@NotNull LanguageServerDefinition serverDefinition, @NotNull Project project) {
         this(serverDefinition, project, null);
     }
@@ -170,6 +173,7 @@ public class LanguageServerWrapper {
         this.projectRootPath = project.getBasePath();
         this.extManager = extManager;
         projectToLanguageServerWrapper.put(project, this);
+        this.serverStatusNotifier = project.getMessageBus().syncPublisher(ServerStatusNotifier.SERVER_STATUS_TOPIC);
     }
 
     /**
@@ -610,9 +614,10 @@ public class LanguageServerWrapper {
         return status;
     }
 
-    private void setStatus(ServerStatus status) {
-        this.status = status;
-        getWidget().ifPresent(widget -> widget.setStatus(status));
+    private void setStatus(ServerStatus newStatus) {
+        final ServerStatus oldStatus = this.status;
+        this.status = newStatus;
+        serverStatusNotifier.serverStatusChanged(oldStatus, newStatus);
     }
 
     public void crashed(Exception e) {
