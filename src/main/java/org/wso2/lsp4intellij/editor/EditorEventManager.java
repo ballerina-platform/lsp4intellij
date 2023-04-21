@@ -196,8 +196,12 @@ public class EditorEventManager {
      * @param c The character just typed
      */
     public void characterTyped(char c) {
-        if (signatureTriggers.contains(Character.toString(c))) {
+        String character = Character.toString(c);
+        if (signatureTriggers.contains(character)) {
             signatureHelp();
+        }
+        if (completionTriggers.contains(character)) {
+            completion(DocumentUtils.logicalToLSPPos(editor.getCaretModel().getLogicalPosition(), editor));
         }
     }
 
