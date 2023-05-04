@@ -200,6 +200,47 @@ You can use the following concrete class:
     ProcessBuilder process = new ProcessBuilder("java","-jar","path/to/language-server.jar");
     new ProcessBuilderServerDefinition("bsl,os", process);
     ```
+
+- **Custom Initialization Options**
+
+    If your LSP server needs some custom initialization options when connecting, 
+    you can define a class that extends `ProcessBuilderServerDefinition` or `RawCommandServerDefinition`, 
+    and then override the `getInitializationOptions` method. 
+    Here's an example:
+
+    ```java
+    public class MyServerDefinition extends ProcessBuilderServerDefinition {
+        
+        /**
+         * Creates a new instance.
+         *
+         * @param ext     The extension.
+         * @param process The process builder instance to be started.
+         */
+        public MyServerDefinition(String ext, ProcessBuilder process) {
+            super(ext, process);
+        }
+        
+        /**
+         * Returns the custom initialization options for the given URI.
+         *
+         * @param uri The URI.
+         * @return The initialization options.
+         */
+        @Override
+        public Object getInitializationOptions(URI uri) {
+            // Return your custom initialization options here.
+        }
+    }
+    ```
+
+    To use your custom server definition class,
+    you can create a new instance of it and pass it to the `addServerDefinition` method of a `IntellijLanguageClient`. For example:
+
+    ```java
+    ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
+    IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", processBuilder));
+    ```
 > **Note:** All of the above implementations will use server stdin/stdout to communicate.
 
 ![](resources/images/lang-server-connect.gif)
