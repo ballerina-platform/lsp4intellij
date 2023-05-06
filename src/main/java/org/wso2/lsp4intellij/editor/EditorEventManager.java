@@ -827,8 +827,9 @@ public class EditorEventManager {
         String insertText = item.getInsertText();
         CompletionItemKind kind = item.getKind();
         String label = item.getLabel();
-        TextEdit textEdit = item.getTextEdit().getLeft();
-        InsertReplaceEdit insertReplaceEdit = item.getTextEdit().getRight();
+        Either<TextEdit, InsertReplaceEdit> textEditEither = item.getTextEdit();
+        TextEdit textEdit = (textEditEither != null) ? textEditEither.getLeft() : null;
+        InsertReplaceEdit insertReplaceEdit = (textEditEither != null) ? textEditEither.getRight() : null;
         List<TextEdit> addTextEdits = item.getAdditionalTextEdits();
         String presentableText = StringUtils.isNotEmpty(label) ? label : (insertText != null) ? insertText : "";
         String tailText = (detail != null) ? detail : "";

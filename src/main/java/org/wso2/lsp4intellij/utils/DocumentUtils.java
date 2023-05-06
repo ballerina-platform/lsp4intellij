@@ -138,7 +138,10 @@ public class DocumentUtils {
             }
             // lsp and intellij start lines/columns zero-based
             Document doc = editor.getDocument();
-            int line = max(0, Math.min(pos.getLine(), doc.getLineCount() - 1));
+            int line = max(0, Math.min(pos.getLine(), doc.getLineCount()));
+            if (line >= doc.getLineCount()) {
+                return doc.getTextLength();
+            }
             String lineText = doc.getText(DocumentUtil.getLineTextRange(doc, line));
 
             final int positionInLine = max(0, min(lineText.length(), pos.getCharacter()));
