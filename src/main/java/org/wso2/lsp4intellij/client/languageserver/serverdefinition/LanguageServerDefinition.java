@@ -18,6 +18,7 @@ package org.wso2.lsp4intellij.client.languageserver.serverdefinition;
 import com.intellij.openapi.diagnostic.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.lsp4j.InitializeParams;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 
 import java.io.IOException;
