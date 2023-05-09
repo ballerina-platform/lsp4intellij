@@ -588,6 +588,7 @@ public class LanguageServerWrapper {
                 new ClientCapabilities(workspaceClientCapabilities, textDocumentClientCapabilities, null));
         initParams.setInitializationOptions(
                 serverDefinition.getInitializationOptions(URI.create(initParams.getRootUri())));
+        serverDefinition.customizeInitializeParams(initParams);
 
         return initParams;
     }
