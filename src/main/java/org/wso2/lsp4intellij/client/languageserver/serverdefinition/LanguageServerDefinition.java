@@ -77,6 +77,15 @@ public class LanguageServerDefinition {
     public Object getInitializationOptions(URI uri) {
         return null;
     }
+    
+    /**
+     * Use this method to modify the {@link InitializeParams} that was initialized by this library.
+     * The values assigned to the passed {@link InitializeParams} after this method ends will be the 
+     * ones sent to the LSP server.
+     * @param params the parameters with some prefilled values.
+     */
+    public void customizeInitializeParams(InitializeParams params) {
+    }
 
     @Override
     public String toString() {
