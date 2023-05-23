@@ -201,46 +201,68 @@ You can use the following concrete class:
     new ProcessBuilderServerDefinition("bsl,os", process);
     ```
 
-- **Custom Initialization Options**
+- **Custom Initialization Options Or Initialization Params**
 
     If your LSP server needs some custom initialization options when connecting, 
-    you can define a class that extends `ProcessBuilderServerDefinition` or `RawCommandServerDefinition`, 
-    and then override the `getInitializationOptions` method. 
+    you can define a class that extends `ProcessBuilderServerDefinition` or `RawCommandServerDefinition`. 
+   
+    And then override the `getInitializationOptions` method (deprecated in v0.95.2, you can use this in v0.95.1 and before).
+    
+    Or override the  `customizeInitializeParams` method (added in v0.95.2+).
     Here's an example:
 
-    ```java
-    public class MyServerDefinition extends ProcessBuilderServerDefinition {
-        
-        /**
-         * Creates a new instance.
-         *
-         * @param ext     The extension.
-         * @param process The process builder instance to be started.
-         */
-        public MyServerDefinition(String ext, ProcessBuilder process) {
-            super(ext, process);
-        }
-        
-        /**
-         * Returns the custom initialization options for the given URI.
-         *
-         * @param uri The URI.
-         * @return The initialization options.
-         */
-        @Override
-        public Object getInitializationOptions(URI uri) {
-            // Return your custom initialization options here.
-        }
-    }
-    ```
+  ```java
+  public class MyServerDefinition extends ProcessBuilderServerDefinition {
+    
+      /**
+       * Creates a new instance.
+       *
+       * @param ext     The extension.
+       * @param process The process builder instance to be started.
+       */
+      public MyServerDefinition(String ext, ProcessBuilder process) {
+          super(ext, process);
+      }
+    
+      /**
+       * Returns the custom initialization options for the given URI.
+       * deprecated in v0.95.2,you can use this in v0.95.1 and before
+       * @deprecated use {@link #customizeInitializeParams(InitializeParams)} instead
+       * @param uri The URI.
+       * @return The initialization options.
+       */
+      @Override
+      public Object getInitializationOptions(URI uri) {
+          // Return your custom initialization options here.
+      }
+    
+     /**
+      * Added in v0.95.2+
+      * Use this method to modify the {@link InitializeParams} that was initialized by this library. The values
+      * assigned to the passed {@link InitializeParams} after this method ends will be the ones sent to the LSP server.
+      *
+      * @param params the parameters with some prefilled values.
+      */
+      public void customizeInitializeParams(InitializeParams params) {
+          // You can modify the parameters directly; there's no need to return anything.
+          // For example, if you want to customize the initialization options, modify 'initializationOptions' property.
+          //（you need to implement your own "createYourCustomInitializationOptions" function to offer the specific parameters and values that your server requires.）
+          params.initializationOptions = createYourCustomInitializationOptions();
+          // If you want to customize the Capabilities, modify 'clientCapabilities' property.
+          params.clientCapabilities = createYourCustomClientCapabilities();
+          // ... To clarify, you can modify other properties as well. Please refer to the definition of `InitializeParams` for more details on what you can custom.
+      }
+  }
+  ```
 
-    To use your custom server definition class,
-    you can create a new instance of it and pass it to the `addServerDefinition` method of a `IntellijLanguageClient`. For example:
+  To use your custom server definition class,
+  you can create a new instance of it and pass it to the `addServerDefinition` method of a `IntellijLanguageClient`. For example:
 
-    ```java
-    ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
-    IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", processBuilder));
-    ```
+  ```java
+  ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
+  IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", processBuilder));
+  ```
+
 > **Note:** All of the above implementations will use server stdin/stdout to communicate.
 
 ![](resources/images/lang-server-connect.gif)
