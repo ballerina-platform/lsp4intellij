@@ -55,6 +55,7 @@ public class LSPTypedHandler extends TypedHandlerDelegate {
         }
         for (String triggerChar : manager.completionTriggers) {
             if (triggerChar != null && triggerChar.length() == 1 && triggerChar.charAt(0) == charTyped) {
+                AutoPopupController.getInstance(project).scheduleAutoPopup(editor);
                 return Result.STOP;
             }
         }

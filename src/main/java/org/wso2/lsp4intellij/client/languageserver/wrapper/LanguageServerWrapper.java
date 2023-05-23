@@ -59,6 +59,7 @@ import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextDocumentSyncOptions;
 import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceEditCapabilities;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -72,7 +73,6 @@ import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.DefaultLanguageClient;
 import org.wso2.lsp4intellij.client.ServerWrapperBaseClientContext;
-import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
@@ -87,6 +87,7 @@ import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.Timeouts;
+import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
@@ -97,6 +98,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -547,7 +549,7 @@ public class LanguageServerWrapper {
                     setStatus(INITIALIZED);
                     return res;
                 });
-            } catch (LSPException | IOException e) {
+            } catch (LSPException | IOException | URISyntaxException e) {
                 LOG.warn(e);
                 invokeLater(() ->
                         notifier.showMessage(String.format("Can't start server due to %s", e.getMessage()),
@@ -557,10 +559,12 @@ public class LanguageServerWrapper {
         }
     }
 
-    private InitializeParams getInitParams() {
+    private InitializeParams getInitParams() throws URISyntaxException {
         InitializeParams initParams = new InitializeParams();
-        initParams.setRootUri(FileUtils.pathToUri(projectRootPath));
-        //TODO update capabilities when implemented
+        String projectRootUri = new URI(projectRootPath).toString();
+        initParams.setWorkspaceFolders(Collections.singletonList(new WorkspaceFolder(projectRootUri)));
+
+        // workspace capabilities
         WorkspaceClientCapabilities workspaceClientCapabilities = new WorkspaceClientCapabilities();
         workspaceClientCapabilities.setApplyEdit(true);
         workspaceClientCapabilities.setDidChangeWatchedFiles(new DidChangeWatchedFilesCapabilities());
@@ -570,6 +574,7 @@ public class LanguageServerWrapper {
         workspaceClientCapabilities.setWorkspaceFolders(false);
         workspaceClientCapabilities.setConfiguration(false);
 
+        // text document capabilities
         TextDocumentClientCapabilities textDocumentClientCapabilities = new TextDocumentClientCapabilities();
         textDocumentClientCapabilities.setCodeAction(new CodeActionCapabilities());
         textDocumentClientCapabilities.getCodeAction().setCodeActionLiteralSupport(new CodeActionLiteralSupportCapabilities(new CodeActionKindCapabilities()));
@@ -589,6 +594,9 @@ public class LanguageServerWrapper {
         initParams.setInitializationOptions(
                 serverDefinition.getInitializationOptions(URI.create(initParams.getRootUri())));
 
+        // custom initialization options and initialize params provided by users
+        initParams.setInitializationOptions(serverDefinition.getInitializationOptions(URI.create(initParams.getWorkspaceFolders().get(0).getUri())));
+        serverDefinition.customizeInitializeParams(initParams);
         return initParams;
     }
 
@@ -625,8 +633,8 @@ public class LanguageServerWrapper {
                     reconnect();
                 } else {
                     int response = Messages.showYesNoDialog(String.format(
-                            "LanguageServer for definition %s, project %s keeps crashing due to \n%s\n"
-                            , serverDefinition.toString(), project.getName(), e.getMessage()),
+                                    "LanguageServer for definition %s, project %s keeps crashing due to \n%s\n"
+                                    , serverDefinition.toString(), project.getName(), e.getMessage()),
                             "Language Server Client Warning", "Keep Connected", "Disconnect", PlatformIcons.CHECK_ICON);
                     if (response == Messages.NO) {
                         int confirm = Messages.showYesNoDialog("All the language server based plugin features will be disabled.\n" +

@@ -17,6 +17,7 @@ package org.wso2.lsp4intellij.contributors.annotator;
 
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.lang.annotation.Annotation;
+import com.intellij.lang.annotation.AnnotationBuilder;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.ExternalAnnotator;
 import com.intellij.lang.annotation.HighlightSeverity;
@@ -25,6 +26,7 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
+import com.intellij.util.SmartList;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DiagnosticTag;
@@ -133,12 +135,14 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             return;
         }
         annotations.forEach(annotation -> {
-            Annotation anon = holder.newAnnotation(annotation.getSeverity(), annotation.getMessage()).createAnnotation();
-
             if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
                 return;
             }
-            annotation.getQuickFixes().forEach(quickFixInfo -> anon.registerFix(quickFixInfo.quickFix));
+            AnnotationBuilder builder = holder.newAnnotation(annotation.getSeverity(), annotation.getMessage());
+            for (Annotation.QuickFixInfo quickFixInfo : annotation.getQuickFixes()) {
+                builder = builder.withFix(quickFixInfo.quickFix);
+            }
+            builder.create();
         });
     }
 
@@ -151,9 +155,12 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         }
         final TextRange range = new TextRange(start, end);
 
-        return holder.newAnnotation(lspToIntellijAnnotationsMap.get(diagnostic.getSeverity()), diagnostic.getMessage())
+        holder.newAnnotation(lspToIntellijAnnotationsMap.get(diagnostic.getSeverity()), diagnostic.getMessage())
                 .range(range)
-                .createAnnotation();
+                .create();
+
+        SmartList<Annotation> asList = (SmartList<Annotation>) holder;
+        return asList.get(asList.size() - 1);
     }
 
     private void createAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
