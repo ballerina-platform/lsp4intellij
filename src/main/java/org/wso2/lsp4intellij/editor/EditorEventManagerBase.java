@@ -22,7 +22,11 @@ import org.wso2.lsp4intellij.utils.OSUtils;
 
 import java.awt.KeyboardFocusManager;
 import java.awt.event.KeyEvent;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorEventManagerBase {
@@ -160,21 +164,18 @@ public class EditorEventManagerBase {
 
     private static Set<EditorEventManager> getEditorEventManagerCopy(String uri)  {
         HashSet<EditorEventManager> result = new HashSet<>();
-
         synchronized (uriToManagers) {
             Set<EditorEventManager> managers = uriToManagers.get(uri);
             if(managers != null) {
                 result.addAll(managers);
             }
         }
-
-
         return result;
     }
 
     public static void willSave(String uri) {
         EditorEventManager editorManager = forUri(uri);
-        if(editorManager != null){
+        if(editorManager != null) {
             editorManager.willSave();
         }
     }
@@ -200,6 +201,5 @@ public class EditorEventManagerBase {
         if(editorManager != null){
             editorManager.documentSaved();
         }
-
     }
 }
