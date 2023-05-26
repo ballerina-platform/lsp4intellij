@@ -107,12 +107,8 @@ public class DocumentEventManager {
             CharSequence newText = event.getNewFragment();
             int offset = event.getOffset();
             int newTextLength = event.getNewLength();
-            Set<EditorEventManager> managersForUri = EditorEventManagerBase.managersForUri(FileUtils.documentToUri(document));
-            if (managersForUri == null || managersForUri.isEmpty()) {
-                LOG.warn("no manager associated with uri");
-                return;
-            }
-            EditorEventManager editorEventManager = EditorEventManagerBase.managersForUri(FileUtils.documentToUri(document)).iterator().next();
+
+            EditorEventManager editorEventManager = EditorEventManagerBase.forUri(FileUtils.documentToUri(document));
             if (editorEventManager == null) {
                 LOG.warn("no editor associated with document");
                 return;
