@@ -262,6 +262,9 @@ You can use the following concrete class:
   ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
   IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", processBuilder));
   ```
+  
+  You can refer to [#311](https://github.com/ballerina-platform/lsp4intellij/pull/311) for more details.
+
 
 > **Note:** All of the above implementations will use server stdin/stdout to communicate.
 
