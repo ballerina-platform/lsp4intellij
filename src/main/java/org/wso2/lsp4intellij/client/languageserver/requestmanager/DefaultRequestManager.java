@@ -427,7 +427,7 @@ public class DefaultRequestManager implements RequestManager {
             try {
                 return
                         Optional.ofNullable(serverCapabilities.getHoverProvider())
-                                .map(e -> e.getRight() != null || e.getLeft()).orElse(false) ?
+                                .map(e -> e.getRight() != null || (e.getLeft() != null && e.getLeft())).orElse(false) ?
                                 textDocumentService.hover(params) : null;
 
             } catch (Exception e) {
