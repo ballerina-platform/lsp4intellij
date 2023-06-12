@@ -561,7 +561,7 @@ public class LanguageServerWrapper {
 
     private InitializeParams getInitParams() throws URISyntaxException {
         InitializeParams initParams = new InitializeParams();
-        String projectRootUri = new URI(projectRootPath).toString();
+        String projectRootUri = FileUtils.pathToUri(projectRootPath);
         WorkspaceFolder workspaceFolder = new WorkspaceFolder(projectRootUri, this.project.getName());
         initParams.setWorkspaceFolders(Collections.singletonList(workspaceFolder));
 
