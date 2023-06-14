@@ -591,8 +591,6 @@ public class LanguageServerWrapper {
         textDocumentClientCapabilities.setSynchronization(new SynchronizationCapabilities(true, true, true));
         initParams.setCapabilities(
                 new ClientCapabilities(workspaceClientCapabilities, textDocumentClientCapabilities, null));
-        initParams.setInitializationOptions(
-                serverDefinition.getInitializationOptions(URI.create(initParams.getRootUri())));
 
         // custom initialization options and initialize params provided by users
         initParams.setInitializationOptions(serverDefinition.getInitializationOptions(URI.create(initParams.getWorkspaceFolders().get(0).getUri())));
