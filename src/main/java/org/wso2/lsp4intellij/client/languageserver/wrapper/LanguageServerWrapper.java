@@ -563,8 +563,9 @@ public class LanguageServerWrapper {
 
     private InitializeParams getInitParams() throws URISyntaxException {
         InitializeParams initParams = new InitializeParams();
-        String projectRootUri = new URI(projectRootPath).toString();
-        initParams.setWorkspaceFolders(Collections.singletonList(new WorkspaceFolder(projectRootUri)));
+        String projectRootUri = FileUtils.pathToUri(projectRootPath);
+        WorkspaceFolder workspaceFolder = new WorkspaceFolder(projectRootUri, this.project.getName());
+        initParams.setWorkspaceFolders(Collections.singletonList(workspaceFolder));
 
         // workspace capabilities
         WorkspaceClientCapabilities workspaceClientCapabilities = new WorkspaceClientCapabilities();
@@ -573,7 +574,7 @@ public class LanguageServerWrapper {
         workspaceClientCapabilities.setExecuteCommand(new ExecuteCommandCapabilities());
         workspaceClientCapabilities.setWorkspaceEdit(new WorkspaceEditCapabilities());
         workspaceClientCapabilities.setSymbol(new SymbolCapabilities());
-        workspaceClientCapabilities.setWorkspaceFolders(false);
+        workspaceClientCapabilities.setWorkspaceFolders(true);
         workspaceClientCapabilities.setConfiguration(false);
 
         // text document capabilities
