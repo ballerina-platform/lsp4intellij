@@ -113,10 +113,7 @@ public class DocumentUtils {
             int line = doc.getLineNumber(offset);
             int lineStart = doc.getLineStartOffset(line);
             String lineTextBeforeOffset = doc.getText(TextRange.create(lineStart, offset));
-
-            int tabs = StringUtil.countChars(lineTextBeforeOffset, '\t');
-            int tabSize = getTabSize(editor);
-            int column = lineTextBeforeOffset.length() - tabs * (tabSize - 1);
+            int column = lineTextBeforeOffset.length();
             return new Position(line, column);
         });
     }
