@@ -37,7 +37,7 @@ public class HoverHandler {
     private Logger LOG = Logger.getInstance(HoverHandler.class);
 
     /**
-     * Returns the hover string corresponding to an Hover response
+     * Returns the hover string corresponding to a Hover response
      *
      * @param hover The Hover
      * @return The string response
@@ -73,10 +73,13 @@ public class HoverHandler {
                 return "";
             }
         } else if (hoverContents.isRight()) {
+            String markedContent = hoverContents.getRight().getValue();
+            if (markedContent.isEmpty()) {
+                return "";
+            }
             MutableDataSet options = new MutableDataSet();
             Parser parser = Parser.builder(options).build();
             HtmlRenderer renderer = HtmlRenderer.builder(options).build();
-            String markedContent = hoverContents.getRight().getValue();
             return "<html>" + renderer.render(parser.parse(markedContent)) + "</html>";
         } else {
             return "";
