@@ -113,6 +113,12 @@ For instructions on adding **Lsp4IntelliJ** as a dependency when using the below
                               id="LSPTypedHandler"/>
             </extensions>
             ```
+        - Folding Support
+            ```xml
+            <extensions defaultExtensionNs="com.intellij">
+              <lang.foldingBuilder language="YOUR_LANGUAGE" implementationClass="org.wso2.lsp4intellij.contributors.LSPFoldingRangeProvider" />
+            </extensions>
+            ```
         
    > **Note:** You do not need any additional configurations for the other features.
 </details>
