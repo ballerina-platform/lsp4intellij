@@ -113,12 +113,6 @@ For instructions on adding **Lsp4IntelliJ** as a dependency when using the below
                               id="LSPTypedHandler"/>
             </extensions>
             ```
-        - Folding Support
-            ```xml
-            <extensions defaultExtensionNs="com.intellij">
-              <lang.foldingBuilder language="YOUR_LANGUAGE" implementationClass="org.wso2.lsp4intellij.contributors.LSPFoldingRangeProvider" />
-            </extensions>
-            ```
         
    > **Note:** You do not need any additional configurations for the other features.
 </details>
@@ -249,7 +243,7 @@ You can use the following concrete class:
 
 #### Code Completion (with code snippet support)
 Press the `CTRL+SPACE` keys to see the completion items list, which depends on your cursor position.(Code completion items 
-will also pop-up auytomatically based on your language-server-specific trigger characters.)
+will also pop-up automatically based on your language-server-specific trigger characters.)
 
 ![](resources/images/lsp4intellij-completion.gif)
 
