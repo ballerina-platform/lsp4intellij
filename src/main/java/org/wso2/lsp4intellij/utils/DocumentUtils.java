@@ -113,34 +113,9 @@ public class DocumentUtils {
             int line = doc.getLineNumber(offset);
             int lineStart = doc.getLineStartOffset(line);
             String lineTextBeforeOffset = doc.getText(TextRange.create(lineStart, offset));
-
-            int tabs = StringUtil.countChars(lineTextBeforeOffset, '\t');
-            int tabSize = getTabSize(editor);
-            int column = lineTextBeforeOffset.length() - tabs * (tabSize - 1);
-
-            // Language server positions must be greater than or equal to 0 according to the LSP specification
-            // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#position
-            // It is possible for the column (and perhaps line?) to be negative values here
-            // If the value of either is negative, sanitize it to zero
-            line = sanitizeLspPosition(line);
-            column = sanitizeLspPosition(column);
-
+            int column = lineTextBeforeOffset.length();
             return new Position(line, column);
         });
-    }
-
-    /**
-     * Returns the value if the value is greater than or equal to 0.
-     * If the value is negative returns 0.
-     * 
-     * @param value
-     * @return
-     */
-    private static int sanitizeLspPosition(int value) {
-        if (value < 0) {
-            return 0;
-        }
-        return value;
     }
 
     /**
