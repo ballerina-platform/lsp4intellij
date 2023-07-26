@@ -101,8 +101,13 @@ public class FileUtilsTest {
     }
 
     @Test
-    public void testVFSToURINull() {
-        Assert.assertNull(FileUtils.VFSToURI((new LightVirtualFile())));
+    public void testVFSToURINotNull() {
+        // LightVirtualFile returns '/' as path
+        String uri = FileUtils.VFSToURI((new LightVirtualFile()));
+        Assert.assertNotNull(uri);
+
+        String expectedUri = OSUtils.isWindows() ? "file:///C:/" : "file:///";
+        Assert.assertEquals(expectedUri, uri);
     }
 
     @Test

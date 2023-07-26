@@ -198,12 +198,7 @@ public class FileUtils {
      * @return the URI
      */
     public static String VFSToURI(VirtualFile file) {
-        try {
-            return sanitizeURI(new URL(file.getUrl().replace(" ", SPACE_ENCODED)).toURI().toString());
-        } catch (MalformedURLException | URISyntaxException e) {
-            LOG.warn(e);
-            return null;
-        }
+        return file == null? null : pathToUri(file.getPath());
     }
 
     /**
@@ -286,7 +281,7 @@ public class FileUtils {
      * @return The uri
      */
     public static String pathToUri(@Nullable String path) {
-        return path != null ? sanitizeURI(new File(path.replace(" ", SPACE_ENCODED)).toURI().toString()) : null;
+        return path != null ? sanitizeURI(new File(path).toURI().toString()) : null;
     }
 
     public static String projectToUri(Project project) {
