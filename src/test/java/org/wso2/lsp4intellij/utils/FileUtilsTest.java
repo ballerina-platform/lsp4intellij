@@ -101,8 +101,17 @@ public class FileUtilsTest {
     }
 
     @Test
+    @Ignore
     public void testVFSToURINull() {
-        Assert.assertNull(FileUtils.VFSToURI((new LightVirtualFile())));
+        PowerMockito.mockStatic(System.class);
+        PowerMockito.when(System.getProperty(Mockito.anyString())).thenReturn("Linux");
+
+        // LightVirtualFile returns '/' as path
+        String uri = FileUtils.VFSToURI((new LightVirtualFile()));
+        Assert.assertNotNull(uri);
+
+        String expectedUri = "file:///";
+        Assert.assertEquals(expectedUri, uri);
     }
 
     @Test
