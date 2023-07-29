@@ -340,13 +340,14 @@ public class EditorEventManager {
             return null;
         }
         try {
-            // for now we only get Location, so we only check the left, but in future we might need to support
-            // right as well which will return LocationLink
             Either<List<? extends Location>, List<? extends LocationLink>> definition =
                     request.get(getTimeout(DEFINITION), TimeUnit.MILLISECONDS);
             wrapper.notifySuccess(Timeouts.DEFINITION);
             if (definition.isLeft() && !definition.getLeft().isEmpty()) {
                 return definition.getLeft().get(0);
+            } else if (definition.isRight() && !definition.getRight().isEmpty()) {
+                var def = definition.getRight().get(0);
+                return new Location(def.getTargetUri(), def.getTargetRange());
             }
         } catch (TimeoutException e) {
             LOG.warn(e);
