@@ -150,11 +150,15 @@ public class FileUtils {
 
     public static VirtualFile virtualFileFromURI(String uri) {
         try {
-            return LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(sanitizeURI(uri))));
+            URI sanitizedUri = new URI(sanitizeURI(uri));
+            if (sanitizedUri.getScheme().startsWith(URI_FILE_BEGIN)) {
+                return LocalFileSystem.getInstance().findFileByIoFile(new File(sanitizedUri));
+            }
+            LOG.debug(String.format("URI %s is not a file", uri));
         } catch (URISyntaxException e) {
             LOG.warn(e);
-            return null;
         }
+        return null;
     }
 
     /**
@@ -249,12 +253,7 @@ public class FileUtils {
      * @return The virtual file
      */
     public static VirtualFile URIToVFS(String uri) {
-        try {
-            return LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(sanitizeURI(uri))));
-        } catch (URISyntaxException e) {
-            LOG.warn(e);
-            return null;
-        }
+        return virtualFileFromURI(uri);
     }
 
     /**
