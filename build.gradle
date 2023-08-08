@@ -116,7 +116,7 @@ release {
     buildTasks = ['jar']
 
     git {
-        requireBranch = 'next-release-stage'
+        requireBranch = 'release-stage'
         pushToRemote = 'upstream'
         commitVersionFileOnly = false
         signTag = false
