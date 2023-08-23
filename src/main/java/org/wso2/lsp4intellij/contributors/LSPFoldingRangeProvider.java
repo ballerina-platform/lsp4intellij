@@ -75,7 +75,9 @@ public class LSPFoldingRangeProvider extends CustomFoldingBuilder {
                 for (FoldingRange foldingRange : foldingRanges) {
                     int start = getStartOffset(foldingRange, document);
                     int end = getEndOffset(foldingRange, document);
-
+if (end - start <= 0) {
+    continue;
+}
                     if (foldingRange.getCollapsedText() != null) {
                         descriptors.add(new FoldingDescriptor(root.getNode(), new TextRange(start, end), null, foldingRange.getCollapsedText()));
                     } else {
