@@ -43,6 +43,10 @@ import org.eclipse.lsp4j.DefinitionCapabilities;
 import org.eclipse.lsp4j.DidChangeWatchedFilesCapabilities;
 import org.eclipse.lsp4j.DocumentHighlightCapabilities;
 import org.eclipse.lsp4j.ExecuteCommandCapabilities;
+import org.eclipse.lsp4j.FoldingRangeCapabilities;
+import org.eclipse.lsp4j.FoldingRangeKind;
+import org.eclipse.lsp4j.FoldingRangeKindSupportCapabilities;
+import org.eclipse.lsp4j.FoldingRangeSupportCapabilities;
 import org.eclipse.lsp4j.FormattingCapabilities;
 import org.eclipse.lsp4j.HoverCapabilities;
 import org.eclipse.lsp4j.InitializeParams;
@@ -593,10 +597,15 @@ public class LanguageServerWrapper {
         textDocumentClientCapabilities.setSignatureHelp(new SignatureHelpCapabilities());
         textDocumentClientCapabilities.setSynchronization(new SynchronizationCapabilities(true, true, true));
 
+        FoldingRangeCapabilities foldingRangeCapabilities = new FoldingRangeCapabilities();
+        foldingRangeCapabilities.setFoldingRangeKind(new FoldingRangeKindSupportCapabilities(List.of(FoldingRangeKind.Comment, FoldingRangeKind.Imports, FoldingRangeKind.Region)));
+        foldingRangeCapabilities.setFoldingRange(new FoldingRangeSupportCapabilities(true));
+        foldingRangeCapabilities.setLineFoldingOnly(false);
+        textDocumentClientCapabilities.setFoldingRange(foldingRangeCapabilities);
+
         initParams.setCapabilities(
                 new ClientCapabilities(workspaceClientCapabilities, textDocumentClientCapabilities, null));
         initParams.setClientInfo(new ClientInfo(ApplicationInfo.getInstance().getVersionName(), ApplicationInfo.getInstance().getFullVersion()));
-
 
         // custom initialization options and initialize params provided by users
         initParams.setInitializationOptions(serverDefinition.getInitializationOptions(URI.create(initParams.getWorkspaceFolders().get(0).getUri())));

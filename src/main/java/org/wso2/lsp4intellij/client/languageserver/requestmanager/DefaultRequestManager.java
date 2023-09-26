@@ -677,6 +677,16 @@ public class DefaultRequestManager implements RequestManager {
 
     @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
+        if (checkStatus()) {
+            try {
+                return serverCapabilities.getFoldingRangeProvider() != null ?
+                        textDocumentService.foldingRange(params) :
+                        null;
+            } catch (Exception e) {
+                crashed(e);
+                return null;
+            }
+        }
         return null;
     }
 

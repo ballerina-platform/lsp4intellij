@@ -243,7 +243,7 @@ You can use the following concrete class:
 
 #### Code Completion (with code snippet support)
 Press the `CTRL+SPACE` keys to see the completion items list, which depends on your cursor position.(Code completion items 
-will also pop-up auytomatically based on your language-server-specific trigger characters.)
+will also pop-up automatically based on your language-server-specific trigger characters.)
 
 ![](resources/images/lsp4intellij-completion.gif)
 
