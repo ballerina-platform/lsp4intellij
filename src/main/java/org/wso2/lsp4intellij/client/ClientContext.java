@@ -22,7 +22,7 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 
 /**
- * The client context which is received by {@link DefaultLanguageClient}. The context contain
+ * The client context which is received by {@link DefaultLanguageClient}. The context contains
  * information about the runtime and its components.
  *
  * @author gayanper
@@ -36,7 +36,7 @@ public interface ClientContext {
     EditorEventManager getEditorEventManagerFor(@NotNull String documentUri);
 
     /**
-     * Returns the {@link Project} associated with the LanuageClient.
+     * Returns the {@link Project} associated with the LanguageClient.
      */
     @Nullable
     Project getProject();
