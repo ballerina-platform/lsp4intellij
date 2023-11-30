@@ -159,7 +159,7 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     }
 
     /**
-     * @return All registered LSP protocol extension managers.
+     * @return All registered LSP protocol extension managers for the given file extension.
      */
     public static LSPExtensionManager getExtensionManagerFor(String fileExt) {
         if (extToExtManager.containsKey(fileExt)) {

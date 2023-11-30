@@ -1333,7 +1333,7 @@ public class EditorEventManager {
         }
     }
 
-    // Tries to go to definition / show usages based on the element which is
+    /** Tries to go to definition / show usages based on the element which is */
     private void trySourceNavigationAndHover(EditorMouseEvent e) {
         if (editor.isDisposed()) {
             return;

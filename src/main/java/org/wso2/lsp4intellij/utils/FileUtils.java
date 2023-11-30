@@ -349,8 +349,10 @@ public class FileUtils {
                 isFileContentSupported(editor);
     }
 
-    // Always returns true unless the user has registered filtering to validate file content via LS protocol extension
-    // manager implementation.
+    /**
+     * Always returns true unless the user has registered filtering to validate file content via LS protocol extension
+     * manager implementation.
+     */
     private static boolean isFileContentSupported(Editor editor) {
         return computableReadAction(() -> {
             if (editor.getProject() == null) {

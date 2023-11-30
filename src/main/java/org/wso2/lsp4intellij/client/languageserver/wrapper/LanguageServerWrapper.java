@@ -458,7 +458,7 @@ public class LanguageServerWrapper {
         } catch (Exception e) {
             // most likely closed externally.
             notifyFailure(Timeouts.SHUTDOWN);
-            LOG.warn("exception occured while trying to shut down", e);
+            LOG.warn("exception occurred while trying to shut down", e);
         } finally {
             if (launcherFuture != null) {
                 launcherFuture.cancel(true);

@@ -33,7 +33,6 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
-import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
@@ -52,7 +51,7 @@ public class DocumentEventManager {
     private final LanguageServerWrapper wrapper;
     private final TextDocumentIdentifier identifier;
     private int version = -1;
-    protected Logger LOG = Logger.getInstance(EditorEventManager.class);
+    protected Logger LOG = Logger.getInstance(DocumentEventManager.class);
     private static final Map<String, DocumentEventManager> uriToDocumentEventManager = new HashMap<>();
 
     private final Set<Document> openDocuments = new HashSet<>();
