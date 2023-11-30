@@ -173,10 +173,12 @@ class LSPFileEventManager {
             Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
             wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
             if (!newFileUri.equals(oldFileUri)) {
+                // TODO: abort if the file was not opened prior to this operation
                 // Re-open file to so that the new editor will be connected to the language server.
                 FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
                 ApplicationUtils.invokeLater(() -> {
                     fileEditorManager.closeFile(file);
+                    // TODO: only focus if the file was previously already focused
                     fileEditorManager.openFile(file, true);
                 });
             }
