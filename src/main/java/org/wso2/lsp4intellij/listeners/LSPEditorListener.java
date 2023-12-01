@@ -15,7 +15,6 @@
  */
 package org.wso2.lsp4intellij.listeners;
 
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.editor.EditorKind;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
 import com.intellij.openapi.editor.event.EditorFactoryListener;
