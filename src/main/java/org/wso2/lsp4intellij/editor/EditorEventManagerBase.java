@@ -132,9 +132,12 @@ public class EditorEventManagerBase {
 
         String uri = FileUtils.editorToURIString(manager.editor);
         synchronized (uriToManagers) {
-            Set<EditorEventManager> set = getEditorEventManagerCopy(uri);
-            if (set.isEmpty()) {
-                uriToManagers.remove(uri);
+            Set<EditorEventManager> managers = uriToManagers.get(uri);
+            if (managers != null) {
+                managers.remove(manager);
+                if (managers.isEmpty()) {
+                    uriToManagers.remove(uri);
+                }
             }
         }
     }

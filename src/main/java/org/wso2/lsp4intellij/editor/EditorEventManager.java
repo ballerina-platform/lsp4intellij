@@ -172,7 +172,7 @@ public class EditorEventManager {
 
         this.currentHint = null;
 
-        this.documentEventManager = DocumentEventManager.getOrCreateDocumentManager(editor.getDocument(), documentListener, syncKind, wrapper);
+        this.documentEventManager = new DocumentEventManager(editor.getDocument(), documentListener, syncKind, wrapper);
     }
 
     @SuppressWarnings("unused")
@@ -1333,7 +1333,7 @@ public class EditorEventManager {
         }
     }
 
-    // Tries to go to definition / show usages based on the element which is
+    /** Tries to go to definition / show usages based on the element which is */
     private void trySourceNavigationAndHover(EditorMouseEvent e) {
         if (editor.isDisposed()) {
             return;

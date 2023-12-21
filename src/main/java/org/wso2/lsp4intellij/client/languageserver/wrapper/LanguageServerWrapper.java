@@ -84,7 +84,6 @@ import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.DefaultRequestManager;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
-import org.wso2.lsp4intellij.editor.DocumentEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
@@ -458,7 +457,7 @@ public class LanguageServerWrapper {
         } catch (Exception e) {
             // most likely closed externally.
             notifyFailure(Timeouts.SHUTDOWN);
-            LOG.warn("exception occured while trying to shut down", e);
+            LOG.warn("exception occurred while trying to shut down", e);
         } finally {
             if (launcherFuture != null) {
                 launcherFuture.cancel(true);
@@ -472,7 +471,6 @@ public class LanguageServerWrapper {
 
             // sadly this whole editor closing stuff runs asynchronously, so we cannot be sure the state is really clean here...
             // therefore clear the mapping from here as it should be empty by now.
-            DocumentEventManager.clearState();
             uriToEditorManagers.clear();
             urisUnderLspControl.clear();
             launcherFuture = null;

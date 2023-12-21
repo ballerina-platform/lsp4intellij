@@ -33,7 +33,7 @@ import org.wso2.lsp4intellij.requests.ReformatHandler;
  * Fallback to the default action if the language is already supported or not supported by any language server
  */
 public class LSPReformatAction extends ReformatCodeAction implements DumbAware {
-    private Logger LOG = Logger.getInstance(LSPReformatAction.class);
+    private final Logger LOG = Logger.getInstance(LSPReformatAction.class);
 
     @Override
     public void actionPerformed(AnActionEvent e) {

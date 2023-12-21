@@ -104,28 +104,7 @@ class LSPFileEventManager {
                 return;
             }
             String oldFileUri = String.format("%s/%s", oldParentUri, event.getFileName());
-
-            ApplicationUtils.invokeAfterPsiEvents(() -> {
-                // Notifies the language server.
-                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
-                    FileUtils.projectToUri(p), FileChangeType.Deleted));
-                FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(newFileUri,
-                    FileUtils.projectToUri(p), FileChangeType.Created));
-
-                FileUtils.findProjectsFor(file).forEach(p -> {
-                    // Detaches old file from the wrappers.
-                    Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
-                    if (wrappers != null) {
-                        wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
-                    }
-                    // Re-open file to so that the new editor will be connected to the language server.
-                    FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
-                    ApplicationUtils.invokeLater(() -> {
-                        fileEditorManager.closeFile(file);
-                        fileEditorManager.openFile(file, true);
-                    });
-                });
-            });
+            closeAndReopenAffectedFile(file, oldFileUri);
         } catch (Exception e) {
             LOG.warn("LSP file move event failed due to :", e);
         }
@@ -172,39 +151,36 @@ class LSPFileEventManager {
                     }
                     String newFileUri = FileUtils.VFSToURI(file);
                     String oldFileUri = newFileUri.replace(file.getName(), oldFileName);
-
-                    // Notifies the language server.
-                    FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
-                        FileUtils.projectToUri(p), FileChangeType.Deleted));
-                    FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(newFileUri,
-                        FileUtils.projectToUri(p), FileChangeType.Created));
-
-                    FileUtils.findProjectsFor(file).forEach(p -> {
-                        // Detaches old file from the wrappers.
-                        Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
-                        if (wrappers != null) {
-                            wrappers.forEach(wrapper -> {
-                                // make these calls first since the disconnect might stop the LS client if its last file.
-                                wrapper.getRequestManager().didChangeWatchedFiles(
-                                    getDidChangeWatchedFilesParams(oldFileUri, FileChangeType.Deleted));
-                                wrapper.getRequestManager().didChangeWatchedFiles(
-                                    getDidChangeWatchedFilesParams(newFileUri, FileChangeType.Created));
-
-                                wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p));
-                            });
-                        }
-                        if (!newFileUri.equals(oldFileUri)) {
-                            // Re-open file to so that the new editor will be connected to the language server.
-                            FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
-                            ApplicationUtils.invokeLater(() -> {
-                                fileEditorManager.closeFile(file);
-                                fileEditorManager.openFile(file, true);
-                            });
-                        }
-                    });
+                    closeAndReopenAffectedFile(file, oldFileUri);
                 }
             } catch (Exception e) {
                 LOG.warn("LSP file rename event failed due to : ", e);
+            }
+        });
+    }
+
+    private static void closeAndReopenAffectedFile(VirtualFile file, String oldFileUri) {
+        String newFileUri = FileUtils.VFSToURI(file);
+
+        // Notifies the language server.
+        FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
+            FileUtils.projectToUri(p), FileChangeType.Deleted));
+        FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(newFileUri,
+            FileUtils.projectToUri(p), FileChangeType.Created));
+
+        FileUtils.findProjectsFor(file).forEach(p -> {
+            // Detaches old file from the wrappers.
+            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
+            wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
+            if (!newFileUri.equals(oldFileUri)) {
+                // TODO: abort if the file was not opened prior to this operation
+                // Re-open file to so that the new editor will be connected to the language server.
+                FileEditorManager fileEditorManager = FileEditorManager.getInstance(p);
+                ApplicationUtils.invokeLater(() -> {
+                    fileEditorManager.closeFile(file);
+                    // TODO: only focus if the file was previously already focused
+                    fileEditorManager.openFile(file, true);
+                });
             }
         });
     }
@@ -231,9 +207,6 @@ class LSPFileEventManager {
         ApplicationUtils.pool(() -> {
             DidChangeWatchedFilesParams params = getDidChangeWatchedFilesParams(uri, typ);
             Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(projectUri);
-            if (wrappers == null) {
-                return;
-            }
             for (LanguageServerWrapper wrapper : wrappers) {
                 if (wrapper.getRequestManager() != null
                         && wrapper.getStatus() == ServerStatus.INITIALIZED) {
