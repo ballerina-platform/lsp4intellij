@@ -25,6 +25,9 @@ see also jetbrains documentation: https://plugins.jetbrains.com/docs/intellij/pl
         <!-- for displaying notifications by lsp -->
         <notificationGroup id="lsp" displayType="STICKY_BALLOON"/>
 
+        <!-- for displaying progress notifications by lsp in the Event Log -->
+        <notificationGroup id="LSPProgressNotification" displayType="NONE" />
+
         <!-- for displaying the statusbar icon -->
         <statusBarWidgetFactory implementation="org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory"
                                 id="org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory"
