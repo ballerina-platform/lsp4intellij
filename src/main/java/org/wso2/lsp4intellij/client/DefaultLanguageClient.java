@@ -20,26 +20,48 @@ import com.intellij.notification.NotificationAction;
 import com.intellij.notification.NotificationGroup;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
+import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.util.ui.UIUtil;
-import org.eclipse.lsp4j.*;
+import groovy.lang.Tuple2;
+import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
+import org.eclipse.lsp4j.ConfigurationParams;
+import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.MessageActionItem;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
+import org.eclipse.lsp4j.ProgressParams;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.RegistrationParams;
+import org.eclipse.lsp4j.ShowMessageRequestParams;
+import org.eclipse.lsp4j.Unregistration;
+import org.eclipse.lsp4j.UnregistrationParams;
+import org.eclipse.lsp4j.WorkDoneProgressBegin;
+import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
+import org.eclipse.lsp4j.WorkDoneProgressEnd;
+import org.eclipse.lsp4j.WorkDoneProgressNotification;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.jetbrains.annotations.NotNull;
-import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
-import javax.swing.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
+
+import javax.swing.*;
 
 public class DefaultLanguageClient implements LanguageClient {
 
@@ -52,9 +74,12 @@ public class DefaultLanguageClient implements LanguageClient {
     @NotNull
     private final ClientContext context;
     protected boolean isModal = false;
+    private final String extension;
+    private final HashMap<String, Tuple2<String, String>> progressNotificationItems = new HashMap<>();
 
-    public DefaultLanguageClient(@NotNull ClientContext context) {
+    public DefaultLanguageClient(@NotNull ClientContext context, String extension) {
         this.context = context;
+        this.extension = extension;
     }
 
     @Override
@@ -264,5 +289,55 @@ public class DefaultLanguageClient implements LanguageClient {
     @NotNull
     protected final ClientContext getContext() {
         return context;
+    }
+
+    @Override
+    public CompletableFuture<Void> createProgress(WorkDoneProgressCreateParams params) {
+        String token;
+        if (params.getToken().getLeft() != null) {
+            token = params.getToken().getLeft();
+        } else {
+            token = params.getToken().getRight().toString();
+        }
+        Tuple2<String, String> progressNotificationItem = new Tuple2<>("LSP Progress Notification", "");
+        progressNotificationItems.put(token, progressNotificationItem);
+        return null;
+    }
+
+    @Override
+    public void notifyProgress(ProgressParams params) {
+        NotificationGroup notificationGroup =
+                NotificationGroupManager.getInstance().getNotificationGroup("LSPProgressNotification");
+
+        String token;
+        if (params.getToken().getLeft() != null) {
+            token = params.getToken().getLeft();
+        } else {
+            token = params.getToken().getRight().toString();
+        }
+        String title = progressNotificationItems.get(token).getFirst();
+        String message = progressNotificationItems.get(token).getSecond();
+        WorkDoneProgressNotification progressNotification = params.getValue().getLeft();
+        if (progressNotification instanceof WorkDoneProgressBegin) {
+            title = ((WorkDoneProgressBegin) progressNotification).getTitle();
+            message = ((WorkDoneProgressBegin) progressNotification).getMessage();
+            Tuple2<String, String> progressNotificationItem = new Tuple2<>(title, message);
+            if (progressNotificationItems.containsKey(token)) {
+                progressNotificationItems.replace(token, progressNotificationItem);
+            } else {
+                progressNotificationItems.put(token, progressNotificationItem);
+            }
+        } else if (progressNotification instanceof WorkDoneProgressEnd) {
+            message = ((WorkDoneProgressEnd) progressNotification).getMessage();
+            if (progressNotificationItems.containsKey(token)) {
+                title = progressNotificationItems.get(token).getFirst();
+            }
+        }
+        if (extension != null) {
+            title = " (" + extension + " extension" + ") " + title;
+        }
+        Notification notification =
+                notificationGroup.createNotification(title, message, NotificationType.INFORMATION, null);
+        Notifications.Bus.notify(notification);
     }
 }

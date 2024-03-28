@@ -527,7 +527,7 @@ public class LanguageServerWrapper {
                     languageServer = launcher.getRemoteProxy();
                     launcherFuture = launcher.startListening();
                 } else {
-                    client = new DefaultLanguageClient(new ServerWrapperBaseClientContext(this));
+                    client = new DefaultLanguageClient(new ServerWrapperBaseClientContext(this), serverDefinition.ext);
                     Launcher<LanguageServer> launcher = Launcher
                             .createLauncher(client, LanguageServer.class, inputStream, outputStream, executorService,
                                     messageHandler);
