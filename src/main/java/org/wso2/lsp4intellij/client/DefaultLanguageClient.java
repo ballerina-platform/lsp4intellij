@@ -61,7 +61,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 
-import javax.swing.*;
+import javax.swing.Icon;
 
 public class DefaultLanguageClient implements LanguageClient {
 
