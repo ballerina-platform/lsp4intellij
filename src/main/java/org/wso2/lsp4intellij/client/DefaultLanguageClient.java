@@ -294,11 +294,13 @@ public class DefaultLanguageClient implements LanguageClient {
     @Override
     public CompletableFuture<Void> createProgress(WorkDoneProgressCreateParams params) {
         // give a unique identifier if the token is null
-        String token = String.valueOf(params.hashCode());
+        String token;
         if (params.getToken().getLeft() != null) {
             token = params.getToken().getLeft();
         } else if (params.getToken().getRight() != null){
             token = params.getToken().getRight().toString();
+        } else {
+            return null;
         }
         Tuple2<String, String> progressNotificationItem = new Tuple2<>("LSP Progress Notification", "");
         progressNotificationItems.put(token, progressNotificationItem);
@@ -310,11 +312,13 @@ public class DefaultLanguageClient implements LanguageClient {
         NotificationGroup notificationGroup =
                 NotificationGroupManager.getInstance().getNotificationGroup("LSPProgressNotification");
 
-        String token = String.valueOf(params.hashCode());
+        String token;
         if (params.getToken().getLeft() != null) {
             token = params.getToken().getLeft();
         } else if (params.getToken().getRight() != null){
             token = params.getToken().getRight().toString();
+        } else {
+            return;
         }
         String title = progressNotificationItems.get(token).getFirst();
         String message = progressNotificationItems.get(token).getSecond();
