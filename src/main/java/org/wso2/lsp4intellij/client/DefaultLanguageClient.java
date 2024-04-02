@@ -334,7 +334,7 @@ public class DefaultLanguageClient implements LanguageClient {
             }
         }
         if (extension != null) {
-            title = " (" + extension + " extension" + ") " + title;
+            title = " [" + extension + " extension" + "] " + title;
         }
         Notification notification =
                 notificationGroup.createNotification(title, message, NotificationType.INFORMATION, null);
