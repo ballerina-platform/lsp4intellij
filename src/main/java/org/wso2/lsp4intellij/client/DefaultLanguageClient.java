@@ -74,12 +74,10 @@ public class DefaultLanguageClient implements LanguageClient {
     @NotNull
     private final ClientContext context;
     protected boolean isModal = false;
-    private final String extension;
     private final HashMap<String, Tuple2<String, String>> progressNotificationItems = new HashMap<>();
 
-    public DefaultLanguageClient(@NotNull ClientContext context, String extension) {
+    public DefaultLanguageClient(@NotNull ClientContext context) {
         this.context = context;
-        this.extension = extension;
     }
 
     @Override
@@ -337,6 +335,7 @@ public class DefaultLanguageClient implements LanguageClient {
                 title = progressNotificationItems.get(token).getFirst();
             }
         }
+        String extension = ((ServerWrapperBaseClientContext) context).getWrapper().serverDefinition.ext;
         if (extension != null) {
             title = " [" + extension + " extension" + "] " + title;
         }
