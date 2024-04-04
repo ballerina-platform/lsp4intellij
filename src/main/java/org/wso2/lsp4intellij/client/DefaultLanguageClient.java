@@ -293,7 +293,6 @@ public class DefaultLanguageClient implements LanguageClient {
 
     @Override
     public CompletableFuture<Void> createProgress(WorkDoneProgressCreateParams params) {
-        // give a unique identifier if the token is null
         String token;
         if (params.getToken().getLeft() != null) {
             token = params.getToken().getLeft();
