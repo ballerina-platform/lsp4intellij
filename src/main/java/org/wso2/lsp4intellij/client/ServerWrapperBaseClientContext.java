@@ -46,4 +46,8 @@ public class ServerWrapperBaseClientContext implements ClientContext {
     public RequestManager getRequestManager() {
         return wrapper.getRequestManager();
     }
+
+    public LanguageServerWrapper getWrapper() {
+        return wrapper;
+    }
 }
