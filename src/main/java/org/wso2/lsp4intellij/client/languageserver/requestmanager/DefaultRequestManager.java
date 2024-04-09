@@ -71,6 +71,7 @@ import org.eclipse.lsp4j.SignatureHelp;
 import org.eclipse.lsp4j.SignatureHelpParams;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentPositionParams;
+import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextDocumentSyncOptions;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.TypeDefinitionParams;
@@ -106,6 +107,8 @@ public class DefaultRequestManager implements RequestManager {
     private final WorkspaceService workspaceService;
     private final TextDocumentService textDocumentService;
 
+    private final TextDocumentSyncKind textDocumentSyncKind;
+
     public DefaultRequestManager(LanguageServerWrapper wrapper, LanguageServer server, LanguageClient client,
                                  ServerCapabilities serverCapabilities) {
 
@@ -115,6 +118,9 @@ public class DefaultRequestManager implements RequestManager {
         this.serverCapabilities = serverCapabilities;
 
         textDocumentOptions = serverCapabilities.getTextDocumentSync().isRight() ? serverCapabilities.getTextDocumentSync().getRight() : null;
+        textDocumentSyncKind =
+                serverCapabilities.getTextDocumentSync().isLeft() ? serverCapabilities.getTextDocumentSync().getLeft() :
+                        null;
         workspaceService = server.getWorkspaceService();
         textDocumentService = server.getTextDocumentService();
     }
@@ -314,7 +320,9 @@ public class DefaultRequestManager implements RequestManager {
     public void didOpen(DidOpenTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                if (Optional.ofNullable(textDocumentOptions).map(TextDocumentSyncOptions::getOpenClose).orElse(false)) {
+                if ((textDocumentSyncKind != null && textDocumentSyncKind != TextDocumentSyncKind.None) ||
+                        Optional.ofNullable(textDocumentOptions).map(TextDocumentSyncOptions::getOpenClose)
+                                .orElse(false)) {
                     textDocumentService.didOpen(params);
                 }
             } catch (Exception e) {
