@@ -959,20 +959,16 @@ public class EditorEventManager {
 
     @NotNull
     public String getCompletionPrefix(Editor editor, int offset) {
-        List<String> delimiters = new ArrayList<>(this.completionTriggers);
-        // add whitespace as delimiter, otherwise forced completion does not work
-        delimiters.addAll(Arrays.asList(" \t\n\r".split("")));
-
-        StringBuilder s = new StringBuilder();
+        String delimiterString = String.join("", this.completionTriggers) + " \t\n\r";
         String documentText = editor.getDocument().getText();
-        for (int i = 0; i < offset; i++) {
-            char singleLetter = documentText.charAt(offset - i - 1);
-            if (delimiters.contains(String.valueOf(singleLetter))) {
-                return s.reverse().toString();
+        int lastIndex = -1;
+        for (char delimiter : delimiterString.toCharArray()) {
+            int index = documentText.substring(0, offset).lastIndexOf(delimiter);
+            if (index > lastIndex) {
+                lastIndex = index;
             }
-            s.append(singleLetter);
         }
-        return "";
+        return lastIndex >= 0 ? documentText.substring(lastIndex + 1, offset) : documentText.substring(0, offset);
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -984,7 +980,9 @@ public class EditorEventManager {
         while (varMatcher.find()) {
             variables.add(new SnippetVariable(varMatcher.group(), varMatcher.start(), varMatcher.end()));
         }
-
+        if (variables.isEmpty()) {
+            return;
+        }
         variables.sort(Comparator.comparingInt(o -> o.startIndex));
         final String[] finalInsertText = {insertText};
         variables.forEach(var -> finalInsertText[0] = finalInsertText[0].replace(var.lspSnippetText, "$"));
