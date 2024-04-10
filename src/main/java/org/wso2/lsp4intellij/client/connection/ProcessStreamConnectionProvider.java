@@ -26,6 +26,7 @@ import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * A class symbolizing a stream to a process
@@ -38,7 +39,7 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
     private final Logger LOG = Logger.getInstance(ProcessStreamConnectionProvider.class);
 
     @Nullable
-    private ProcessBuilder builder;
+    private final ProcessBuilder builder;
     @Nullable
     private Process process = null;
     private List<String> commands;
@@ -72,7 +73,7 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
         if (builder != null) {
             return builder;
         } else {
-            commands.forEach(c -> c = c.replace("\'", ""));
+            commands = commands.stream().map(c -> c.replace("'", "")).collect(Collectors.toList());
             ProcessBuilder builder = new ProcessBuilder(commands);
             builder.directory(new File(workingDir));
             builder.redirectError(ProcessBuilder.Redirect.INHERIT);

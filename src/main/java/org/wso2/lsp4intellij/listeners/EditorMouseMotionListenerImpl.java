@@ -17,6 +17,7 @@ package org.wso2.lsp4intellij.listeners;
 
 import com.intellij.openapi.editor.event.EditorMouseEvent;
 import com.intellij.openapi.editor.event.EditorMouseMotionListener;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Class listening for mouse movement in an editor (used for hover)
@@ -24,14 +25,14 @@ import com.intellij.openapi.editor.event.EditorMouseMotionListener;
 public class EditorMouseMotionListenerImpl extends LSPListener implements EditorMouseMotionListener {
 
     @Override
-    public void mouseMoved(EditorMouseEvent e) {
+    public void mouseMoved(@NotNull EditorMouseEvent e) {
         if (checkEnabled()) {
             manager.mouseMoved(e);
         }
     }
 
     @Override
-    public void mouseDragged(EditorMouseEvent editorMouseEvent) {
+    public void mouseDragged(@NotNull EditorMouseEvent editorMouseEvent) {
 
     }
 }

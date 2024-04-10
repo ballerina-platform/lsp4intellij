@@ -41,10 +41,8 @@ import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 
 import java.io.File;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -223,7 +221,7 @@ public class FileUtils {
                 if (os == OS.UNIX) {
                     return reconstructed.append(uriCp).toString();
                 } else {
-                    reconstructed.append(uriCp.substring(0, uriCp.indexOf(URI_PATH_SEP)));
+                    reconstructed.append(uriCp, 0, uriCp.indexOf(URI_PATH_SEP));
                     char driveLetter = reconstructed.charAt(URI_VALID_FILE_BEGIN.length());
                     if (Character.isLowerCase(driveLetter)) {
                         reconstructed.setCharAt(URI_VALID_FILE_BEGIN.length(), Character.toUpperCase(driveLetter));

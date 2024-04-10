@@ -65,7 +65,8 @@ import static org.wso2.lsp4intellij.utils.DocumentUtils.toEither;
  * An Object handling WorkspaceEdits
  */
 public class WorkspaceEditHandler {
-    private static Logger LOG = Logger.getInstance(WorkspaceEditHandler.class);
+
+    private static final Logger LOG = Logger.getInstance(WorkspaceEditHandler.class);
 
     public static void applyEdit(PsiElement elem, String newName, UsageInfo[] infos,
                                  RefactoringElementListener listener, List<VirtualFile> openedEditors) {
@@ -87,7 +88,7 @@ public class WorkspaceEditHandler {
                     } catch (MalformedURLException | URISyntaxException e) {
                         LOG.warn(e);
                     }
-                    if (edits.keySet().contains(uri)) {
+                    if (edits.containsKey(uri)) {
                         edits.get(uri).add(edit);
                     } else {
                         List<TextEdit> textEdits = new ArrayList<>();
@@ -188,9 +189,9 @@ public class WorkspaceEditHandler {
      * @param edits         The text edits
      * @param uri           The uri of the file
      * @param version       The version of the file
-     * @param openedEditors
-     * @param curProject
-     * @param name
+     * @param openedEditors The list of opened editors
+     * @param curProject    The current project
+     * @param name          The name of the edit
      * @return The runnable containing the edits
      */
     private static Runnable manageUnopenedEditor(List<TextEdit> edits, String uri, int version,

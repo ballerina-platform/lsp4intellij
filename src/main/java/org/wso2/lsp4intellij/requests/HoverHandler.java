@@ -35,7 +35,7 @@ import java.util.List;
  */
 public class HoverHandler {
 
-    private Logger LOG = Logger.getInstance(HoverHandler.class);
+    private final Logger LOG = Logger.getInstance(HoverHandler.class);
 
     /**
      * Returns the hover string corresponding to a Hover response

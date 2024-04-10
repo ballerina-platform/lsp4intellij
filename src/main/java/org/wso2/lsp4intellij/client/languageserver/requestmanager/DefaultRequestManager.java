@@ -340,7 +340,7 @@ public class DefaultRequestManager implements RequestManager {
     public void willSave(WillSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                if (Optional.ofNullable(textDocumentOptions).map(x -> x.getWillSave()).orElse(false)) {
+                if (Optional.ofNullable(textDocumentOptions).map(TextDocumentSyncOptions::getWillSave).orElse(false)) {
                     textDocumentService.willSave(params);
                 }
             } catch (Exception e) {
@@ -353,7 +353,7 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<TextEdit>> willSaveWaitUntil(WillSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                return Optional.ofNullable(textDocumentOptions).map(x -> x.getWillSaveWaitUntil()).orElse(false) ?
+                return Optional.ofNullable(textDocumentOptions).map(TextDocumentSyncOptions::getWillSaveWaitUntil).orElse(false) ?
                         textDocumentService.willSaveWaitUntil(params) : null;
             } catch (Exception e) {
                 crashed(e);
@@ -367,7 +367,7 @@ public class DefaultRequestManager implements RequestManager {
     public void didSave(DidSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                if (Optional.ofNullable(textDocumentOptions).map(x -> x.getSave()).isPresent()) {
+                if (Optional.ofNullable(textDocumentOptions).map(TextDocumentSyncOptions::getSave).isPresent()) {
                     textDocumentService.didSave(params);
                 }
             } catch (Exception e) {

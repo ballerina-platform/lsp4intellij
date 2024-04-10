@@ -49,8 +49,7 @@ public class LSPServerStatusWidgetFactory implements StatusBarWidgetFactory {
     }
 
     @Override
-    public
-    StatusBarWidget createWidget(@NotNull Project project) {
+    public @NotNull StatusBarWidget createWidget(@NotNull Project project) {
         return widgetForProject.computeIfAbsent(project, (k) -> new LSPServerStatusWidget(project));
     }
 

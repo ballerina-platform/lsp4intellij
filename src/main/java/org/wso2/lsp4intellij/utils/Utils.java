@@ -86,11 +86,7 @@ public class Utils {
                     wasEscaped = false;
                     break;
                 case '\\':
-                    if (wasEscaped) {
-                        wasEscaped = false;
-                    } else {
-                        wasEscaped = true;
-                    }
+                    wasEscaped = !wasEscaped;
                     curStr.append('\\');
                     break;
                 case 'c':
