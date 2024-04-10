@@ -27,6 +27,7 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
 import com.intellij.util.SmartList;
+import groovy.lang.Tuple3;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DiagnosticTag;
@@ -35,6 +36,7 @@ import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
@@ -77,10 +79,6 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
                 return null;
             }
 
-            // If the diagnostics list is locked, we need to skip annotating the file.
-            if (!(eventManager.isDiagnosticSyncRequired() || eventManager.isCodeActionSyncRequired())) {
-                return null;
-            }
             return RESULT;
         } catch (Exception e) {
             return null;
@@ -117,8 +115,9 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
                     LOG.warn("Error occurred when updating LSP code actions.", t);
                 }
                 eventManager.requestAndShowCodeActions();
-            } else if (eventManager.isCodeActionSyncRequired()) {
+            } else {
                 try {
+                    updateSilentAnnotations(holder, eventManager);
                     updateAnnotations(holder, eventManager);
                 } catch (ConcurrentModificationException e) {
                     // Todo - Add proper fix to handle concurrent modifications gracefully.
@@ -130,16 +129,32 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         }
     }
 
+    private void updateSilentAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
+        final List<Tuple3<HighlightSeverity,TextRange, LSPCodeActionFix>> annotations = eventManager.getSilentAnnotations();
+        if (annotations == null) {
+            return;
+        }
+        annotations.forEach(annotation -> {
+            AnnotationBuilder builder = holder.newSilentAnnotation(annotation.getFirst());
+            builder.range(annotation.getSecond()).withFix(annotation.getThird()).create();
+        });
+    }
+
     private void updateAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
         final List<Annotation> annotations = eventManager.getAnnotations();
         if (annotations == null) {
             return;
         }
         annotations.forEach(annotation -> {
+            AnnotationBuilder builder = holder.newAnnotation(annotation.getSeverity(), annotation.getMessage());
+
             if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
+                int start = annotation.getStartOffset();
+                int end = annotation.getEndOffset();
+                builder.range(new TextRange(start, end)).create();
                 return;
             }
-            AnnotationBuilder builder = holder.newAnnotation(annotation.getSeverity(), annotation.getMessage());
+
             boolean range = true;
             for (Annotation.QuickFixInfo quickFixInfo : annotation.getQuickFixes()) {
                 if (range) {
@@ -150,13 +165,14 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             }
             builder.create();
         });
+        eventManager.refreshAnnotations();
     }
 
     @Nullable
     protected Annotation createAnnotation(Editor editor, AnnotationHolder holder, Diagnostic diagnostic) {
         final int start = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getStart());
         final int end = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getEnd());
-        if (start >= end) {
+        if (start > end) {
             return null;
         }
         final TextRange range = new TextRange(start, end);
