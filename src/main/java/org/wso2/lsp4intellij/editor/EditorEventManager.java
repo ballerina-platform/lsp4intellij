@@ -1481,19 +1481,16 @@ public class EditorEventManager {
                                         range,
                                         new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
                                 );
-                        boolean found = false;
-                        for (Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> silentAnnotation : silentAnnotations) {
-                            if (silentAnnotation.getSecond().getStartOffset() == startOffset
-                                    && silentAnnotation.getSecond().getEndOffset() == endOffset
-                                    && silentAnnotation.getThird().getText().equals(codeAction.getTitle())) {
-                                found = true;
-                                break;
-                            }
-                        }
+                        boolean found = silentAnnotations.stream()
+                                .anyMatch(silentAnnotation ->
+                                        silentAnnotation.getSecond().getStartOffset() == startOffset &&
+                                        silentAnnotation.getSecond().getEndOffset() == endOffset &&
+                                        silentAnnotation.getThird().getText().equals(codeAction.getTitle())
+                                 );
                         if (!found) {
                             silentAnnotations.add(triple);
-                            codeActionSyncRequired = true;
                         }
+                        codeActionSyncRequired = true;
                     }
                 }
             });
@@ -1529,6 +1526,7 @@ public class EditorEventManager {
     public void refreshAnnotations() {
         if (!annotationsRefreshed) {
             updateErrorAnnotations();
+            silentAnnotations.clear();
             annotationsRefreshed = true;
         }
     }
