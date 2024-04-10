@@ -1526,8 +1526,8 @@ public class EditorEventManager {
         return silentAnnotations;
     }
 
-    public void refreshAnnotations(){
-        if (!annotationsRefreshed){
+    public void refreshAnnotations() {
+        if (!annotationsRefreshed) {
             updateErrorAnnotations();
             annotationsRefreshed = true;
         }
