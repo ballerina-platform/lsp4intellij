@@ -85,7 +85,6 @@ public final class GUIUtils {
     public static Hint createAndShowEditorHint(Editor editor, String string, Point point, short constraint, int flags) {
         JTextPane textPane = new JTextPane();
         textPane.setEditorKit(new HTMLEditorKit());
-
         // add spaces to the start and end of code blocks as padding
         string = string.replace("<code>", "<code>&nbsp;")
                 .replaceAll("(?<!\\n)</code>", "&nbsp;</code>");
@@ -96,6 +95,9 @@ public final class GUIUtils {
 
         styleSheet.addRule("p { font-family: " + "Segoe UI Semibold" + "; font-size: 10px; }");
         styleSheet.addRule("code { font-family: " + "Arial" + "; font-weight: bold; font-size: 10px;}");
+        for (int i = 1; i <= 6; i++) {
+            styleSheet.addRule("h" + i + " { font-family: " + "Arial" + "; font-weight: bold;}");
+        }
 
         // add theme aware background color to code blocks
         Color bodyFontColor = styleSheet.getStyle("body").getAttribute(StyleConstants.Foreground) instanceof Color ?
@@ -115,6 +117,7 @@ public final class GUIUtils {
         }
 
         String text = textPane.getText();
+        System.out.println(text);
         textPane.setText(text);
 
         textPane.setEditable(false);
