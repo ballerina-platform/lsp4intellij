@@ -52,6 +52,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
 import com.intellij.util.SmartList;
+import groovy.lang.Tuple3;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
@@ -141,6 +142,10 @@ public class EditorEventManager {
     private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getTooltipsDelay() * 1000000;
 
     public static final String SNIPPET_PLACEHOLDER_REGEX = "(\\$\\{\\d+:?([^{^}]*)}|\\$\\d+)";
+
+    private List<Tuple3<HighlightSeverity,TextRange,LSPCodeActionFix>> silentAnnotations = new ArrayList<>();
+
+    private boolean annotationsRefreshed = false;
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
@@ -1426,27 +1431,41 @@ public class EditorEventManager {
                 }
                 if (element.isLeft()) {
                     Command command = element.getLeft();
-                    annotations.forEach(annotation -> {
+                    Annotation annotWithCodeAction = null;
+                    for (Annotation annotation : annotations) {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
                             annotation.registerFix(new LSPCommandFix(FileUtils.editorToURIString(editor), command),
                                     new TextRange(start, end));
                             codeActionSyncRequired = true;
+                            annotWithCodeAction = annotation;
+                            break;
                         }
-                    });
+                    }
+                    if (annotWithCodeAction != null) {
+                        annotations.remove(annotWithCodeAction);
+                        annotations.add(0, annotWithCodeAction);
+                    }
                 } else if (element.isRight()) {
                     CodeAction codeAction = element.getRight();
                     List<Diagnostic> diagnosticContext = codeAction.getDiagnostics();
-                    annotations.forEach(annotation -> {
+                    Annotation annotWithCodeAction = null;
+                    for (Annotation annotation : annotations) {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
                             annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor),
                                     codeAction), new TextRange(start, end));
                             codeActionSyncRequired = true;
+                            annotWithCodeAction = annotation;
+                            break;
                         }
-                    });
+                    }
+                    if (annotWithCodeAction != null) {
+                        annotations.remove(annotWithCodeAction);
+                        annotations.add(0, annotWithCodeAction);
+                    }
 
                     // If the code actions does not have a diagnostics context, creates an intention action for
                     // the current line.
@@ -1456,20 +1475,22 @@ public class EditorEventManager {
                         int startOffset = editor.getDocument().getLineStartOffset(line);
                         int endOffset = editor.getDocument().getLineEndOffset(line);
                         TextRange range = new TextRange(startOffset, endOffset);
-
-                        try {
-                            this.anonHolder
-                                    .newAnnotation(HighlightSeverity.INFORMATION, codeAction.getTitle())
-                                    .range(range)
-                                    .withFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction))
-                                    .create();
-
-                            SmartList<Annotation> asList = (SmartList<Annotation>) this.anonHolder;
-                            this.annotations.add(asList.get(asList.size() - 1));
-                            diagnosticSyncRequired = true;
-                        } catch (IllegalArgumentException e) {
-                            LOG.warn("Error when creating a new annotation");
+                        boolean found = silentAnnotations.stream()
+                                .anyMatch(silentAnnotation ->
+                                        silentAnnotation.getSecond().getStartOffset() == startOffset &&
+                                        silentAnnotation.getSecond().getEndOffset() == endOffset &&
+                                        silentAnnotation.getThird().getText().equals(codeAction.getTitle())
+                                 );
+                        if (!found) {
+                            Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> sAnnotation =
+                                    new Tuple3<>(
+                                            HighlightSeverity.INFORMATION,
+                                            range,
+                                            new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
+                                    );
+                            silentAnnotations.add(sAnnotation);
                         }
+                        codeActionSyncRequired = true;
                     }
                 }
             });
@@ -1478,6 +1499,7 @@ public class EditorEventManager {
                 // double-delay the update to ensure that the code analyzer finishes.
                 invokeLater(this::updateErrorAnnotations);
             }
+            annotationsRefreshed = false;
         });
     }
 
@@ -1495,6 +1517,18 @@ public class EditorEventManager {
             DaemonCodeAnalyzer.getInstance(project).restart(file);
             return null;
         });
+    }
+
+    public List<Tuple3<HighlightSeverity,TextRange,LSPCodeActionFix>> getSilentAnnotations() {
+        return silentAnnotations;
+    }
+
+    public void refreshAnnotations() {
+        if (!annotationsRefreshed) {
+            updateErrorAnnotations();
+            silentAnnotations.clear();
+            annotationsRefreshed = true;
+        }
     }
 
     private static class LSPTextEdit implements Comparable<LSPTextEdit> {

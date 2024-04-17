@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.wrapper;
 
+import com.esotericsoftware.minlog.Log;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.jsonrpc.MessageConsumer;
 import org.eclipse.lsp4j.jsonrpc.messages.Message;
@@ -42,10 +43,13 @@ class MessageHandler implements Function<MessageConsumer, MessageConsumer> {
         return message -> {
             if(isRunning.getAsBoolean()) {
                 handleMessage(message);
-                messageConsumer.consume(message);
+                try {
+                    messageConsumer.consume(message);
+                } catch (Exception e) {
+                    Log.warn("Error while consuming message", e);
+                }
             }
         };
-
     }
 
     private void handleMessage(Message message) {
