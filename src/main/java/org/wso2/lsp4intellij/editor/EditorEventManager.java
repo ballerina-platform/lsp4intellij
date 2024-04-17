@@ -1475,12 +1475,6 @@ public class EditorEventManager {
                         int startOffset = editor.getDocument().getLineStartOffset(line);
                         int endOffset = editor.getDocument().getLineEndOffset(line);
                         TextRange range = new TextRange(startOffset, endOffset);
-                        Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> triple =
-                                new Tuple3<>(
-                                        HighlightSeverity.INFORMATION,
-                                        range,
-                                        new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
-                                );
                         boolean found = silentAnnotations.stream()
                                 .anyMatch(silentAnnotation ->
                                         silentAnnotation.getSecond().getStartOffset() == startOffset &&
@@ -1488,7 +1482,13 @@ public class EditorEventManager {
                                         silentAnnotation.getThird().getText().equals(codeAction.getTitle())
                                  );
                         if (!found) {
-                            silentAnnotations.add(triple);
+                            Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> sAnnotation =
+                                    new Tuple3<>(
+                                            HighlightSeverity.INFORMATION,
+                                            range,
+                                            new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
+                                    );
+                            silentAnnotations.add(sAnnotation);
                         }
                         codeActionSyncRequired = true;
                     }

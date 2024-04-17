@@ -50,7 +50,6 @@ class MessageHandler implements Function<MessageConsumer, MessageConsumer> {
                 }
             }
         };
-
     }
 
     private void handleMessage(Message message) {
