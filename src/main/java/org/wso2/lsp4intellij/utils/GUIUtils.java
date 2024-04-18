@@ -72,6 +72,56 @@ public final class GUIUtils {
         return createAndShowEditorHint(editor, string, point, HintManager.ABOVE, flags);
     }
 
+    public static StyleSheet getStyleSheet(JTextPane textPane) {
+        HTMLDocument doc = (HTMLDocument) textPane.getDocument();
+        return doc.getStyleSheet();
+    }
+
+    public static void configureTextStyles(JTextPane textPane) {
+        String fontFamily = "Arial";
+        int fontSize = 10;
+
+        StyleSheet styleSheet = getStyleSheet(textPane);
+
+        styleSheet.addRule("p { font-family: Segoe UI Semibold; font-size: " + fontSize + "px; }");
+        styleSheet.addRule("li { font-family: Segoe UI Semibold; font-size: " + fontSize + "px; }");
+        styleSheet.addRule(
+                "code { font-family: " + fontFamily + "; font-weight: bold; font-size: " + fontSize + "px; }");
+
+        for (int i = 1; i <= 6; i++) {
+            styleSheet.addRule("h" + i + " { font-family: " + fontFamily + "; font-weight: bold; }");
+        }
+    }
+
+    public static void adjustWidth(JTextPane textPane) {
+        int width = textPane.getPreferredSize().width;
+        if (width > 600) {
+            getStyleSheet(textPane).addRule("p { width: 600px; }");
+        }
+    }
+
+    public static void addPaddingToCodeBlocks(JTextPane textPane, String text) {
+        text = text.replace("<code>", "<code>&nbsp;")
+                .replaceAll("(?<!\\n)</code>", "&nbsp;</code>");
+
+        textPane.setText(text);
+    }
+
+    public static void setCodeBlockBackgroundColor(JTextPane textPane) {
+        StyleSheet styleSheet = getStyleSheet(textPane);
+
+        Color bodyFontColor = styleSheet.getStyle("body").getAttribute(StyleConstants.Foreground) instanceof Color
+                ? (Color) styleSheet.getStyle("body").getAttribute(StyleConstants.Foreground) : Color.BLACK;
+
+        Color inverseColor = new Color(255 - bodyFontColor.getRed(),
+                            255 - bodyFontColor.getGreen(),
+                            255 - bodyFontColor.getBlue()).darker();
+
+        String hexColor = String.format("#%02x%02x%02x", inverseColor.getRed(), inverseColor.getGreen(), inverseColor.getBlue());
+
+        styleSheet.addRule("code { background-color: " + hexColor + "; }");
+    }
+
     /**
      * Shows a hint in the editor
      *
@@ -85,40 +135,12 @@ public final class GUIUtils {
     public static Hint createAndShowEditorHint(Editor editor, String string, Point point, short constraint, int flags) {
         JTextPane textPane = new JTextPane();
         textPane.setEditorKit(new HTMLEditorKit());
-        // add spaces to the start and end of code blocks as padding
-        string = string.replace("<code>", "<code>&nbsp;")
-                .replaceAll("(?<!\\n)</code>", "&nbsp;</code>");
 
-        textPane.setText(string);
-        HTMLDocument doc = (HTMLDocument) textPane.getDocument();
-        StyleSheet styleSheet = doc.getStyleSheet();
-
-        styleSheet.addRule("p { font-family: " + "Segoe UI Semibold" + "; font-size: 10px; }");
-        styleSheet.addRule("code { font-family: " + "Arial" + "; font-weight: bold; font-size: 10px;}");
-        for (int i = 1; i <= 6; i++) {
-            styleSheet.addRule("h" + i + " { font-family: " + "Arial" + "; font-weight: bold;}");
-        }
-
-        // add theme aware background color to code blocks
-        Color bodyFontColor = styleSheet.getStyle("body").getAttribute(StyleConstants.Foreground) instanceof Color ?
-                (Color) styleSheet.getStyle("body").getAttribute(StyleConstants.Foreground) : Color.BLACK;
-
-        Color inverseColor = new Color(255 - bodyFontColor.getRed(),
-                255 - bodyFontColor.getGreen(),
-                255 - bodyFontColor.getBlue()).darker();
-
-        String hexColor =
-                String.format("#%02x%02x%02x", inverseColor.getRed(), inverseColor.getGreen(), inverseColor.getBlue());
-        styleSheet.addRule("code { background-color: " + hexColor + "; }");
-
-        int width = textPane.getPreferredSize().width;
-        if (width > 600) {
-            styleSheet.addRule("p { width: 600px; }");
-        }
-
-        String text = textPane.getText();
-        textPane.setText(text);
-
+        addPaddingToCodeBlocks(textPane, string);
+        configureTextStyles(textPane);
+        setCodeBlockBackgroundColor(textPane);
+        adjustWidth(textPane);
+        System.out.println(textPane.getText());
         textPane.setEditable(false);
         textPane.addHyperlinkListener(e -> {
             if ((e.getEventType() == HyperlinkEvent.EventType.ACTIVATED)
@@ -171,5 +193,4 @@ public final class GUIUtils {
         return IntellijLanguageClient.getExtensionManagerForDefinition(serverDefinition)
                 .map(LSPExtensionManager::getLabelProvider).orElse(DEFAULT_LABEL_PROVIDER);
     }
-
 }
