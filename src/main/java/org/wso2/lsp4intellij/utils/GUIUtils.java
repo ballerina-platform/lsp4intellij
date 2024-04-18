@@ -72,12 +72,12 @@ public final class GUIUtils {
         return createAndShowEditorHint(editor, string, point, HintManager.ABOVE, flags);
     }
 
-    public static StyleSheet getStyleSheet(JTextPane textPane) {
+    private static StyleSheet getStyleSheet(JTextPane textPane) {
         HTMLDocument doc = (HTMLDocument) textPane.getDocument();
         return doc.getStyleSheet();
     }
 
-    public static void configureTextStyles(JTextPane textPane) {
+    private static void configureTextStyles(JTextPane textPane) {
         String fontFamily = "Arial";
         int fontSize = 10;
 
@@ -93,21 +93,21 @@ public final class GUIUtils {
         }
     }
 
-    public static void adjustWidth(JTextPane textPane) {
+    private static void adjustWidth(JTextPane textPane) {
         int width = textPane.getPreferredSize().width;
         if (width > 600) {
             getStyleSheet(textPane).addRule("p { width: 600px; }");
         }
     }
 
-    public static void addPaddingToCodeBlocks(JTextPane textPane, String text) {
+    private static void addPaddingToCodeBlocks(JTextPane textPane, String text) {
         text = text.replace("<code>", "<code>&nbsp;")
                 .replaceAll("(?<!\\n)</code>", "&nbsp;</code>");
 
         textPane.setText(text);
     }
 
-    public static void setCodeBlockBackgroundColor(JTextPane textPane) {
+    private static void setCodeBlockBackgroundColor(JTextPane textPane) {
         StyleSheet styleSheet = getStyleSheet(textPane);
 
         Color bodyFontColor = styleSheet.getStyle("body").getAttribute(StyleConstants.Foreground) instanceof Color
