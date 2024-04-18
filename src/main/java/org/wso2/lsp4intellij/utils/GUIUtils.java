@@ -140,7 +140,7 @@ public final class GUIUtils {
         configureTextStyles(textPane);
         setCodeBlockBackgroundColor(textPane);
         adjustWidth(textPane);
-        System.out.println(textPane.getText());
+
         textPane.setEditable(false);
         textPane.addHyperlinkListener(e -> {
             if ((e.getEventType() == HyperlinkEvent.EventType.ACTIVATED)
