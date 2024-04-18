@@ -117,7 +117,6 @@ public final class GUIUtils {
         }
 
         String text = textPane.getText();
-        System.out.println(text);
         textPane.setText(text);
 
         textPane.setEditable(false);
