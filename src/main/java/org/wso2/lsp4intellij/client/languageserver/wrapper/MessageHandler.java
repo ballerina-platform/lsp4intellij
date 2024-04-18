@@ -29,8 +29,8 @@ import java.util.function.Function;
 
 class MessageHandler implements Function<MessageConsumer, MessageConsumer> {
 
-    private ServerListener listener;
-    private BooleanSupplier isRunning;
+    private final ServerListener listener;
+    private final BooleanSupplier isRunning;
     private LanguageServer languageServer;
 
     MessageHandler(@NotNull ServerListener listener, @NotNull BooleanSupplier isRunning) {

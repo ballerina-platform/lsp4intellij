@@ -17,18 +17,19 @@ package org.wso2.lsp4intellij.listeners;
 
 import com.intellij.openapi.editor.event.EditorMouseEvent;
 import com.intellij.openapi.editor.event.EditorMouseListener;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * An EditorMouseListener implementation which listens to mouseExited, mouseEntered and mouseClicked events.
  */
 public class EditorMouseListenerImpl extends LSPListener implements EditorMouseListener {
     @Override
-    public void mousePressed(EditorMouseEvent editorMouseEvent) {
+    public void mousePressed(@NotNull EditorMouseEvent editorMouseEvent) {
 
     }
 
     @Override
-    public void mouseClicked(EditorMouseEvent editorMouseEvent) {
+    public void mouseClicked(@NotNull EditorMouseEvent editorMouseEvent) {
         if (checkEnabled()) {
             manager.mouseClicked(editorMouseEvent);
         }
@@ -36,19 +37,19 @@ public class EditorMouseListenerImpl extends LSPListener implements EditorMouseL
     }
 
     @Override
-    public void mouseReleased(EditorMouseEvent editorMouseEvent) {
+    public void mouseReleased(@NotNull EditorMouseEvent editorMouseEvent) {
 
     }
 
     @Override
-    public void mouseEntered(EditorMouseEvent editorMouseEvent) {
+    public void mouseEntered(@NotNull EditorMouseEvent editorMouseEvent) {
         if (checkEnabled()) {
             manager.mouseEntered();
         }
     }
 
     @Override
-    public void mouseExited(EditorMouseEvent editorMouseEvent) {
+    public void mouseExited(@NotNull EditorMouseEvent editorMouseEvent) {
         if (checkEnabled()) {
             manager.mouseExited();
         }

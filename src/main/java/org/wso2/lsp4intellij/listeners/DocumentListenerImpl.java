@@ -17,6 +17,7 @@ package org.wso2.lsp4intellij.listeners;
 
 import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
+import org.jetbrains.annotations.NotNull;
 
 public class DocumentListenerImpl extends LSPListener implements DocumentListener {
 
@@ -26,7 +27,7 @@ public class DocumentListenerImpl extends LSPListener implements DocumentListene
      * @param event the event containing the information about the change.
      */
     @Override
-    public void beforeDocumentChange(DocumentEvent event) {
+    public void beforeDocumentChange(@NotNull DocumentEvent event) {
     }
 
     /**
@@ -35,7 +36,7 @@ public class DocumentListenerImpl extends LSPListener implements DocumentListene
      * @param event the event containing the information about the change.
      */
     @Override
-    public void documentChanged(DocumentEvent event) {
+    public void documentChanged(@NotNull DocumentEvent event) {
         if (checkEnabled()) {
             manager.documentChanged(event);
         }

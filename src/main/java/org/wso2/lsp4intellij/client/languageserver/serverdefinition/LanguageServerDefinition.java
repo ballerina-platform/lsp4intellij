@@ -38,7 +38,7 @@ public class LanguageServerDefinition {
 
     public String ext;
     protected Map<String, String> languageIds = Collections.emptyMap();
-    private Map<String, StreamConnectionProvider> streamConnectionProviders = new ConcurrentHashMap<>();
+    private final Map<String, StreamConnectionProvider> streamConnectionProviders = new ConcurrentHashMap<>();
     public static final String SPLIT_CHAR = ",";
 
     /**

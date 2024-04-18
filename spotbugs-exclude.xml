@@ -44,6 +44,19 @@
                     <Class name="org.wso2.lsp4intellij.utils.FileUtils"/>
                     <Method name="findProjectsFor"/>
                 </And>
+                <And>
+                    <Class name="org.wso2.lsp4intellij.listeners.LSPTypedHandler"/>
+                    <Method name="charTyped"/>
+                </And>
+                <And>
+                    <Class name="org.wso2.lsp4intellij.listeners.LSPTypedHandler"/>
+                    <Method name="checkAutoPopup"/>
+                </And>
+                <And>
+                    <Class name="org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory"/>
+                    <Method name="createWidget"/>
+                </And>
+
             </Or>
         </And>
     </Match>

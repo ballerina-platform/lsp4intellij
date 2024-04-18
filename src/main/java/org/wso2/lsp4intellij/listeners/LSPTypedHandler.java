@@ -31,7 +31,7 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 public class LSPTypedHandler extends TypedHandlerDelegate {
 
     @Override
-    public Result charTyped(char c, Project project, @NotNull Editor editor, @NotNull PsiFile file) {
+    public @NotNull Result charTyped(char c, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
         if (!FileUtils.isFileSupported(file.getVirtualFile())) {
             return Result.CONTINUE;
         }
@@ -44,7 +44,7 @@ public class LSPTypedHandler extends TypedHandlerDelegate {
     }
 
     @Override
-    public Result checkAutoPopup(char charTyped, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
+    public @NotNull Result checkAutoPopup(char charTyped, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
         if (!FileUtils.isFileSupported(file.getVirtualFile())) {
             return Result.CONTINUE;
         }

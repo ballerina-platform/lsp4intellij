@@ -150,9 +150,9 @@ public final class GUIUtils {
                         BrowserLauncher.getInstance().browse(e.getURL().toURI());
                     } else {
                         final Project project = editor.getProject();
-                        Optional<? extends Pair<Project, VirtualFile>> fileToOpen = Optional.ofNullable(project).map(
-                                p -> Optional.ofNullable(VfsUtil.findFileByURL(e.getURL()))
-                                        .map(f -> new ImmutablePair<>(p, f))).orElse(Optional.empty());
+                        Optional<? extends Pair<Project, VirtualFile>> fileToOpen = Optional.ofNullable(project)
+                                .flatMap(p -> Optional.ofNullable(VfsUtil.findFileByURL(e.getURL()))
+                                .map(f -> new ImmutablePair<>(p, f)));
 
                         fileToOpen.ifPresent(f -> {
                             final OpenFileDescriptor descriptor = new OpenFileDescriptor(f.getLeft(), f.getRight());

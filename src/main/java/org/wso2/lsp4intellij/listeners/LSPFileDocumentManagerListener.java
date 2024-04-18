@@ -38,7 +38,7 @@ public class LSPFileDocumentManagerListener implements FileDocumentManagerListen
     }
 
     @Override
-    public void beforeFileContentReload(VirtualFile virtualFile, @NotNull Document document) {
+    public void beforeFileContentReload(@NotNull VirtualFile virtualFile, @NotNull Document document) {
 
     }
 
