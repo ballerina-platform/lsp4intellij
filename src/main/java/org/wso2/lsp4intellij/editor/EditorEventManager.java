@@ -32,9 +32,18 @@ import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.editor.*;
+import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.EditorModificationUtil;
+import com.intellij.openapi.editor.LogicalPosition;
+import com.intellij.openapi.editor.ScrollType;
+import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.editor.colors.EditorColors;
-import com.intellij.openapi.editor.event.*;
+import com.intellij.openapi.editor.event.DocumentEvent;
+import com.intellij.openapi.editor.event.DocumentListener;
+import com.intellij.openapi.editor.event.EditorMouseEvent;
+import com.intellij.openapi.editor.event.EditorMouseListener;
+import com.intellij.openapi.editor.event.EditorMouseMotionListener;
 import com.intellij.openapi.editor.ex.EditorSettingsExternalizable;
 import com.intellij.openapi.editor.markup.HighlighterLayer;
 import com.intellij.openapi.editor.markup.HighlighterTargetArea;
@@ -51,10 +60,44 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
-import com.intellij.util.SmartList;
 import groovy.lang.Tuple3;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionContext;
+import org.eclipse.lsp4j.CodeActionParams;
+import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionItemKind;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionParams;
+import org.eclipse.lsp4j.DefinitionParams;
+import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
+import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.FormattingOptions;
+import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.HoverParams;
+import org.eclipse.lsp4j.InsertReplaceEdit;
+import org.eclipse.lsp4j.InsertTextFormat;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.MarkupContent;
+import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.ReferenceContext;
+import org.eclipse.lsp4j.ReferenceParams;
+import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SignatureHelp;
+import org.eclipse.lsp4j.SignatureHelpParams;
+import org.eclipse.lsp4j.SignatureInformation;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.eclipse.lsp4j.TextDocumentSaveReason;
+import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.WillSaveTextDocumentParams;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple;
@@ -76,24 +119,42 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
-import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyEvent;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
-import java.util.*;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.*;
+import javax.swing.*;
+
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
+import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
 import static org.wso2.lsp4intellij.requests.Timeout.getTimeout;
-import static org.wso2.lsp4intellij.requests.Timeouts.*;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.*;
+import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
+import static org.wso2.lsp4intellij.requests.Timeouts.COMPLETION;
+import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
+import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
+import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
+import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
+import static org.wso2.lsp4intellij.requests.Timeouts.SIGNATURE;
+import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
 import static org.wso2.lsp4intellij.utils.DocumentUtils.toEither;
 import static org.wso2.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
 
@@ -1436,6 +1497,10 @@ public class EditorEventManager {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
+                            List<Annotation.QuickFixInfo> quickFixes = annotation.getQuickFixes();
+                            if (quickFixes != null && !quickFixes.isEmpty()) {
+                                annotationsRefreshed = true;
+                            }
                             annotation.registerFix(new LSPCommandFix(FileUtils.editorToURIString(editor), command),
                                     new TextRange(start, end));
                             codeActionSyncRequired = true;
@@ -1455,6 +1520,10 @@ public class EditorEventManager {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
+                            List<Annotation.QuickFixInfo> quickFixes = annotation.getQuickFixes();
+                            if (quickFixes != null && !quickFixes.isEmpty()) {
+                                annotationsRefreshed = true;
+                            }
                             annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor),
                                     codeAction), new TextRange(start, end));
                             codeActionSyncRequired = true;
@@ -1489,6 +1558,8 @@ public class EditorEventManager {
                                             new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
                                     );
                             silentAnnotations.add(sAnnotation);
+                        } else {
+                            annotationsRefreshed = true;
                         }
                         codeActionSyncRequired = true;
                     }
@@ -1525,10 +1596,27 @@ public class EditorEventManager {
 
     public void refreshAnnotations() {
         if (!annotationsRefreshed) {
-            updateErrorAnnotations();
-            silentAnnotations.clear();
-            annotationsRefreshed = true;
+            invokeLater(() -> {
+                annotationsRefreshed = true;
+                KeyEvent keyEvent =
+                        new KeyEvent(editor.getContentComponent(), KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0,
+                                KeyEvent.VK_LEFT, KeyEvent.CHAR_UNDEFINED);
+                editor.getContentComponent().dispatchEvent(keyEvent);
+                keyEvent =
+                        new KeyEvent(editor.getContentComponent(), KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0,
+                                KeyEvent.VK_RIGHT, KeyEvent.CHAR_UNDEFINED);
+                editor.getContentComponent().dispatchEvent(keyEvent);
+
+                annotationsRefreshed = false;
+            });
+
+        } else {
+            annotationsRefreshed = false;
         }
+    }
+
+    public boolean isAnnotationsRefreshed() {
+        return annotationsRefreshed;
     }
 
     private static class LSPTextEdit implements Comparable<LSPTextEdit> {
