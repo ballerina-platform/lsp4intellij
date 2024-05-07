@@ -90,6 +90,7 @@ import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -665,12 +666,10 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     public boolean checkProvider(Either<Boolean, RenameOptions> provider) {
-        if (provider != null) {
-            if (provider.isLeft()) {
-                return provider.getLeft();
-            } else return provider.isRight();
+        if (Objects.isNull(provider)) {
+            return false;
         }
-        return false;
+        return (provider.isLeft() && provider.getLeft()) || provider.isRight();
     }
 
     @Override

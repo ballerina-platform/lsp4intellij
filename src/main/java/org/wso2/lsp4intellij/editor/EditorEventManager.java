@@ -81,6 +81,7 @@ import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentRangeFormattingParams;
@@ -102,10 +103,12 @@ import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SignatureHelp;
 import org.eclipse.lsp4j.SignatureHelpParams;
 import org.eclipse.lsp4j.SignatureInformation;
+import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentSaveReason;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WillSaveTextDocumentParams;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
@@ -1287,7 +1290,6 @@ public class EditorEventManager {
 
         return () -> ApplicationManager.getApplication().runWriteAction(() -> {
             Editor editor = EditorFactory.getInstance().createEditor(document, project);
-
             List<EditorEventManager.LSPTextEdit> lspEdits = new ArrayList<>();
             edits.forEach(edit -> {
                 if (edit.isLeft()) {
@@ -1336,7 +1338,16 @@ public class EditorEventManager {
                         document.insertString(start, text);
                     }
                 }
-                FileDocumentManager.getInstance().saveDocument(document);
+                try {
+                    FileDocumentManager.getInstance().saveDocument(document);
+                    PsiDocumentManager.getInstance(project).commitDocument(document);
+                    DidChangeTextDocumentParams didChange = new DidChangeTextDocumentParams();
+                    didChange.setTextDocument(new VersionedTextDocumentIdentifier(FileUtils.sanitizeURI(file.getUrl()), version));
+                    didChange.setContentChanges(Collections.singletonList(new TextDocumentContentChangeEvent(document.getText())));
+                    wrapper.getRequestManager().didChange(didChange);
+                } catch (Exception e) {
+                    LOG.warn("Error occurred while saving the document: " + file.getUrl());
+                }
             });
         });
     }
