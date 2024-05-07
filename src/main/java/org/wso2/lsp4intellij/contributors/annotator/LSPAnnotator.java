@@ -165,7 +165,7 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             }
             builder.create();
         });
-        eventManager.refreshAnnotations();
+        eventManager.triggerIntentionActions();
     }
 
     @Nullable

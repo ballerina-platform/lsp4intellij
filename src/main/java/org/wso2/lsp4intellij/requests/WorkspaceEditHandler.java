@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.requests;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.command.UndoConfirmationPolicy;
 import com.intellij.openapi.diagnostic.Logger;
@@ -153,11 +154,13 @@ public class WorkspaceEditHandler {
             } else if (changes != null) {
                 changes.forEach((key, lChanges) -> {
                     String uri = FileUtils.sanitizeURI(key);
-
+                    VirtualFile file = FileUtils.virtualFileFromURI(uri);
                     EditorEventManager manager = EditorEventManagerBase.forUri(uri);
                     if (manager != null) {
                         curProject[0] = manager.editor.getProject();
-                        toApply.add(manager.getEditsRunnable(Integer.MAX_VALUE, toEither(lChanges), newName, true));
+                        ApplicationManager.getApplication().runReadAction(() -> {
+                            toApply.add(manager.getEditsRunnable(file, Integer.MAX_VALUE, toEither(lChanges)));
+                        });
                     } else {
                         toApply.add(manageUnopenedEditor(lChanges, uri, Integer.MAX_VALUE, openedEditors, curProject,
                                 newName));

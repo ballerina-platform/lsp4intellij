@@ -64,6 +64,7 @@ import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RegistrationParams;
+import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
@@ -650,17 +651,26 @@ public class DefaultRequestManager implements RequestManager {
 
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
-        //        if (checkStatus()) {
-        //            try {
-        //                return (checkProvider((Either<Boolean, StaticRegistrationOptions>)serverCapabilities.getRenameProvider())) ?
-        //                        textDocumentService.rename(params) :
-        //                        null;
-        //            } catch (Exception e) {
-        //                crashed(e);
-        //                return null;
-        //            }
-        //        }
+        if (checkStatus()) {
+            try {
+                return (checkProvider(serverCapabilities.getRenameProvider())) ?
+                        textDocumentService.rename(params) :
+                        null;
+            } catch (Exception e) {
+                crashed(e);
+                return null;
+            }
+        }
         return null;
+    }
+
+    public boolean checkProvider(Either<Boolean, RenameOptions> provider) {
+        if (provider != null) {
+            if (provider.isLeft()) {
+                return provider.getLeft();
+            } else return provider.isRight();
+        }
+        return false;
     }
 
     @Override

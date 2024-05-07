@@ -30,10 +30,12 @@ import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.actionSystem.ActionManager;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.editor.EditorModificationUtil;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.ScrollType;
@@ -52,6 +54,8 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.PlainTextLanguage;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.project.ProjectUtil;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VfsUtil;
@@ -60,8 +64,13 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
+import com.intellij.util.ui.UIUtil;
+import com.vladsch.flexmark.html.HtmlRenderer;
+import com.vladsch.flexmark.parser.Parser;
+import com.vladsch.flexmark.util.options.MutableDataSet;
 import groovy.lang.Tuple3;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -84,6 +93,7 @@ import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
+import org.eclipse.lsp4j.ParameterInformation;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceContext;
@@ -119,8 +129,9 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
-import java.awt.*;
-import java.awt.event.KeyEvent;
+import java.awt.Cursor;
+import java.awt.Font;
+import java.awt.Point;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -134,9 +145,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
-import javax.swing.*;
-
+import javax.swing.Icon;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
@@ -204,9 +215,9 @@ public class EditorEventManager {
 
     public static final String SNIPPET_PLACEHOLDER_REGEX = "(\\$\\{\\d+:?([^{^}]*)}|\\$\\d+)";
 
-    private List<Tuple3<HighlightSeverity,TextRange,LSPCodeActionFix>> silentAnnotations = new ArrayList<>();
+    private final List<Tuple3<HighlightSeverity,TextRange,LSPCodeActionFix>> silentAnnotations = new ArrayList<>();
 
-    private boolean annotationsRefreshed = false;
+    private boolean isTriggerIntentionActions = false;
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
@@ -353,7 +364,6 @@ public class EditorEventManager {
             LOG.error("Wrong editor for EditorEventManager");
             return;
         }
-
         if (getIsCtrlDown()) {
             // If CTRL/CMD key is pressed, triggers goto definition/references and hover.
             try {
@@ -629,25 +639,39 @@ public class EditorEventManager {
                 String activeParameter = signatures.get(activeSignatureIndex).getParameters().size() > activeParameterIndex ?
                         extractLabel(signatures.get(activeSignatureIndex), signatures.get(activeSignatureIndex).getParameters().get(activeParameterIndex).getLabel()) : "";
                 Either<String, MarkupContent> signatureDescription = signatures.get(activeSignatureIndex).getDocumentation();
-
                 StringBuilder builder = new StringBuilder();
+                Font font = UIUtil.getLabelFont();
+                MutableDataSet options = new MutableDataSet();
+                Parser parser = Parser.builder(options).build();
+                HtmlRenderer renderer = HtmlRenderer.builder(options).build();
                 builder.append("<html>");
-                if (signatureDescription == null) {
-                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel().
-                            replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
-                                    activeParameter))).append("</b>");
-                } else if (signatureDescription.isLeft()) {
-                    // Todo - Add parameter Documentation
-                    String descriptionLeft = signatureDescription.getLeft().replace(System.lineSeparator(), "<br />");
-                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()
-                            .replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
-                                    activeParameter))).append("</b>");
-                    builder.append("<div>").append(descriptionLeft).append("</div>");
-                } else if (signatureDescription.isRight()) {
-                    // Todo - Add marked content parsing
-                    builder.append("<b>").append(signatures.get(activeSignatureIndex).getLabel()).append("</b>");
+                builder.append(UIUtil.getCssFontDeclaration(font));
+                List<String> result = new ArrayList<>();
+                if (!signatures.isEmpty() && signatures.get(activeSignatureIndex).getParameters() != null) {
+                    for (ParameterInformation param : signatures.get(activeSignatureIndex).getParameters()) {
+                        Either<String, MarkupContent> doc = param.getDocumentation();
+                        if (doc.isRight()) {
+                            result.add(renderer.render(parser.parse(doc.getRight().getValue())));
+                        }
+                    }
                 }
-
+                if (signatureDescription == null) {
+                    builder.append("<code>").append(signatures.get(activeSignatureIndex).getLabel().
+                            replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
+                                    activeParameter))).append("</code>");
+                } else if (signatureDescription.isLeft()) {
+                    String description = signatureDescription.getLeft().replace(System.lineSeparator(), "<br />");
+                    builder.append("<code>").append(signatures.get(activeSignatureIndex).getLabel()
+                            .replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
+                                    activeParameter))).append("</code>");
+                    builder.append("<p>").append(description).append("</p>");
+                } else if (signatureDescription.isRight()) {
+                    String string = renderer.render(parser.parse(signatures.get(activeSignatureIndex).getLabel()));
+                    builder.append("<code>").append(string).append("</code>");
+                }
+                if (!result.isEmpty()) {
+                    builder.append("<div>").append(String.join("\n", result)).append("</div>");
+                }
                 builder.append("</html>");
                 invokeLater(() -> currentHint = createAndShowEditorHint(editor, builder.toString(), point, HintManager.UNDER, HintManager.HIDE_BY_OTHER_HINT));
 
@@ -984,7 +1008,6 @@ public class EditorEventManager {
                 }
             });
         }
-
         return builder;
     }
 
@@ -1080,6 +1103,7 @@ public class EditorEventManager {
             EditorModificationUtil.moveCaretRelatively(editor, -template.getTemplateText().length());
         }
         TemplateManager.getInstance(getProject()).startTemplate(editor, template);
+        signatureHelp();
     }
 
     private String convertPlaceHolders(String insertText) {
@@ -1230,6 +1254,93 @@ public class EditorEventManager {
         };
     }
 
+    public Runnable getEditsRunnable(VirtualFile file, int version,
+                                     List<Either<TextEdit, InsertReplaceEdit>> edits) {
+        if (version < this.documentEventManager.getDocumentVersion()) {
+            LOG.warn(String.format("Edit version %d is older than current version %d", version,
+                    this.documentEventManager.getDocumentVersion()));
+            return null;
+        }
+        if (edits == null) {
+            LOG.warn("Received edits list is null.");
+            return null;
+        }
+
+        Document document = FileDocumentManager.getInstance().getDocument(file);
+
+        if (document == null) {
+            LOG.warn("Null document for file: " + file.getUrl());
+            return null;
+        }
+
+        Project[] projects = ProjectManager.getInstance().getOpenProjects();
+
+        Project project = Stream.of(projects)
+                .map(p -> new ImmutablePair<>(FileUtils.VFSToURI(ProjectUtil.guessProjectDir(p)), p))
+                .filter(p -> file.getUrl().startsWith(p.getLeft())).sorted(Collections.reverseOrder())
+                .map(ImmutablePair::getRight).findFirst().orElse(projects[0]);
+
+        if (project == null) {
+            LOG.warn("Current project is null");
+            return null;
+        }
+
+        return () -> ApplicationManager.getApplication().runWriteAction(() -> {
+            Editor editor = EditorFactory.getInstance().createEditor(document, project);
+
+            List<EditorEventManager.LSPTextEdit> lspEdits = new ArrayList<>();
+            edits.forEach(edit -> {
+                if (edit.isLeft()) {
+                    String text = edit.getLeft().getNewText();
+                    Range range = edit.getLeft().getRange();
+                    if (range != null) {
+                        int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
+                        int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
+                        lspEdits.add(new EditorEventManager.LSPTextEdit(text, start, end));
+                    }
+                } else if (edit.isRight()) {
+                    String text = edit.getRight().getNewText();
+                    Range range = edit.getRight().getInsert();
+
+                    if (range != null) {
+                        int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
+                        int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
+                        lspEdits.add(new EditorEventManager.LSPTextEdit(text, start, end));
+                    } else if ((range = edit.getRight().getReplace()) != null) {
+                        int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
+                        int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
+                        lspEdits.add(new EditorEventManager.LSPTextEdit(text, start, end));
+                    }
+                }
+            });
+
+            Collections.sort(lspEdits);
+
+            lspEdits.forEach(edit -> {
+                String text = edit.getText();
+                int start = edit.getStartOffset();
+                int end = edit.getEndOffset();
+                if (StringUtils.isEmpty(text)) {
+                    document.deleteString(start, end);
+                } else {
+                    text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
+                    if (end >= 0) {
+                        if (end - start <= 0) {
+                            document.insertString(start, text);
+                        } else {
+                            document.replaceString(start, end, text);
+                        }
+                    } else if (start == 0) {
+                        document.setText(text);
+                    } else if (start > 0) {
+                        document.insertString(start, text);
+                    }
+                }
+                FileDocumentManager.getInstance().saveDocument(document);
+            });
+        });
+    }
+
     /**
      * Sends commands to execute to the server and applies the changes returned if the future returns a WorkspaceEdit
      *
@@ -1322,6 +1433,7 @@ public class EditorEventManager {
             return;
         }
         if (event.getDocument() == editor.getDocument()) {
+            silentAnnotations.clear();
             documentEventManager.documentChanged(event);
         } else {
             LOG.error("Wrong document for the EditorEventManager");
@@ -1497,9 +1609,8 @@ public class EditorEventManager {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
-                            List<Annotation.QuickFixInfo> quickFixes = annotation.getQuickFixes();
-                            if (quickFixes != null && !quickFixes.isEmpty()) {
-                                annotationsRefreshed = true;
+                            if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
+                                isTriggerIntentionActions = true;
                             }
                             annotation.registerFix(new LSPCommandFix(FileUtils.editorToURIString(editor), command),
                                     new TextRange(start, end));
@@ -1520,9 +1631,8 @@ public class EditorEventManager {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
-                            List<Annotation.QuickFixInfo> quickFixes = annotation.getQuickFixes();
-                            if (quickFixes != null && !quickFixes.isEmpty()) {
-                                annotationsRefreshed = true;
+                            if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
+                                isTriggerIntentionActions = true;
                             }
                             annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor),
                                     codeAction), new TextRange(start, end));
@@ -1558,8 +1668,7 @@ public class EditorEventManager {
                                             new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
                                     );
                             silentAnnotations.add(sAnnotation);
-                        } else {
-                            annotationsRefreshed = true;
+                            isTriggerIntentionActions = true;
                         }
                         codeActionSyncRequired = true;
                     }
@@ -1570,7 +1679,6 @@ public class EditorEventManager {
                 // double-delay the update to ensure that the code analyzer finishes.
                 invokeLater(this::updateErrorAnnotations);
             }
-            annotationsRefreshed = false;
         });
     }
 
@@ -1594,29 +1702,11 @@ public class EditorEventManager {
         return silentAnnotations;
     }
 
-    public void refreshAnnotations() {
-        if (!annotationsRefreshed) {
-            invokeLater(() -> {
-                annotationsRefreshed = true;
-                KeyEvent keyEvent =
-                        new KeyEvent(editor.getContentComponent(), KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0,
-                                KeyEvent.VK_LEFT, KeyEvent.CHAR_UNDEFINED);
-                editor.getContentComponent().dispatchEvent(keyEvent);
-                keyEvent =
-                        new KeyEvent(editor.getContentComponent(), KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0,
-                                KeyEvent.VK_RIGHT, KeyEvent.CHAR_UNDEFINED);
-                editor.getContentComponent().dispatchEvent(keyEvent);
-
-                annotationsRefreshed = false;
-            });
-
-        } else {
-            annotationsRefreshed = false;
+    public void triggerIntentionActions() {
+        if (isTriggerIntentionActions) {
+            isTriggerIntentionActions = false;
+            updateErrorAnnotations();
         }
-    }
-
-    public boolean isAnnotationsRefreshed() {
-        return annotationsRefreshed;
     }
 
     private static class LSPTextEdit implements Comparable<LSPTextEdit> {

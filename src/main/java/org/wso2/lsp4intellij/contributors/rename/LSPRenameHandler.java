@@ -44,6 +44,7 @@ import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.intellij.openapi.command.impl.StartMarkAction.START_MARK_ACTION_KEY;
@@ -52,6 +53,8 @@ import static com.intellij.openapi.command.impl.StartMarkAction.START_MARK_ACTIO
  * The LSP based rename handler implementation.
  */
 public class LSPRenameHandler implements RenameHandler {
+
+    private boolean isInplaceRename = true;
 
     @Override
     public void invoke(@NotNull Project project, @NotNull PsiElement[] elements, DataContext dataContext) {
@@ -88,9 +91,11 @@ public class LSPRenameHandler implements RenameHandler {
                         public void pass(PsiElement element) {
                             MemberInplaceRenamer renamer = createMemberRenamer(element,
                                     (PsiNameIdentifierOwner) elementToRename, editor);
-                            boolean startedRename = renamer.performInplaceRename();
-                            if (!startedRename) {
-                                performDialogRename(editor);
+                            if (isInplaceRename) {
+                                renamer.performInplaceRename();
+                            } else {
+                                isInplaceRename = true;
+                                performDialogRename(editor, elementToRename.getText());
                             }
                         }
                     });
@@ -107,7 +112,7 @@ public class LSPRenameHandler implements RenameHandler {
                 }
             }
         }
-        performDialogRename(editor);
+        performDialogRename(editor, elementToRename.getText());
         return null;
     }
 
@@ -138,23 +143,31 @@ public class LSPRenameHandler implements RenameHandler {
         return new LSPInplaceRenamer((PsiNamedElement) element, elementToRename, editor);
     }
 
-    private void performDialogRename(Editor editor) {
+    private void performDialogRename(Editor editor, String initialName) {
         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
             String renameTo = Messages.showInputDialog(
-                    editor.getProject(), "Enter new name: ", "Rename", Messages.getQuestionIcon(), "",
+                    editor.getProject(), "Enter new name: ", "Rename", Messages.getQuestionIcon(), initialName,
                     new NonEmptyInputValidator());
-            if (renameTo != null && !renameTo.equals("")) {
+            if (renameTo != null && !renameTo.isEmpty()) {
                 manager.rename(renameTo);
             }
         }
     }
 
     private LSPPsiElement getElementAtOffset(EditorEventManager eventManager, int offset) {
-        Pair<List<PsiElement>, List<VirtualFile>> refResponse = eventManager.references(offset, true, false);
+        Pair<List<PsiElement>, List<VirtualFile>> refResponse = eventManager.references(offset, true, true);
         List<PsiElement> refs = refResponse.getFirst();
         if (refs == null || refs.isEmpty()) {
             return null;
+        }
+
+        String uri = refs.get(0).getContainingFile().getVirtualFile().getUrl();
+        for (PsiElement element: refs) {
+            if (!uri.equals(element.getContainingFile().getVirtualFile().getUrl())) {
+                isInplaceRename = false;
+                break;
+            }
         }
 
         PsiElement curElement = refs.stream()

@@ -41,9 +41,6 @@ public class LSPCaretListenerImpl extends LSPListener implements CaretListener {
     @Override
     public void caretPositionChanged(@NotNull CaretEvent e) {
         try {
-            if (manager.isAnnotationsRefreshed()) {
-                return;
-            }
             if (scheduledFuture != null && !scheduledFuture.isCancelled()) {
                 scheduledFuture.cancel(false);
             }
@@ -54,7 +51,7 @@ public class LSPCaretListenerImpl extends LSPListener implements CaretListener {
     }
 
     private void debouncedCaretPositionChanged() {
-        if (checkEnabled() && !manager.isAnnotationsRefreshed()) {
+        if (checkEnabled()) {
             manager.requestAndShowCodeActions();
         }
     }
