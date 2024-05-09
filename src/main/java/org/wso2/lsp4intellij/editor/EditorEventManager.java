@@ -30,12 +30,10 @@ import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.actionSystem.ActionManager;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.editor.EditorModificationUtil;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.ScrollType;
@@ -54,8 +52,6 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.PlainTextLanguage;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.project.ProjectManager;
-import com.intellij.openapi.project.ProjectUtil;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VfsUtil;
@@ -70,7 +66,6 @@ import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.options.MutableDataSet;
 import groovy.lang.Tuple3;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -81,7 +76,6 @@ import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentRangeFormattingParams;
@@ -103,12 +97,10 @@ import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SignatureHelp;
 import org.eclipse.lsp4j.SignatureHelpParams;
 import org.eclipse.lsp4j.SignatureInformation;
-import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentSaveReason;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
-import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WillSaveTextDocumentParams;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.JsonRpcException;
@@ -126,7 +118,6 @@ import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.HoverHandler;
-import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
@@ -138,6 +129,7 @@ import java.awt.Point;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -148,9 +140,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import javax.swing.Icon;
+
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
@@ -232,10 +224,8 @@ public class EditorEventManager {
         this.mouseMotionListener = mouseMotionListener;
         this.wrapper = wrapper;
         this.caretListener = caretListener;
-
         this.identifier = new TextDocumentIdentifier(FileUtils.editorToURIString(editor));
         this.syncKind = serverOptions.syncKind;
-
         this.completionTriggers = (serverOptions.completionOptions != null
                 && serverOptions.completionOptions.getTriggerCharacters() != null) ?
                 serverOptions.completionOptions.getTriggerCharacters() :
@@ -421,7 +411,7 @@ public class EditorEventManager {
         try {
             Either<List<? extends Location>, List<? extends LocationLink>> definition =
                     request.get(getTimeout(DEFINITION), TimeUnit.MILLISECONDS);
-            wrapper.notifySuccess(Timeouts.DEFINITION);
+            wrapper.notifySuccess(DEFINITION);
             if (definition.isLeft() && !definition.getLeft().isEmpty()) {
                 return definition.getLeft().get(0);
             } else if (definition.isRight() && !definition.getRight().isEmpty()) {
@@ -430,7 +420,7 @@ public class EditorEventManager {
             }
         } catch (TimeoutException e) {
             LOG.warn(e);
-            wrapper.notifyFailure(Timeouts.DEFINITION);
+            wrapper.notifyFailure(DEFINITION);
             return null;
         } catch (InterruptedException | JsonRpcException | ExecutionException e) {
             LOG.warn(e);
@@ -461,7 +451,7 @@ public class EditorEventManager {
         if (request != null) {
             try {
                 List<? extends Location> res = request.get(getTimeout(REFERENCES), TimeUnit.MILLISECONDS);
-                wrapper.notifySuccess(Timeouts.REFERENCES);
+                wrapper.notifySuccess(REFERENCES);
                 if (res != null && res.size() > 0) {
                     List<VirtualFile> openedEditors = new ArrayList<>();
                     List<PsiElement> elements = new ArrayList<>();
@@ -498,7 +488,7 @@ public class EditorEventManager {
                 }
             } catch (TimeoutException e) {
                 LOG.warn(e);
-                wrapper.notifyFailure(Timeouts.REFERENCES);
+                wrapper.notifyFailure(REFERENCES);
                 return new Pair<>(null, null);
             } catch (InterruptedException | JsonRpcException | ExecutionException e) {
                 LOG.warn(e);
@@ -628,7 +618,7 @@ public class EditorEventManager {
             }
             try {
                 SignatureHelp signatureResp = future.get(getTimeout(SIGNATURE), TimeUnit.MILLISECONDS);
-                wrapper.notifySuccess(Timeouts.SIGNATURE);
+                wrapper.notifySuccess(SIGNATURE);
                 if (signatureResp == null) {
                     return;
                 }
@@ -680,7 +670,7 @@ public class EditorEventManager {
 
             } catch (TimeoutException e) {
                 LOG.warn(e);
-                wrapper.notifyFailure(Timeouts.SIGNATURE);
+                wrapper.notifyFailure(SIGNATURE);
             } catch (JsonRpcException | ExecutionException | InterruptedException e) {
                 LOG.warn(e);
                 wrapper.crashed(e);
@@ -780,16 +770,37 @@ public class EditorEventManager {
             if (editor.isDisposed()) {
                 return;
             }
-            Position servPos = DocumentUtils.offsetToLSPPos(editor, offset);
-            RenameParams params = new RenameParams(identifier, servPos, renameTo);
-            CompletableFuture<WorkspaceEdit> request = wrapper.getRequestManager().rename(params);
-            if (request != null) {
-                request.thenAccept(res -> {
-                    WorkspaceEditHandler
-                            .applyEdit(res, "Rename to " + renameTo, new ArrayList<>(LSPRenameProcessor.getEditors()));
-                    LSPRenameProcessor.clearEditors();
-                });
-            }
+            VirtualFile[] openedFiles = FileEditorManager.getInstance(project).getOpenFiles();
+            invokeLater(() -> {
+                Pair<List<PsiElement>, List<VirtualFile>> references = references(offset, true, false);
+                List<VirtualFile> toClose = new ArrayList<>();
+                for (VirtualFile file : references.getSecond()) {
+                    if (!Arrays.asList(openedFiles).contains(file)) {
+                        toClose.add(file);
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException e) {
+                            LOG.warn(e);
+                        }
+                    }
+                }
+                Position servPos = DocumentUtils.offsetToLSPPos(editor, offset);
+                RenameParams params = new RenameParams(identifier, servPos, renameTo);
+                CompletableFuture<WorkspaceEdit> request = wrapper.getRequestManager().rename(params);
+                if (request != null) {
+                    request.thenAccept(res -> {
+                        boolean isApplied = WorkspaceEditHandler.applyEdit(res, "Rename to " + renameTo, toClose);
+                        LSPRenameProcessor.clearEditors();
+                        if (!isApplied) {
+                            for (VirtualFile file : toClose) {
+                                writeAction(() -> {
+                                    FileEditorManager.getInstance(project).closeFile(file);
+                                });
+                            }
+                        }
+                    });
+                }
+            });
         });
     }
 
@@ -824,7 +835,7 @@ public class EditorEventManager {
         }
         try {
             Hover hover = request.get(getTimeout(HOVER), TimeUnit.MILLISECONDS);
-            wrapper.notifySuccess(Timeouts.HOVER);
+            wrapper.notifySuccess(HOVER);
 
             if (hover == null) {
                 LOG.debug(String.format("Hover is null for file %s and pos (%d;%d)", identifier.getUri(),
@@ -854,7 +865,7 @@ public class EditorEventManager {
             }
         } catch (TimeoutException e) {
             LOG.warn(e);
-            wrapper.notifyFailure(Timeouts.HOVER);
+            wrapper.notifyFailure(HOVER);
         } catch (InterruptedException | JsonRpcException | ExecutionException e) {
             LOG.warn(e);
             wrapper.crashed(e);
@@ -878,7 +889,7 @@ public class EditorEventManager {
 
         try {
             Either<List<CompletionItem>, CompletionList> res = request.get(getTimeout(COMPLETION), TimeUnit.MILLISECONDS);
-            wrapper.notifySuccess(Timeouts.COMPLETION);
+            wrapper.notifySuccess(COMPLETION);
             if (res == null) {
                 return lookupItems;
             }
@@ -899,7 +910,7 @@ public class EditorEventManager {
             }
         } catch (TimeoutException | InterruptedException e) {
             LOG.warn(e);
-            wrapper.notifyFailure(Timeouts.COMPLETION);
+            wrapper.notifyFailure(COMPLETION);
         } catch (JsonRpcException | ExecutionException e) {
             LOG.warn(e);
             wrapper.crashed(e);
@@ -1257,101 +1268,6 @@ public class EditorEventManager {
         };
     }
 
-    public Runnable getEditsRunnable(VirtualFile file, int version,
-                                     List<Either<TextEdit, InsertReplaceEdit>> edits) {
-        if (version < this.documentEventManager.getDocumentVersion()) {
-            LOG.warn(String.format("Edit version %d is older than current version %d", version,
-                    this.documentEventManager.getDocumentVersion()));
-            return null;
-        }
-        if (edits == null) {
-            LOG.warn("Received edits list is null.");
-            return null;
-        }
-
-        Document document = FileDocumentManager.getInstance().getDocument(file);
-
-        if (document == null) {
-            LOG.warn("Null document for file: " + file.getUrl());
-            return null;
-        }
-
-        Project[] projects = ProjectManager.getInstance().getOpenProjects();
-
-        Project project = Stream.of(projects)
-                .map(p -> new ImmutablePair<>(FileUtils.VFSToURI(ProjectUtil.guessProjectDir(p)), p))
-                .filter(p -> file.getUrl().startsWith(p.getLeft())).sorted(Collections.reverseOrder())
-                .map(ImmutablePair::getRight).findFirst().orElse(projects[0]);
-
-        if (project == null) {
-            LOG.warn("Current project is null");
-            return null;
-        }
-
-        return () -> ApplicationManager.getApplication().runWriteAction(() -> {
-            Editor editor = EditorFactory.getInstance().createEditor(document, project);
-            List<EditorEventManager.LSPTextEdit> lspEdits = new ArrayList<>();
-            edits.forEach(edit -> {
-                if (edit.isLeft()) {
-                    String text = edit.getLeft().getNewText();
-                    Range range = edit.getLeft().getRange();
-                    if (range != null) {
-                        int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
-                        int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
-                        lspEdits.add(new EditorEventManager.LSPTextEdit(text, start, end));
-                    }
-                } else if (edit.isRight()) {
-                    String text = edit.getRight().getNewText();
-                    Range range = edit.getRight().getInsert();
-
-                    if (range != null) {
-                        int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
-                        int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
-                        lspEdits.add(new EditorEventManager.LSPTextEdit(text, start, end));
-                    } else if ((range = edit.getRight().getReplace()) != null) {
-                        int start = DocumentUtils.LSPPosToOffset(editor, range.getStart());
-                        int end = DocumentUtils.LSPPosToOffset(editor, range.getEnd());
-                        lspEdits.add(new EditorEventManager.LSPTextEdit(text, start, end));
-                    }
-                }
-            });
-
-            Collections.sort(lspEdits);
-
-            lspEdits.forEach(edit -> {
-                String text = edit.getText();
-                int start = edit.getStartOffset();
-                int end = edit.getEndOffset();
-                if (StringUtils.isEmpty(text)) {
-                    document.deleteString(start, end);
-                } else {
-                    text = text.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
-                    if (end >= 0) {
-                        if (end - start <= 0) {
-                            document.insertString(start, text);
-                        } else {
-                            document.replaceString(start, end, text);
-                        }
-                    } else if (start == 0) {
-                        document.setText(text);
-                    } else if (start > 0) {
-                        document.insertString(start, text);
-                    }
-                }
-                try {
-                    FileDocumentManager.getInstance().saveDocument(document);
-                    PsiDocumentManager.getInstance(project).commitDocument(document);
-                    DidChangeTextDocumentParams didChange = new DidChangeTextDocumentParams();
-                    didChange.setTextDocument(new VersionedTextDocumentIdentifier(FileUtils.sanitizeURI(file.getUrl()), version));
-                    didChange.setContentChanges(Collections.singletonList(new TextDocumentContentChangeEvent(document.getText())));
-                    wrapper.getRequestManager().didChange(didChange);
-                } catch (Exception e) {
-                    LOG.warn("Error occurred while saving the document: " + file.getUrl());
-                }
-            });
-        });
-    }
-
     /**
      * Sends commands to execute to the server and applies the changes returned if the future returns a WorkspaceEdit
      *
@@ -1370,10 +1286,10 @@ public class EditorEventManager {
             }).filter(Objects::nonNull).forEach(f -> {
                 try {
                     f.get(getTimeout(EXECUTE_COMMAND), TimeUnit.MILLISECONDS);
-                    wrapper.notifySuccess(Timeouts.EXECUTE_COMMAND);
+                    wrapper.notifySuccess(EXECUTE_COMMAND);
                 } catch (TimeoutException te) {
                     LOG.warn(te);
-                    wrapper.notifyFailure(Timeouts.EXECUTE_COMMAND);
+                    wrapper.notifyFailure(EXECUTE_COMMAND);
                 } catch (JsonRpcException | ExecutionException | InterruptedException e) {
                     LOG.warn(e);
                     wrapper.crashed(e);
@@ -1494,13 +1410,13 @@ public class EditorEventManager {
                 if (future != null) {
                     try {
                         List<TextEdit> edits = future.get(getTimeout(WILLSAVE), TimeUnit.MILLISECONDS);
-                        wrapper.notifySuccess(Timeouts.WILLSAVE);
+                        wrapper.notifySuccess(WILLSAVE);
                         if (edits != null) {
                             invokeLater(() -> applyEdit(toEither(edits), "WaitUntil edits", false));
                         }
                     } catch (TimeoutException e) {
                         LOG.warn(e);
-                        wrapper.notifyFailure(Timeouts.WILLSAVE);
+                        wrapper.notifyFailure(WILLSAVE);
                     } catch (JsonRpcException | ExecutionException | InterruptedException e) {
                         LOG.warn(e);
                         wrapper.crashed(e);
@@ -1720,26 +1636,26 @@ public class EditorEventManager {
         }
     }
 
-    private static class LSPTextEdit implements Comparable<LSPTextEdit> {
+    public static class LSPTextEdit implements Comparable<LSPTextEdit> {
         private String text;
         private int startOffset;
         private int endOffset;
 
-        LSPTextEdit(String text, int start, int end) {
+        public LSPTextEdit(String text, int start, int end) {
             this.text = text;
             this.startOffset = start;
             this.endOffset = end;
         }
 
-        String getText() {
+        public String getText() {
             return text;
         }
 
-        int getStartOffset() {
+        public int getStartOffset() {
             return startOffset;
         }
 
-        int getEndOffset() {
+        public int getEndOffset() {
             return endOffset;
         }
 
