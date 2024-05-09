@@ -48,7 +48,6 @@ class LSPCompletionContributor extends CompletionContributor {
                         Editor editor = parameters.getEditor();
                         int offset = parameters.getOffset();
                         Position serverPos = DocumentUtils.offsetToLSPPos(editor, offset);
-
                         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
                         if (manager != null) {
                             result.addAllElements(manager.completion(serverPos));
@@ -65,16 +64,13 @@ class LSPCompletionContributor extends CompletionContributor {
 
         Editor editor = parameters.getEditor();
         int offset = parameters.getOffset();
-
         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
             String prefix = manager.getCompletionPrefix(editor, offset);
-
             provider.addCompletionVariants(parameters, new ProcessingContext(), result.withPrefixMatcher(new PlainPrefixMatcher(prefix)));
             if (result.isStopped()) {
                 return;
             }
-
             super.fillCompletionVariants(parameters, result);
         }
     }

@@ -82,7 +82,9 @@ public final class GUIUtils {
         int fontSize = 10;
 
         StyleSheet styleSheet = getStyleSheet(textPane);
-
+        if (styleSheet == null) {
+            return;
+        }
         styleSheet.addRule("p { font-family: Segoe UI Semibold; font-size: " + fontSize + "px; }");
         styleSheet.addRule("li { font-family: Segoe UI Semibold; font-size: " + fontSize + "px; }");
         styleSheet.addRule(
@@ -96,7 +98,11 @@ public final class GUIUtils {
     private static void adjustWidth(JTextPane textPane) {
         int width = textPane.getPreferredSize().width;
         if (width > 600) {
-            getStyleSheet(textPane).addRule("p { width: 600px; }");
+            StyleSheet styleSheet = getStyleSheet(textPane);
+            if (styleSheet == null) {
+                return;
+            }
+            styleSheet.addRule("p { width: 600px; }");
         }
     }
 
@@ -109,7 +115,9 @@ public final class GUIUtils {
 
     private static void setCodeBlockBackgroundColor(JTextPane textPane) {
         StyleSheet styleSheet = getStyleSheet(textPane);
-
+        if (styleSheet == null || styleSheet.getStyle("body") == null) {
+            return;
+        }
         Color bodyFontColor = styleSheet.getStyle("body").getAttribute(StyleConstants.Foreground) instanceof Color
                 ? (Color) styleSheet.getStyle("body").getAttribute(StyleConstants.Foreground) : Color.BLACK;
 

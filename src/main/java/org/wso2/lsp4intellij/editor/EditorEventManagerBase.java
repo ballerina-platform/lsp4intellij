@@ -22,11 +22,11 @@ import org.wso2.lsp4intellij.utils.OSUtils;
 
 import java.awt.KeyboardFocusManager;
 import java.awt.event.KeyEvent;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorEventManagerBase {
@@ -93,7 +93,7 @@ public class EditorEventManagerBase {
         synchronized (uriToManagers) {
             new HashMap<>(uriToManagers).forEach((key, value) -> {
                 new HashSet<>(value).forEach((manager) -> {
-                    if (!manager.wrapper.isActive()) {
+                    if (!manager.wrapper.isActive() || manager.editor.isDisposed()) {
                         uriToManagers.get(key).remove(manager);
                     }
                 });
@@ -192,6 +192,7 @@ public class EditorEventManagerBase {
      * Only use for operations which are file-level (save, open, close,...) otherwise use {@link #managersForUri(String)} or {@link #forEditor(Editor)}
      */
     public static EditorEventManager forUri(String uri) {
+        prune();
         Set<EditorEventManager> managers = managersForUri(uri);
         if(managers.size() >= 1) {
             return managers.iterator().next();
