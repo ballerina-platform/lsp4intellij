@@ -600,6 +600,26 @@ public class EditorEventManager {
         return null;
     }
 
+    public CodeAction resolvedCodeAction(CodeAction codeAction) {
+        CompletableFuture<CodeAction> future = wrapper.getRequestManager().resolveCodeAction(codeAction);
+        if (future != null) {
+            try {
+                CodeAction res = future.get(getTimeout(CODEACTION), TimeUnit.MILLISECONDS);
+                wrapper.notifySuccess(CODEACTION);
+                return res;
+            } catch (TimeoutException e) {
+                LOG.warn(e);
+                wrapper.notifyFailure(CODEACTION);
+                return null;
+            } catch (InterruptedException | JsonRpcException | ExecutionException e) {
+                LOG.warn(e);
+                wrapper.crashed(e);
+                return null;
+            }
+        }
+        return null;
+    }
+
     /**
      * Calls signatureHelp at the current editor caret position
      */
@@ -1552,6 +1572,12 @@ public class EditorEventManager {
                     }
                 } else if (element.isRight()) {
                     CodeAction codeAction = element.getRight();
+                    if (codeAction.getEdit() == null) {
+                        CodeAction resolvedCodeAction = resolvedCodeAction(codeAction);
+                        if (resolvedCodeAction != null && resolvedCodeAction.getEdit() != null) {
+                            codeAction = resolvedCodeAction;
+                        }
+                    }
                     List<Diagnostic> diagnosticContext = codeAction.getDiagnostics();
                     Annotation annotWithCodeAction = null;
                     for (Annotation annotation : annotations) {
@@ -1581,11 +1607,12 @@ public class EditorEventManager {
                         int startOffset = editor.getDocument().getLineStartOffset(line);
                         int endOffset = editor.getDocument().getLineEndOffset(line);
                         TextRange range = new TextRange(startOffset, endOffset);
+                        CodeAction finalCodeAction = codeAction;
                         boolean found = silentAnnotations.stream()
                                 .anyMatch(silentAnnotation ->
                                         silentAnnotation.getSecond().getStartOffset() == startOffset &&
                                         silentAnnotation.getSecond().getEndOffset() == endOffset &&
-                                        silentAnnotation.getThird().getText().equals(codeAction.getTitle())
+                                        silentAnnotation.getThird().getText().equals(finalCodeAction.getTitle())
                                  );
                         if (!found) {
                             Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> sAnnotation =
