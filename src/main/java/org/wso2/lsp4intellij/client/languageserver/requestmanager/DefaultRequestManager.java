@@ -593,6 +593,20 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     @Override
+    public CompletableFuture<CodeAction> resolveCodeAction(CodeAction unresolved) {
+        if (checkStatus()) {
+            try {
+                return checkCodeActionResolveProvider(serverCapabilities.getCodeActionProvider())
+                        ? textDocumentService.resolveCodeAction(unresolved) : null;
+            } catch (Exception e) {
+                crashed(e);
+                return null;
+            }
+        }
+        return null;
+    }
+
+    @Override
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
         if (checkStatus()) {
             try {
@@ -719,5 +733,10 @@ public class DefaultRequestManager implements RequestManager {
     private boolean checkCodeActionProvider(Either<Boolean, CodeActionOptions> provider) {
         return provider != null && ((provider.isLeft() && provider.getLeft()) || (provider.isRight()
                 && provider.getRight() != null));
+    }
+
+    private boolean checkCodeActionResolveProvider(Either<Boolean, CodeActionOptions> provider) {
+        return provider != null && provider.isRight() && provider.getRight() != null
+                && provider.getRight().getResolveProvider();
     }
 }

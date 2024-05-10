@@ -151,6 +151,9 @@ public interface RequestManager extends LanguageClient, TextDocumentService, Wor
     CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params);
 
     @Override
+    CompletableFuture<CodeAction> resolveCodeAction(CodeAction unresolved);
+
+    @Override
     CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params);
 
     @Override
