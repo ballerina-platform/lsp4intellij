@@ -37,6 +37,7 @@ import org.eclipse.lsp4j.ClientInfo;
 import org.eclipse.lsp4j.CodeActionCapabilities;
 import org.eclipse.lsp4j.CodeActionKindCapabilities;
 import org.eclipse.lsp4j.CodeActionLiteralSupportCapabilities;
+import org.eclipse.lsp4j.CodeActionResolveSupportCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionItemCapabilities;
 import org.eclipse.lsp4j.DefinitionCapabilities;
@@ -163,6 +164,8 @@ public class LanguageServerWrapper {
     private static final Map<Project, LanguageServerWrapper> projectToLanguageServerWrapper = new ConcurrentHashMap<>();
     private static final Logger LOG = Logger.getInstance(LanguageServerWrapper.class);
     private static final CloudNotifier notifier = new CloudNotifier("Language Server Protocol client");
+
+    private static final List<String> codeActionResolveProperties = new ArrayList<>(List.of("edit"));
 
     public LanguageServerWrapper(@NotNull LanguageServerDefinition serverDefinition, @NotNull Project project) {
         this(serverDefinition, project, null);
@@ -583,6 +586,7 @@ public class LanguageServerWrapper {
         TextDocumentClientCapabilities textDocumentClientCapabilities = new TextDocumentClientCapabilities();
         textDocumentClientCapabilities.setCodeAction(new CodeActionCapabilities());
         textDocumentClientCapabilities.getCodeAction().setCodeActionLiteralSupport(new CodeActionLiteralSupportCapabilities(new CodeActionKindCapabilities()));
+        textDocumentClientCapabilities.getCodeAction().setResolveSupport(new CodeActionResolveSupportCapabilities(codeActionResolveProperties));
         textDocumentClientCapabilities.setCompletion(new CompletionCapabilities(new CompletionItemCapabilities(true)));
         textDocumentClientCapabilities.setDefinition(new DefinitionCapabilities());
         textDocumentClientCapabilities.setDocumentHighlight(new DocumentHighlightCapabilities());
