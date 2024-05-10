@@ -43,11 +43,7 @@ class MessageHandler implements Function<MessageConsumer, MessageConsumer> {
         return message -> {
             if(isRunning.getAsBoolean()) {
                 handleMessage(message);
-                try {
-                    messageConsumer.consume(message);
-                } catch (Exception e) {
-                    Log.warn("Error while consuming message", e);
-                }
+                messageConsumer.consume(message);
             }
         };
     }
