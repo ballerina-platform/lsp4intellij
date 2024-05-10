@@ -44,6 +44,7 @@ import org.eclipse.lsp4j.WorkDoneProgressBegin;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.WorkDoneProgressNotification;
+import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.jetbrains.annotations.NotNull;
@@ -302,7 +303,7 @@ public class DefaultLanguageClient implements LanguageClient {
         }
         Tuple2<String, String> progressNotificationItem = new Tuple2<>("LSP Progress Notification", "");
         progressNotificationItems.put(token, progressNotificationItem);
-        return null;
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -329,6 +330,11 @@ public class DefaultLanguageClient implements LanguageClient {
                 progressNotificationItems.replace(token, progressNotificationItem);
             } else {
                 progressNotificationItems.put(token, progressNotificationItem);
+            }
+        } else if (progressNotification instanceof WorkDoneProgressReport) {
+            message = ((WorkDoneProgressReport) progressNotification).getMessage();
+            if (progressNotificationItems.containsKey(token)) {
+                title = progressNotificationItems.get(token).getFirst();
             }
         } else if (progressNotification instanceof WorkDoneProgressEnd) {
             message = ((WorkDoneProgressEnd) progressNotification).getMessage();
