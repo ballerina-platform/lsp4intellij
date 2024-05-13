@@ -72,7 +72,7 @@ public class LSPDefaultIconProvider extends LSPIconProvider {
             case Variable:
                 return Nodes.Variable;
             default:
-                return null;
+                return Nodes.AnonymousClass;
         }
     }
 
