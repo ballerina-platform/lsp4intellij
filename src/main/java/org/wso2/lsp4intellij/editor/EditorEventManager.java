@@ -208,7 +208,7 @@ public class EditorEventManager {
 
     private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getTooltipsDelay() * 1000000;
 
-    public static final String SNIPPET_PLACEHOLDER_REGEX = "(\\$\\{\\d+:?([^{^}]*)}|\\$\\d+)";
+    public static final String SNIPPET_PLACEHOLDER_REGEX = "(\\$\\{\\d+:?(\\{)?[^{}]*(\\})?\\}|\\$\\d+)";
 
     private final List<Tuple3<HighlightSeverity,TextRange,LSPCodeActionFix>> silentAnnotations = new ArrayList<>();
 
@@ -1708,6 +1708,7 @@ public class EditorEventManager {
 
         private String getVariableValue(String lspVarSnippet) {
             if (lspVarSnippet.contains(":")) {
+                lspVarSnippet = lspVarSnippet.replace("\\","");
                 return lspVarSnippet.substring(lspVarSnippet.indexOf(':') + 1, lspVarSnippet.lastIndexOf('}'));
             }
             return " ";
