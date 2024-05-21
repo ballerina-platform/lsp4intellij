@@ -799,10 +799,14 @@ public class LanguageServerWrapper {
     }
 
     private Optional<LSPServerStatusWidget> getWidget() {
-        LSPServerStatusWidgetFactory factory = ((LSPServerStatusWidgetFactory) project.getService(StatusBarWidgetsManager.class).findWidgetFactory("LSP"));
-        if (factory != null) {
-            return Optional.of(factory.getWidget(project));
-        } else {
+        try {
+            LSPServerStatusWidgetFactory factory = ((LSPServerStatusWidgetFactory) project.getService(StatusBarWidgetsManager.class).findWidgetFactory("LSP"));
+            if (factory != null) {
+                return Optional.of(factory.getWidget(project));
+            } else {
+                return Optional.empty();
+            }
+        } catch (Exception e) {
             return Optional.empty();
         }
     }
