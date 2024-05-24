@@ -737,6 +737,7 @@ public class DefaultRequestManager implements RequestManager {
 
     private boolean checkCodeActionResolveProvider(Either<Boolean, CodeActionOptions> provider) {
         return provider != null && provider.isRight() && provider.getRight() != null
+                && provider.getRight().getResolveProvider() != null
                 && provider.getRight().getResolveProvider();
     }
 }
