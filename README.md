@@ -368,6 +368,13 @@ The LSP4Intellij code is distributed under the [Apache license 2.0](LICENSE).
 Credits should go to the original author for his astounding work.
 
 
+## Contributors
+
+A huge thanks to all the amazing contributors! 🚀
+
+<a href="https://github.com/ballerina-platform/lsp4intellij/pulse"> <img align="center" src="https://contrib.rocks/image?max=100&repo=ballerina-platform/lsp4intellij" /> </a> 
+
+
 # Useful Links
 
 - [langserver.org](https://langserver.org/)
