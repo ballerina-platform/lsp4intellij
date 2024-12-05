@@ -1,34 +1,32 @@
-# [LSP4IntelliJ](#sp4intellij) - Language Server Protocol Support for the  Jetbrains Plugins
+# [LSP4IntelliJ](#lsp4intellij) - Language Server Protocol Support for JetBrains Plugins
 
-[![Build status](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml/badge.svg)](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml)
-[![](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
-[![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)
+[![Build status](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml/badge.svg)](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml)  
+[![](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)  
+[![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)  
 [![Gitter](https://badges.gitter.im/ballerina-platform-lsp4intellij/community.svg)](https://gitter.im/ballerina-platform-lsp4intellij/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-**Lsp4IntelliJ** is a client library, which provides language server support for IntelliJ IDEA and other Jetbrains IDEs.
+**LSP4IntelliJ** is a client library that enables Language Server Protocol (LSP) support for IntelliJ IDEA and other JetBrains IDEs. Designed for plugin developers, it facilitates integration with LSP-based features and supports language-specific extensions via the [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) protocol.
 
-It is designed to be used with any IntelliJ plugin as its language server client to get the features that are based on the language server.
-
-Also, it allows the plugin developers to use language-specific language server protocol extensions via the [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) 
-protocol.
+---
 
 ## Table of Contents
-- [**How To Use**](#how-to-use)
-- [**Features**](#features)
+
+- [How to Use](#how-to-use)
+- [Features](#features)
     - [Code Completion](#code-completion)
-    - [Code Formatting](#code-formatting) 
+    - [Code Formatting](#code-formatting)
     - [Diagnostics](#diagnostics)
     - [Code Actions](#code-actions)
     - [Goto Definition](#go-to-definition)
-    - [Go to References / Find Usages](#goto-references-/-find-usages)
+    - [Goto References / Find Usages](#go-to-references--find-usages)
     - [Hover Support](#hover-support)
     - [Workspace Symbols](#workspace-symbols)
     - [Renaming Support](#renaming-support)
-- [**User API**](#user-api) 
+- [User API](#user-api)
     - [Timeouts](#timeouts)
-- [**License**](#license)
-- [**Inspiration**](#inspiration)
-- [**Useful Links**](#useful-links)
+- [License](#license)
+- [Inspiration](#inspiration)
+- [Useful Links](#useful-links)
 
 
 ## How to use 
