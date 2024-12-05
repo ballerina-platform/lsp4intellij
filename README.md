@@ -162,7 +162,7 @@ You can specify multiple extensions for a server by separating them with a comma
 If you want to bind your language server definition only with a specific set of files, you can use that
 specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
 
-###### Example Usage:
+**Example Usage:**
 
 ```java
 new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
@@ -185,7 +185,7 @@ You can specify multiple extensions for a server by separating them with a comma
 If you want to bind your language server definition only with a specific set of files, you can use that
       specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
 
-#### Example Usage:
+**Example Usage:**
 
 ```java
 ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
@@ -197,11 +197,10 @@ ProcessBuilder process = new ProcessBuilder("java", "-jar", "path/to/language-se
 new ProcessBuilderServerDefinition("bsl,os", process);
 ```
 
-#### Custom Initialization Parameters
+#### Custom initialization parameters
 
 If your language server requires custom initialization options, you can extend `ProcessBuilderServerDefinition` or `RawCommandServerDefinition` and override the `customizeInitializeParams` method to modify the initialization parameters.
 
-##### Example:
 ```java
 public class MyServerDefinition extends ProcessBuilderServerDefinition {
     public MyServerDefinition(String ext, ProcessBuilder process) {
@@ -215,12 +214,12 @@ public class MyServerDefinition extends ProcessBuilderServerDefinition {
 }
 ```
 
-  Finally, assign your class as a ServerDefinition:
+Finally, assign your class as a ServerDefinition:
 
-  ```java
-  ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
-  IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", processBuilder));
-  ```
+```java
+ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
+IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", processBuilder));
+```
 
   You can refer to [#311](https://github.com/ballerina-platform/lsp4intellij/pull/311) for more details.
 
