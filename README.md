@@ -29,20 +29,23 @@
 - [Useful Links](#useful-links)
 
 
-## How to use 
+## How to use
 
-Follow the steps below to use `Lsp4IntelliJ` in your custom language plugin.
+Follow the below steps to integrate `LSP4IntelliJ` into your custom language plugin.
 
-### 1. Add the `lsp4intellij` dependency in the build file of the project.
+### 1. Add the `lsp4intellij` dependency
+Include `lsp4intellij` in your project's build file. Instructions for popular build tools are available at [jitpack/lsp4intellij](https://jitpack.io/#ballerina-platform/lsp4intellij).
 
-For instructions on adding **Lsp4IntelliJ** as a dependency when using the below build tools, go to **[jitpack/lsp4intellij](https://jitpack.io/#ballerina-platform/lsp4intellij)**.
-  - gradle
-  - maven
-  - sbt
+Supported build tools:
+- Gradle
+- Maven
+- SBT
 
->**Info:** - The Maven publishing process is currently WIP. Thus, the possibility to add LSP4IntelliJ as a dependency will be available soon in the Maven central.
+> **Info:** Maven Central publishing is a work in progress. Support for Maven Central will be available soon.
 
-### 2. Add a plugin.xml file
+### 2. Add a `plugin.xml` file
+Define the required configurations in your `plugin.xml` file.
+
 <details>
 <summary>deprecated "components"-based setup</summary>
   1. Add `IntellijLanguageClient` as an application component. 
@@ -115,26 +118,22 @@ For instructions on adding **Lsp4IntelliJ** as a dependency when using the below
    > **Note:** You do not need any additional configurations for the other features.
 </details>
 
-Copy the example plugin.xml [here](resources/plugin.xml.example) and place it under `src/resources/META-INF` in your plugin and adjust it to your needs.
+Copy the example `plugin.xml` file from [resources/plugin.xml.example](resources/plugin.xml.example), place it under `src/resources/META-INF`, and adjust it as needed.
 
-### 3. Add a preloading activity to configure LSP
+### 3. Configure preloading activity
 
-Implement a preloading activity in your plugin as shown below.
-
->**Tip:** For other options you can use instead of implementing a preloading activity, go to [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/)
-to)
-
-Example:
+Add a preloading activity to initialize and configure LSP support:
 
 ```java
 public class BallerinaPreloadingActivity extends PreloadingActivity {
+    @Override
     public void preload(ProgressIndicator indicator) {
         IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
     }
 }
 ```
 
-With plugin.xml containing;
+Update your `plugin.xml` to include the preloading activity:
 
 ```xml
 <extensions defaultExtensionNs="com.intellij">
@@ -143,80 +142,77 @@ With plugin.xml containing;
 </extensions>
 ```
 
-If you have connected to your language server successfully, you will see a green icon at the bottom-right side of your 
-IDE when opening a file that has a registered file extension as shown below.
+>**Tip:** For other options you can use instead of implementing a preloading activity, go to [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/)
+
+### 4. Confirm language server connection
+
+After successfully connecting to the language server, a green icon will appear in the bottom-right corner of your IDE. Clicking on the icon will display connection details and timeouts.
 
 #### Alternative ways to connect to a language server
-Aside RawCommandServerDefinition there are several classes implementing [LanguageServerDefinition](src/main/java/org/wso2/lsp4intellij/client/languageserver/serverdefinition/LanguageServerDefinition.java).
 
-You can use the following concrete class:
+In addition to `RawCommandServerDefinition`, several classes implement [LanguageServerDefinition](src/main/java/org/wso2/lsp4intellij/client/languageserver/serverdefinition/LanguageServerDefinition.java), allowing you to connect to a language server in different ways. Below are the available options:
 
-- **RawCommandServerDefinition(string fileExtension, string[] command)**
+##### 1. RawCommandServerDefinition
 
-  This definition can be used to start a language server using a command.
+You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
 
-    * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
+If you want to bind your language server definition only with a specific set of files, you can use that
+specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
 
-    * If you want to bind your language server definition only with a specific set of files, you can use that
+###### Example Usage:
+
+```java
+new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
+```
+
+```java
+String[] command = new String[]{"java", "-jar", "path/to/language-server.jar"};
+new RawCommandServerDefinition("bsl,os", command);
+```
+
+##### 2. ProcessBuilderServerDefinition
+
+This definition is an extended form of the **RawCommandServerDefinition**, which accepts
+`java.lang.ProcessBuilder` instances so that the users will have more controllability over the language
+server
+process to be created.
+
+You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
+
+If you want to bind your language server definition only with a specific set of files, you can use that
       specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
 
-  Examples:
+#### Example Usage:
 
-  Ballerina Language Server
-    ```java
-    new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"});
-    ```
+```java
+ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
+new ProcessBuilderServerDefinition("bal", process);
+```
 
-  BSL Language Server
-    ```java
-    String[] command = new String[]{"java","-jar","path/to/language-server.jar"};
-    new RawCommandServerDefinition("bsl,os",command);
-    ```
+```java
+ProcessBuilder process = new ProcessBuilder("java", "-jar", "path/to/language-server.jar");
+new ProcessBuilderServerDefinition("bsl,os", process);
+```
 
-- **ProcessBuilderServerDefinition(string fileExtension, string[] command)**
+---
 
-  This definition is an extended form of the **RawCommandServerDefinition**, which accepts
-  `java.lang.ProcessBuilder` instances so that the users will have more controllability over the language
-  server
-  process to be created.
+#### Custom Initialization Parameters
 
-    * You can specify multiple extensions for a server by separating them with a comma (e.g., "ts,js").
+If your language server requires custom initialization options, you can extend `ProcessBuilderServerDefinition` or `RawCommandServerDefinition` and override the `customizeInitializeParams` method to modify the initialization parameters.
 
-    * If you want to bind your language server definition only with a specific set of files, you can use that
-      specific file pattern as a regex expression instead of binding with the file extension (e.g., "application*.properties").
+##### Example:
+```java
+public class MyServerDefinition extends ProcessBuilderServerDefinition {
+    public MyServerDefinition(String ext, ProcessBuilder process) {
+        super(ext, process);
+    }
 
-  Examples:
-
-  Ballerina Language Server
-    ```java
-    ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
-    new ProcessBuilderServerDefinition("bal", process);
-    ```
-
-  BSL Language Server
-    ```java
-    ProcessBuilder process = new ProcessBuilder("java","-jar","path/to/language-server.jar");
-    new ProcessBuilderServerDefinition("bsl,os", process);
-    ```
-
-- **Custom Initialization Params**
-
-  If your LSP server needs some custom initialization options when connecting, you can define a class that extends `ProcessBuilderServerDefinition` or `RawCommandServerDefinition`, and then override the `customizeInitializeParams` method to modify any property of the `InitializeParams`.
-
-  Here's an example:
-
-  ```java
-  public class MyServerDefinition extends ProcessBuilderServerDefinition {
-      public MyServerDefinition(String ext, ProcessBuilder process) {
-          super(ext, process);
-      }
-
-      @Override
-      public void customizeInitializeParams(InitializeParams params) {
-          params.clientInfo = new ClientInfo("MyName", "MyVersion");
-      }
-  }
-  ```
+    @Override
+    public void customizeInitializeParams(InitializeParams params) {
+        params.clientInfo = new ClientInfo("MyName", "MyVersion");
+    }
+}
+```
 
   Finally, assign your class as a ServerDefinition:
 
@@ -228,11 +224,11 @@ You can use the following concrete class:
   You can refer to [#311](https://github.com/ballerina-platform/lsp4intellij/pull/311) for more details.
 
 
-> **Note:** All of the above implementations will use server stdin/stdout to communicate.
+> **Note:** All implementations use stdin/stdout for server communication.
 
 ![](resources/images/lang-server-connect.gif)
    
->**Tip:** You can also click on the icon to see the connected files and the timeouts.
+>**Tip:** A green icon in the IDE's bottom-right corner indicates successful connection to the language server. Clicking on the icon will display connection details and timeouts.
 
 ![](resources/images/connected-and-timeouts.gif)
    
@@ -307,18 +303,18 @@ the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-
 ### Timeouts
 The Lsp4IntelliJ language client has default timeout values for LSP-based requests as shown below.
 
-| Type     | Default timeout value(in milliseconds)|
-|----------|:-------------------------------------:|
-| Code Actions    |  2000 |
-| Completion      |  1000 |
-| Goto Definition |  2000 |
-| Execute Command |  2000 |
-| Formatting      |  2000 |
-| Hover Support   |  2000 | 
-| Initialization  | 10000 |
-| References      |  2000 |
-| Shutdown        |  5000 |
-| WillSave        |  2000 |
+| Type            | Default timeout value(in milliseconds) |
+|-----------------|:--------------------------------------:|
+| Code Actions    |                  2000                  |
+| Completion      |                  1000                  |
+| Goto Definition |                  2000                  |
+| Execute Command |                  2000                  |
+| Formatting      |                  2000                  |
+| Hover Support   |                  2000                  | 
+| Initialization  |                 10000                  |
+| References      |                  2000                  |
+| Shutdown        |                  5000                  |
+| WillSave        |                  2000                  |
 
 The LspIntelliJ language client provides following methods related to timeout configurations.
 
@@ -373,7 +369,7 @@ A huge thanks to all the amazing contributors! 🚀
 <a href="https://github.com/ballerina-platform/lsp4intellij/pulse"> <img align="center" src="https://contrib.rocks/image?max=100&repo=ballerina-platform/lsp4intellij" /> </a> 
 
 
-# Useful Links
+## Useful links
 
 - [langserver.org](https://langserver.org/)
 - [Language Server Protocol Specification](https://microsoft.github.io/language-server-protocol/specification)
