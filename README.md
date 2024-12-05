@@ -1,11 +1,13 @@
 # [LSP4IntelliJ](#lsp4intellij) - Language Server Protocol Support for JetBrains Plugins
 
-[![Build status](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml/badge.svg)](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml)  
+[![Build status](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml/badge.svg)](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml)
 [![](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)  
 [![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)  
 [![Gitter](https://badges.gitter.im/ballerina-platform-lsp4intellij/community.svg)](https://gitter.im/ballerina-platform-lsp4intellij/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-**LSP4IntelliJ** is a client library that enables Language Server Protocol (LSP) support for IntelliJ IDEA and other JetBrains IDEs. Designed for plugin developers, it facilitates integration with LSP-based features and supports language-specific extensions via the [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) protocol.
+**LSP4IntelliJ** is a client library that enables Language Server Protocol (LSP) support for IntelliJ IDEA and other JetBrains IDEs.
+
+Designed for plugin developers, it facilitates integration with LSP-based features and supports language-specific extensions via the [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) protocol.
 
 ---
 
@@ -13,12 +15,12 @@
 
 - [How to Use](#how-to-use)
 - [Features](#features)
-    - [Code Completion](#code-completion)
+    - [Code Completion](#code-completion-with-code-snippet-support)
     - [Code Formatting](#code-formatting)
     - [Diagnostics](#diagnostics)
     - [Code Actions](#code-actions)
     - [Goto Definition](#go-to-definition)
-    - [Goto References / Find Usages](#go-to-references--find-usages)
+    - [Goto References / Find Usages](#goto-references--find-usages)
     - [Hover Support](#hover-support)
     - [Workspace Symbols](#workspace-symbols)
     - [Renaming Support](#renaming-support)
@@ -27,7 +29,6 @@
 - [License](#license)
 - [Inspiration](#inspiration)
 - [Useful Links](#useful-links)
-
 
 ## How to use
 
@@ -194,8 +195,6 @@ ProcessBuilder process = new ProcessBuilder("java", "-jar", "path/to/language-se
 new ProcessBuilderServerDefinition("bsl,os", process);
 ```
 
----
-
 #### Custom Initialization Parameters
 
 If your language server requires custom initialization options, you can extend `ProcessBuilderServerDefinition` or `RawCommandServerDefinition` and override the `customizeInitializeParams` method to modify the initialization parameters.
@@ -233,7 +232,7 @@ public class MyServerDefinition extends ProcessBuilderServerDefinition {
 ![](resources/images/connected-and-timeouts.gif)
    
 
-## Features 
+## Features
 
 #### Code Completion (with code snippet support)
 Press the `CTRL+SPACE` keys to see the completion items list, which depends on your cursor position.(Code completion items 
@@ -248,13 +247,13 @@ snippets with the default values.
 ![](resources/images/lsp4intellij-snippets.gif)
 
 
-#### Code Formatting 
+#### Code Formatting
 Navigate to **Code->Reformat Code** and you will get a dialog to choose whether to format the whole file or the 
 selected range.
 
 ![](resources/images/lsp4intellij-formatting.gif)
 
-#### Diagnostics 
+#### Diagnostics
 To see diagnostics (errors, warnings etc.), hover over them to view the message.
 
 ![](resources/images/lsp4intellij-dignostics.gif)
@@ -298,7 +297,7 @@ the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-
  - Signature Help
  
 
-## User API 
+## User API
 
 ### Timeouts
 The Lsp4IntelliJ language client has default timeout values for LSP-based requests as shown below.
