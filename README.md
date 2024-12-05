@@ -30,6 +30,8 @@ Designed for plugin developers, it facilitates integration with LSP-based featur
 - [Inspiration](#inspiration)
 - [Useful Links](#useful-links)
 
+---
+
 ## How to use
 
 Follow the below steps to integrate `LSP4IntelliJ` into your custom language plugin.
@@ -231,6 +233,7 @@ public class MyServerDefinition extends ProcessBuilderServerDefinition {
 
 ![](resources/images/connected-and-timeouts.gif)
    
+--- 
 
 ## Features
 
@@ -245,7 +248,6 @@ For Code Snippets, you can use TAB/ENTER to navigate to the next place holder po
 snippets with the default values.
  
 ![](resources/images/lsp4intellij-snippets.gif)
-
 
 #### Code Formatting
 Navigate to **Code->Reformat Code** and you will get a dialog to choose whether to format the whole file or the 
@@ -291,11 +293,12 @@ below.
 ![](resources/images/lsp4intellij-renaming.gif)
 
 > **Note** - Above features are currently tested only with IntelliJ IDEA and
-the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server).
+> the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server).
 
- **WIP Features** 
- - Signature Help
+**WIP Features**
+- Signature Help
  
+---
 
 ## User API
 
@@ -349,15 +352,16 @@ The LspIntelliJ language client provides following methods related to timeout co
     IntellijLanguageClient.setTimeout(Timeouts.INIT, 15000);
     ```
 
+---
 
 ## License
 
 The LSP4Intellij code is distributed under the [Apache license 2.0](LICENSE).
 
- 
+
 ## Inspiration
 
-`Lsp4IntelliJ` is heavily inspired by the [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community. 
+`Lsp4IntelliJ` is heavily inspired by the [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community.
 Credits should go to the original author for his astounding work.
 
 
