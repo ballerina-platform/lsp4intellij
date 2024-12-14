@@ -46,13 +46,14 @@ import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
 
     private static final Logger LOG = Logger.getInstance(LSPAnnotator.class);
     private static final Object RESULT = new Object();
-    private static final HashMap<DiagnosticSeverity, HighlightSeverity> annotationsMap = new HashMap<>();
+    private static final Map<DiagnosticSeverity, HighlightSeverity> annotationsMap = new HashMap<>();
 
     static {
         annotationsMap.put(DiagnosticSeverity.Error, HighlightSeverity.ERROR);
