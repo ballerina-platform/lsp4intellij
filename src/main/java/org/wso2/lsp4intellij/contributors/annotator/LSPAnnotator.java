@@ -46,20 +46,24 @@ import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
 
     private static final Logger LOG = Logger.getInstance(LSPAnnotator.class);
     private static final Object RESULT = new Object();
-    private static final HashMap<DiagnosticSeverity, HighlightSeverity> lspToIntellijAnnotationsMap = new HashMap<>();
+    private static final HashMap<DiagnosticSeverity, HighlightSeverity> annotationsMap = new HashMap<>();
 
     static {
-        lspToIntellijAnnotationsMap.put(DiagnosticSeverity.Error, HighlightSeverity.ERROR);
-        lspToIntellijAnnotationsMap.put(DiagnosticSeverity.Warning, HighlightSeverity.WARNING);
+        annotationsMap.put(DiagnosticSeverity.Error, HighlightSeverity.ERROR);
+        annotationsMap.put(DiagnosticSeverity.Warning, HighlightSeverity.WARNING);
 
         // seem flipped, but just different semantics lsp<->intellij. Hint is rendered without any squiggle
-        lspToIntellijAnnotationsMap.put(DiagnosticSeverity.Information, HighlightSeverity.WEAK_WARNING);
-        lspToIntellijAnnotationsMap.put(DiagnosticSeverity.Hint, HighlightSeverity.INFORMATION);
+        annotationsMap.put(DiagnosticSeverity.Information, HighlightSeverity.WEAK_WARNING);
+        annotationsMap.put(DiagnosticSeverity.Hint, HighlightSeverity.INFORMATION);
+
+        // As per the LSP spec, it’s recommended for the client to use error severity if the severity is not defined.
+        annotationsMap.put(null, HighlightSeverity.ERROR);
     }
 
     @Nullable
@@ -105,7 +109,7 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             // TODO annotations are applied to a file / document not to an editor. so store them by file and not by editor..
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
 
-            if (eventManager.isDiagnosticSyncRequired()) {
+            if (Objects.nonNull(eventManager) && eventManager.isDiagnosticSyncRequired()) {
                 try {
                     createAnnotations(holder, eventManager);
                 } catch (ConcurrentModificationException e) {
@@ -130,7 +134,11 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
     }
 
     private void updateSilentAnnotations(AnnotationHolder holder, EditorEventManager eventManager) {
-        final List<Tuple3<HighlightSeverity,TextRange, LSPCodeActionFix>> annotations = eventManager.getSilentAnnotations();
+        if (Objects.isNull(holder) || Objects.isNull(eventManager)) {
+            return;
+        }
+
+        final List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> annotations = eventManager.getSilentAnnotations();
         if (annotations == null) {
             return;
         }
@@ -177,7 +185,7 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         }
         final TextRange range = new TextRange(start, end);
 
-        holder.newAnnotation(lspToIntellijAnnotationsMap.get(diagnostic.getSeverity()), diagnostic.getMessage())
+        holder.newAnnotation(annotationsMap.get(diagnostic.getSeverity()), diagnostic.getMessage())
                 .range(range)
                 .create();
 
