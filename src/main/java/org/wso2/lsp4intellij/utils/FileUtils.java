@@ -26,6 +26,7 @@ import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.io.FileUtilRt;
+import com.intellij.openapi.util.io.OSAgnosticPathUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.intellij.openapi.util.io.OSAgnosticPathUtil.isDriveLetter;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 
 /**
@@ -196,7 +198,7 @@ public class FileUtils {
      * @return the URI
      */
     public static String VFSToURI(VirtualFile file) {
-        return file == null? null : pathToUri(file.getPath());
+        return file == null ? null : pathToUri(file.getPath());
     }
 
     /**
@@ -232,12 +234,36 @@ public class FileUtils {
                     if (!reconstructed.toString().endsWith(":")) {
                         reconstructed.append(":");
                     }
-                    return reconstructed.append(uriCp.substring(uriCp.indexOf(URI_PATH_SEP))).toString();
+                    String result = reconstructed.append(uriCp.substring(uriCp.indexOf(URI_PATH_SEP))).toString();
+                    return lowercaseWindowsDriveAndEscapeColon(result);
+
                 }
             }
         } else {
             return null;
         }
+    }
+   /**
+     * The LSP specification <a href="https://microsoft.github.io/language-server-protocol/specification/#uri">requires</a>
+     * all servers to handle two URI formats correctly: {@code file:///C:/foo} and {@code file:///c%3A/foo}.
+     * <p>
+     * VS Code always sends lowercase Windows drive letters and always escapes colons
+     * (see this <a href="https://github.com/microsoft/vscode-languageserver-node/issues/1280">issue</a>
+     * and related <a href="https://github.com/microsoft/language-server-protocol/pull/1786">pull request</a>).
+     * <p>
+     * Some LSP servers only support VS Code friendly URI format ({@code file:///c%3A/foo}),
+     * so it's safer to use this format by default.
+     */
+    public static String lowercaseWindowsDriveAndEscapeColon(String uri) {
+        String prefix = "file:///";
+        if (uri.startsWith(prefix) && startsWithWindowsDrive(uri.substring(prefix.length()))) {
+            return prefix + Character.toLowerCase(uri.charAt(prefix.length())) + "%3A" + uri.substring(prefix.length() + 2);
+        }
+        return uri;
+    }
+
+    public static boolean startsWithWindowsDrive(@NotNull String path) {
+        return path.length() >= 2 && path.charAt(1) == ':' && isDriveLetter(path.charAt(0));
     }
 
     /**

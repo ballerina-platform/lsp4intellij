@@ -242,6 +242,7 @@ public class LanguageServerWrapper {
                     initializeFuture.get((capabilitiesAlreadyRequested ? 0 : getTimeout(INIT)), TimeUnit.MILLISECONDS);
                     notifySuccess(INIT);
                 }
+                capabilitiesAlreadyRequested = true;
             } catch (TimeoutException e) {
                 notifyFailure(INIT);
                 String msg = String.format("%s \n is not initialized after %d seconds",
@@ -259,7 +260,7 @@ public class LanguageServerWrapper {
                 stop(false);
             }
         }
-        capabilitiesAlreadyRequested = true;
+
         return initializeResult != null ? initializeResult.getCapabilities() : null;
     }
 

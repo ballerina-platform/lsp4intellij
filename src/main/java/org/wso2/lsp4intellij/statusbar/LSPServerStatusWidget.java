@@ -34,6 +34,7 @@ import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.Lsp4IntellijBundle;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
@@ -142,7 +143,9 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
                 actions.add(new Restart());
 
-                String title = "Server Actions";
+
+                String title =   Lsp4IntellijBundle.message("lsp.server.actions.title");
+
                 DataContext context = DataManager.getInstance().getDataContext(component);
                 DefaultActionGroup group = new DefaultActionGroup(actions);
                 ListPopup popup = JBPopupFactory.getInstance()
@@ -155,27 +158,29 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
         class ShowConnectedFiles extends AnAction implements DumbAware {
             ShowConnectedFiles() {
-                super("&Show Connected Files", "Show the files connected to the server", null);
+                super(Lsp4IntellijBundle.message("action.show.connected.files"), 
+                      Lsp4IntellijBundle.message("action.show.connected.files.description"), null);
             }
 
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
-                StringBuilder connectedFiles = new StringBuilder("Connected files :");
+                StringBuilder connectedFiles = new StringBuilder(Lsp4IntellijBundle.message("connected.files.prefix"));
                 LanguageServerWrapper.forProject(project).getConnectedFiles().forEach(f -> connectedFiles.append(System.lineSeparator()).append(f));
-                Messages.showInfoMessage(connectedFiles.toString(), "Connected Files");
+                Messages.showInfoMessage(connectedFiles.toString(), Lsp4IntellijBundle.message("connected.files.title"));
             }
         }
 
         class ShowTimeouts extends AnAction implements DumbAware {
             ShowTimeouts() {
-                super("&Show Timeouts", "Show the timeouts proportions of the server", null);
+                super(Lsp4IntellijBundle.message("action.show.timeouts"), 
+                      Lsp4IntellijBundle.message("action.show.timeouts.description"), null);
             }
 
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
                 StringBuilder message = new StringBuilder();
                 message.append("<html>");
-                message.append("Timeouts (failed requests) :<br>");
+                message.append(Lsp4IntellijBundle.message("timeouts.header")).append("<br>");
                 timeouts.forEach((t, v) -> {
                     int timeouts = v.getRight();
                     message.append(t.name(), 0, 1).append(t.name().substring(1).toLowerCase()).append(" => ");
@@ -194,14 +199,15 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                     }
                 });
                 message.append("</html>");
-                Messages.showInfoMessage(message.toString(), "Timeouts");
+                Messages.showInfoMessage(message.toString(), Lsp4IntellijBundle.message("timeouts.title"));
             }
         }
 
         class Restart extends AnAction implements DumbAware {
 
             Restart() {
-                super("&Restart", "Restarts the language server.", null);
+                super(Lsp4IntellijBundle.message("action.restart"), 
+                      Lsp4IntellijBundle.message("action.restart.description"), null);
             }
 
             @Override
@@ -216,9 +222,10 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         public String getTooltipText() {
             LanguageServerWrapper wrapper = LanguageServerWrapper.forProject(project);
             if (wrapper == null) {
-                return "Language server, project " + projectName;
+                return Lsp4IntellijBundle.message("tooltip.language.server.project", projectName);
             } else {
-                return "Language server for extension " + wrapper.getServerDefinition().ext + ", project " + projectName;
+                return Lsp4IntellijBundle.message("tooltip.language.server.extension.project", 
+                                                 wrapper.getServerDefinition().ext, projectName);
             }
         }
     }
