@@ -482,6 +482,7 @@ public class LanguageServerWrapper {
             initializeResult = null;
             initializeFuture = null;
             languageServer = null;
+            projectToLanguageServerWrapper.remove(project);
             setStatus(STOPPED);
         }
     }
