@@ -482,7 +482,6 @@ public class LanguageServerWrapper {
             initializeResult = null;
             initializeFuture = null;
             languageServer = null;
-            projectToLanguageServerWrapper.remove(project);
             setStatus(STOPPED);
         }
     }
@@ -695,6 +694,14 @@ public class LanguageServerWrapper {
 
     public void removeWidget() {
         getWidget().ifPresent(LSPServerStatusWidget::dispose);
+    }
+
+    /**
+     * Cleanup when the project is disposed. This removes the project from static maps
+     * to prevent memory leaks.
+     */
+    public void dispose() {
+        projectToLanguageServerWrapper.remove(project);
     }
 
     /**
