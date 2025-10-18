@@ -346,6 +346,16 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
                 extToLanguageWrapper.remove(extProjectPair);
                 extToServerDefinition.remove(extProjectPair);
             }
+
+            // Also remove from projectToLanguageWrappers to prevent memory leaks
+            String projectUri = FileUtils.pathToUri(new File(wrapper.getProjectRootPath()).getAbsolutePath());
+            Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers.get(projectUri);
+            if (wrappers != null) {
+                wrappers.remove(wrapper);
+                if (wrappers.isEmpty()) {
+                    projectToLanguageWrappers.remove(projectUri);
+                }
+            }
         } else {
             LOG.error("No attached projects found for wrapper");
         }
