@@ -700,7 +700,7 @@ public class LanguageServerWrapper {
      * Cleanup when the project is disposed. This removes the project from static maps
      * to prevent memory leaks.
      */
-    public void dispose() {
+    public synchronized void dispose() {
         stop(true);
         removeWidget();
         projectToLanguageServerWrapper.remove(project);
