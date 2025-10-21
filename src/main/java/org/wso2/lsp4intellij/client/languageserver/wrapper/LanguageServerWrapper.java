@@ -562,7 +562,7 @@ public class LanguageServerWrapper {
                 invokeLater(() ->
                         notifier.showMessage(String.format("Can't start server due to %s", e.getMessage()),
                                 MessageType.WARNING));
-                removeServerWrapper();
+                dispose();
             }
         }
     }
@@ -692,8 +692,19 @@ public class LanguageServerWrapper {
         return connected;
     }
 
-    public void removeWidget() {
+    private void removeWidget() {
         getWidget().ifPresent(LSPServerStatusWidget::dispose);
+    }
+
+    /**
+     * Cleanup when the project is disposed. This removes the project from static maps
+     * to prevent memory leaks.
+     */
+    public synchronized void dispose() {
+        stop(true);
+        removeWidget();
+        projectToLanguageServerWrapper.remove(project);
+        IntellijLanguageClient.removeWrapper(this);
     }
 
     /**
@@ -760,12 +771,6 @@ public class LanguageServerWrapper {
         if (connectedEditors.isEmpty()) {
             stop(true);
         }
-    }
-
-    public void removeServerWrapper() {
-        stop(true);
-        removeWidget();
-        IntellijLanguageClient.removeWrapper(this);
     }
 
     private void connect(String uri) {

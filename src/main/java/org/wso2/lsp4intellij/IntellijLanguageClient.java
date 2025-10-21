@@ -339,12 +339,28 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
 
     public static void removeWrapper(LanguageServerWrapper wrapper) {
         if (wrapper.getProject() != null) {
+            String projectRootPath = wrapper.getProjectRootPath();
+            if (projectRootPath == null) {
+                LOG.warn("Project root path is null for wrapper, cannot remove from maps");
+                return;
+            }
+
             String[] extensions = wrapper.getServerDefinition().ext.split(LanguageServerDefinition.SPLIT_CHAR);
             for (String ext : extensions) {
                 MutablePair<String, String> extProjectPair = new MutablePair<>(ext, FileUtils.pathToUri(
-                        new File(wrapper.getProjectRootPath()).getAbsolutePath()));
+                        new File(projectRootPath).getAbsolutePath()));
                 extToLanguageWrapper.remove(extProjectPair);
                 extToServerDefinition.remove(extProjectPair);
+            }
+
+            // Also remove from projectToLanguageWrappers to prevent memory leaks
+            String projectUri = FileUtils.pathToUri(new File(projectRootPath).getAbsolutePath());
+            Set<LanguageServerWrapper> wrappers = projectToLanguageWrappers.get(projectUri);
+            if (wrappers != null) {
+                wrappers.remove(wrapper);
+                if (wrappers.isEmpty()) {
+                    projectToLanguageWrappers.remove(projectUri);
+                }
             }
         } else {
             LOG.error("No attached projects found for wrapper");
