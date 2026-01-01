@@ -63,7 +63,7 @@ import com.intellij.ui.Hint;
 import com.intellij.util.ui.UIUtil;
 import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
-import com.vladsch.flexmark.util.options.MutableDataSet;
+import com.vladsch.flexmark.util.data.MutableDataSet;
 import groovy.lang.Tuple3;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lsp4j.CodeAction;
