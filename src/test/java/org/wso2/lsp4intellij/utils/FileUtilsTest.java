@@ -23,23 +23,32 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.testFramework.BinaryLightVirtualFile;
-import com.intellij.testFramework.LightVirtualFile;
 
-import java.io.File;
-import java.net.URISyntaxException;
-
+import org.junit.After;
 import org.junit.Assert;
-import org.junit.Ignore;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 
 import static org.mockito.Mockito.*;
 
 public class FileUtilsTest {
+
+    @Before
+    public void setUp() {
+        // Reset providers before each test
+        FileUtils.resetOSProvider();
+        FileUtils.resetLocalFileSystemProvider();
+    }
+
+    @After
+    public void tearDown() {
+        // Ensure providers are reset after each test
+        FileUtils.resetOSProvider();
+        FileUtils.resetLocalFileSystemProvider();
+    }
 
     @Test
     public void testEditorFromVirtualFile() {
@@ -64,115 +73,193 @@ public class FileUtilsTest {
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup")
     public void testVirtualFileFromURI() {
-        try (MockedStatic<LocalFileSystem> mockedStatic = mockStatic(LocalFileSystem.class)) {
-            LocalFileSystem localFileSystem = mock(LocalFileSystem.class);
-            mockedStatic.when(LocalFileSystem::getInstance).thenReturn(localFileSystem);
-            when(localFileSystem.findFileByIoFile(Mockito.any()))
-                    .thenReturn(new BinaryLightVirtualFile("testFile"));
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        // Mock the LocalFileSystem provider
+        VirtualFile expectedFile = new BinaryLightVirtualFile("testFile");
+        FileUtils.setLocalFileSystemProvider(file -> expectedFile);
 
-            Assert.assertEquals(new BinaryLightVirtualFile("testFile").toString(),
-                    FileUtils.virtualFileFromURI("file://foobar").toString());
-        }
+        VirtualFile result = FileUtils.virtualFileFromURI("file:///foobar");
+        Assert.assertNotNull(result);
+        Assert.assertEquals(expectedFile.toString(), result.toString());
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup")
-    public void testVirtualFileFromURINull() {
-        try (MockedStatic<LocalFileSystem> mockedStatic = mockStatic(LocalFileSystem.class)) {
-            mockedStatic.when(LocalFileSystem::getInstance).thenThrow(URISyntaxException.class);
-            Assert.assertNull(FileUtils.virtualFileFromURI("foobar"));
-        }
+    public void testVirtualFileFromURIInvalidUri() {
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        // Mock provider that returns null (simulating file not found)
+        FileUtils.setLocalFileSystemProvider(file -> null);
+        
+        // For URIs that don't exist, the method returns null
+        VirtualFile result = FileUtils.virtualFileFromURI("file:///nonexistent/path");
+        Assert.assertNull(result);
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup")
     public void testVFSToURI() {
         VirtualFile virtualFile = mock(VirtualFile.class);
-        when(virtualFile.getUrl()).thenReturn("file://fooBar");
-        Assert.assertEquals("file:///fooBar", FileUtils.VFSToURI((virtualFile)));
+        when(virtualFile.getPath()).thenReturn("/fooBar");
+        
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        String result = FileUtils.VFSToURI(virtualFile);
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.startsWith("file:///"));
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup")
     public void testVFSToURINull() {
-        try (MockedStatic<System> mockedStatic = mockStatic(System.class)) {
-            mockedStatic.when(() -> System.getProperty(anyString())).thenReturn("Linux");
-
-            // LightVirtualFile returns '/' as path
-            String uri = FileUtils.VFSToURI((new LightVirtualFile()));
-            Assert.assertNotNull(uri);
-
-            String expectedUri = "file:///";
-            Assert.assertEquals(expectedUri, uri);
-        }
+        Assert.assertNull(FileUtils.VFSToURI(null));
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup")
+    public void testSanitizeURINull() {
+        Assert.assertNull(FileUtils.sanitizeURI(null));
+    }
+
+    @Test
+    public void testSanitizeURINonFileUri() {
+        // Non-file URIs should be returned as-is
+        Assert.assertEquals("fooBar", FileUtils.sanitizeURI("fooBar"));
+    }
+
+    @Test
     public void testSanitizeURIUnix() {
-        try (MockedStatic<System> mockedStatic = mockStatic(System.class)) {
-            mockedStatic.when(() -> System.getProperty(anyString())).thenReturn("Linux");
+        // Set Unix OS
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
 
-            Assert.assertNull(FileUtils.sanitizeURI(null));
-            Assert.assertEquals("fooBar", FileUtils.sanitizeURI("fooBar"));
-            Assert.assertEquals("file:///fooBar", FileUtils.sanitizeURI("file://fooBar"));
-        }
+        Assert.assertEquals("file:///fooBar", FileUtils.sanitizeURI("file://fooBar"));
+        Assert.assertEquals("file:///path/to/file", FileUtils.sanitizeURI("file:///path/to/file"));
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup")
     public void testSanitizeURIWindows() {
-        try (MockedStatic<System> mockedStatic = mockStatic(System.class)) {
-            mockedStatic.when(() -> System.getProperty(anyString())).thenReturn("Windows");
-            Assert.assertEquals("file:///Foo:/Bar", FileUtils.sanitizeURI("file:foo%3A/Bar"));
-        }
+        // Set Windows OS
+        FileUtils.setOSProvider(() -> FileUtils.OS.WINDOWS);
+        
+        String result = FileUtils.sanitizeURI("file:///C:/path/to/file");
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.startsWith("file:///"));
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup")
     public void testURIToVFS() {
-        try (MockedStatic<LocalFileSystem> mockedStatic = mockStatic(LocalFileSystem.class)) {
-            LocalFileSystem localFileSystem = mock(LocalFileSystem.class);
-            mockedStatic.when(LocalFileSystem::getInstance).thenReturn(localFileSystem);
-            when(localFileSystem.findFileByIoFile(Mockito.any()))
-                    .thenReturn(new BinaryLightVirtualFile("testFile"));
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        // Mock the LocalFileSystem provider
+        VirtualFile expectedFile = new BinaryLightVirtualFile("testFile");
+        FileUtils.setLocalFileSystemProvider(file -> expectedFile);
 
-            Assert.assertEquals(new BinaryLightVirtualFile("testFile").toString(),
-                    FileUtils.URIToVFS("file://foobar").toString());
-        }
+        VirtualFile result = FileUtils.URIToVFS("file:///foobar");
+        Assert.assertNotNull(result);
+        Assert.assertEquals(expectedFile.toString(), result.toString());
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup")
-    public void testURIToVFSNull() {
-        try (MockedStatic<LocalFileSystem> mockedStatic = mockStatic(LocalFileSystem.class)) {
-            mockedStatic.when(LocalFileSystem::getInstance).thenThrow(URISyntaxException.class);
-            Assert.assertNull(FileUtils.URIToVFS("foobar"));
-        }
+    public void testURIToVFSInvalidUri() {
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        // Mock provider that returns null (simulating file not found)
+        FileUtils.setLocalFileSystemProvider(file -> null);
+        
+        // For URIs that don't exist, the method returns null
+        VirtualFile result = FileUtils.URIToVFS("file:///nonexistent/path");
+        Assert.assertNull(result);
     }
 
     @Test
-    @Ignore("Requires complex static mocking setup with constructor mocking")
-    public void testEditorToProjectFolderPath() throws Exception {
+    public void testEditorToProjectFolderPathNull() {
         Assert.assertNull(FileUtils.editorToProjectFolderPath(null));
+    }
 
+    @Test
+    public void testEditorToProjectFolderPathNoProject() {
+        Editor editor = mock(Editor.class);
+        when(editor.getProject()).thenReturn(null);
+        Assert.assertNull(FileUtils.editorToProjectFolderPath(editor));
+    }
+
+    @Test
+    public void testEditorToProjectFolderPathNoBasePath() {
         Editor editor = mock(Editor.class);
         Project project = mock(Project.class);
         when(editor.getProject()).thenReturn(project);
-        when(project.getBasePath()).thenReturn("test");
-
-        // Note: Constructor mocking not easily available in mockito-inline
-        // This test would need refactoring to work properly
+        when(project.getBasePath()).thenReturn(null);
+        Assert.assertNull(FileUtils.editorToProjectFolderPath(editor));
     }
 
     @Test
-    @Ignore("Requires static method spying")
-    public void testProjectToUri() {
-        Assert.assertNull(FileUtils.projectToUri(null));
+    public void testEditorToProjectFolderPath() {
+        Editor editor = mock(Editor.class);
+        Project project = mock(Project.class);
+        when(editor.getProject()).thenReturn(project);
+        when(project.getBasePath()).thenReturn("/test/path");
 
-        // Static method spying would require more complex setup
+        String result = FileUtils.editorToProjectFolderPath(editor);
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.contains("test"));
+    }
+
+    @Test
+    public void testProjectToUriNull() {
+        Assert.assertNull(FileUtils.projectToUri(null));
+    }
+
+    @Test
+    public void testProjectToUriNoBasePath() {
+        Project project = mock(Project.class);
+        when(project.getBasePath()).thenReturn(null);
+        Assert.assertNull(FileUtils.projectToUri(project));
+    }
+
+    @Test
+    public void testProjectToUri() {
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        Project project = mock(Project.class);
+        when(project.getBasePath()).thenReturn("/test/path");
+
+        String result = FileUtils.projectToUri(project);
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.startsWith("file:///"));
+    }
+
+    @Test
+    public void testGetOS() {
+        // Test that getOS returns UNIX when set
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        Assert.assertEquals(FileUtils.OS.UNIX, FileUtils.getOS());
+
+        // Test that getOS returns WINDOWS when set
+        FileUtils.setOSProvider(() -> FileUtils.OS.WINDOWS);
+        Assert.assertEquals(FileUtils.OS.WINDOWS, FileUtils.getOS());
+    }
+
+    @Test
+    public void testResetOSProvider() {
+        // Set a custom provider
+        FileUtils.setOSProvider(() -> FileUtils.OS.WINDOWS);
+        
+        // Reset and verify it returns to default (based on actual system)
+        FileUtils.resetOSProvider();
+        Assert.assertNotNull(FileUtils.getOS());
+    }
+
+    @Test
+    public void testResetLocalFileSystemProvider() {
+        // Set a custom provider
+        FileUtils.setLocalFileSystemProvider(file -> null);
+        
+        // Reset - just verify no exception is thrown
+        FileUtils.resetLocalFileSystemProvider();
     }
 
     @Test
@@ -201,5 +288,27 @@ public class FileUtilsTest {
 
             Assert.assertFalse(FileUtils.isEditorSupported(mock(Editor.class)));
         }
+    }
+
+    @Test
+    public void testLowercaseWindowsDriveAndEscapeColon() {
+        // Test non-Windows paths remain unchanged
+        Assert.assertEquals("file:///home/user/file.txt",
+                FileUtils.lowercaseWindowsDriveAndEscapeColon("file:///home/user/file.txt"));
+        
+        // Test Windows paths get lowercase drive and escaped colon
+        Assert.assertEquals("file:///c%3A/Users/file.txt",
+                FileUtils.lowercaseWindowsDriveAndEscapeColon("file:///C:/Users/file.txt"));
+        
+        Assert.assertEquals("file:///d%3A/path/file.txt",
+                FileUtils.lowercaseWindowsDriveAndEscapeColon("file:///D:/path/file.txt"));
+    }
+
+    @Test
+    public void testStartsWithWindowsDrive() {
+        Assert.assertTrue(FileUtils.startsWithWindowsDrive("C:/path"));
+        Assert.assertTrue(FileUtils.startsWithWindowsDrive("D:/path"));
+        Assert.assertFalse(FileUtils.startsWithWindowsDrive("/unix/path"));
+        Assert.assertFalse(FileUtils.startsWithWindowsDrive("relative/path"));
     }
 }
