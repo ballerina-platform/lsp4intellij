@@ -565,7 +565,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * Returns the scope in which references to this element are searched.
      *
      * @return the search scope instance.
-     * @see { @link com.intellij.psi.search.PsiSearchHelper#getUseScope(PsiElement)}
+     * @see com.intellij.psi.search.PsiSearchHelper#getUseScope(PsiElement)
      */
     @NotNull
     public SearchScope getUseScope() {
@@ -591,7 +591,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
     /**
      * This method shouldn't be called by clients directly, because there are no guarantees of it being symmetric. It's
      * called by {@link PsiManager#areElementsEquivalent(PsiElement, PsiElement)} internally, which clients should
-     * invoke instead.<p/>
+     * invoke instead.
      * <p>
      * Implementations of this method should return {@code true} if the parameter is resolve-equivalent to {@code this},
      * i.e. it represents the same entity from the language perspective. See also {@link

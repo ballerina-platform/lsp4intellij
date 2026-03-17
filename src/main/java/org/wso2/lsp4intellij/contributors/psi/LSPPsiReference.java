@@ -81,7 +81,7 @@ public class LSPPsiReference implements PsiReference {
      *
      * @param newElementName the new name of the target element.
      * @return the new underlying element of the reference.
-     * @throws IncorrectOperationException if the rename cannot be handled for some reason.
+     * @throws com.intellij.util.IncorrectOperationException if the rename cannot be handled for some reason.
      */
     public PsiElement handleElementRename(String newElementName) {
         return element;
@@ -94,7 +94,7 @@ public class LSPPsiReference implements PsiReference {
      *
      * @param element the element which should become the target of the reference.
      * @return the new underlying element of the reference.
-     * @throws IncorrectOperationException if the rebind cannot be handled for some reason.
+     * @throws com.intellij.util.IncorrectOperationException if the rebind cannot be handled for some reason.
      */
     public PsiElement bindToElement(PsiElement element) {
         this.element = element;
@@ -112,7 +112,7 @@ public class LSPPsiReference implements PsiReference {
     }
 
     /**
-     * Returns the array of String, {@link PsiElement} and/or {@link LookupElement} instances representing all
+     * Returns the array of String, PsiElement and/or LookupElement instances representing all
      * identifiers that are visible at the location of the reference. The contents of the returned array is used to
      * build the lookup list for basic code completion. (The list of visible identifiers may not be filtered by the
      * completion prefix string - the filtering is performed later by IDEA core.)

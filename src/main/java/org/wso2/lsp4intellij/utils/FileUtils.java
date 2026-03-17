@@ -57,7 +57,6 @@ import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
  * Various file / uri related methods
  */
 public class FileUtils {
-    private final static OS os = (System.getProperty("os.name").toLowerCase().contains("win")) ? OS.WINDOWS : OS.UNIX;
     private final static String COLON_ENCODED = "%3A";
     public final static String SPACE_ENCODED = "%20";
     private final static String URI_FILE_BEGIN = "file:";
@@ -65,6 +64,93 @@ public class FileUtils {
     private final static char URI_PATH_SEP = '/';
 
     private static final Logger LOG = Logger.getInstance(FileUtils.class);
+
+    // OS detection with injectable provider for testability
+    private static OSProvider osProvider = new DefaultOSProvider();
+
+    // LocalFileSystem provider with injectable implementation for testability
+    private static LocalFileSystemProvider localFileSystemProvider = new DefaultLocalFileSystemProvider();
+
+    /**
+     * Interface for OS detection, allowing testability.
+     */
+    public interface OSProvider {
+        OS getOS();
+    }
+
+    /**
+     * Default implementation that reads from system properties.
+     */
+    private static class DefaultOSProvider implements OSProvider {
+        private final OS os;
+
+        DefaultOSProvider() {
+            this.os = System.getProperty("os.name").toLowerCase().contains("win") ? OS.WINDOWS : OS.UNIX;
+        }
+
+        @Override
+        public OS getOS() {
+            return os;
+        }
+    }
+
+    /**
+     * Interface for LocalFileSystem access, allowing testability.
+     */
+    public interface LocalFileSystemProvider {
+        VirtualFile findFileByIoFile(File file);
+    }
+
+    /**
+     * Default implementation that uses the real LocalFileSystem.
+     */
+    private static class DefaultLocalFileSystemProvider implements LocalFileSystemProvider {
+        @Override
+        public VirtualFile findFileByIoFile(File file) {
+            return LocalFileSystem.getInstance().findFileByIoFile(file);
+        }
+    }
+
+    /**
+     * Sets the OS provider. Primarily used for testing.
+     *
+     * @param provider The OS provider to use
+     */
+    public static void setOSProvider(OSProvider provider) {
+        osProvider = provider != null ? provider : new DefaultOSProvider();
+    }
+
+    /**
+     * Sets the LocalFileSystem provider. Primarily used for testing.
+     *
+     * @param provider The LocalFileSystem provider to use
+     */
+    public static void setLocalFileSystemProvider(LocalFileSystemProvider provider) {
+        localFileSystemProvider = provider != null ? provider : new DefaultLocalFileSystemProvider();
+    }
+
+    /**
+     * Resets the OS provider to the default implementation.
+     */
+    public static void resetOSProvider() {
+        osProvider = new DefaultOSProvider();
+    }
+
+    /**
+     * Resets the LocalFileSystem provider to the default implementation.
+     */
+    public static void resetLocalFileSystemProvider() {
+        localFileSystemProvider = new DefaultLocalFileSystemProvider();
+    }
+
+    /**
+     * Returns the current OS.
+     *
+     * @return The detected OS
+     */
+    public static OS getOS() {
+        return osProvider.getOS();
+    }
 
     public static List<Editor> getAllOpenedEditors(Project project) {
         return computableReadAction(() -> {
@@ -150,7 +236,7 @@ public class FileUtils {
 
     public static VirtualFile virtualFileFromURI(String uri) {
         try {
-            return LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(sanitizeURI(uri))));
+            return localFileSystemProvider.findFileByIoFile(new File(new URI(sanitizeURI(uri))));
         } catch (URISyntaxException e) {
             LOG.warn(e);
             return null;
@@ -220,7 +306,7 @@ public class FileUtils {
                     uriCp = uriCp.substring(1);
                 }
                 reconstructed.append(URI_VALID_FILE_BEGIN);
-                if (os == OS.UNIX) {
+                if (getOS() == OS.UNIX) {
                     return reconstructed.append(uriCp).toString();
                 } else {
                     reconstructed.append(uriCp, 0, uriCp.indexOf(URI_PATH_SEP));
@@ -274,7 +360,7 @@ public class FileUtils {
      */
     public static VirtualFile URIToVFS(String uri) {
         try {
-            return LocalFileSystem.getInstance().findFileByIoFile(new File(new URI(sanitizeURI(uri))));
+            return localFileSystemProvider.findFileByIoFile(new File(new URI(sanitizeURI(uri))));
         } catch (URISyntaxException e) {
             LOG.warn(e);
             return null;

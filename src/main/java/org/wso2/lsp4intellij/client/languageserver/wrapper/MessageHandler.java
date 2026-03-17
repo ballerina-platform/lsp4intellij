@@ -15,7 +15,6 @@
  */
 package org.wso2.lsp4intellij.client.languageserver.wrapper;
 
-import com.esotericsoftware.minlog.Log;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.jsonrpc.MessageConsumer;
 import org.eclipse.lsp4j.jsonrpc.messages.Message;

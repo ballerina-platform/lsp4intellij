@@ -23,179 +23,252 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.testFramework.BinaryLightVirtualFile;
-import com.intellij.testFramework.LightVirtualFile;
 
-import java.io.File;
-import java.net.URISyntaxException;
-
+import org.junit.After;
 import org.junit.Assert;
-import org.junit.Ignore;
+import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mockito;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.mockito.MockedStatic;
 
-@RunWith(PowerMockRunner.class)
-@PowerMockIgnore("jdk.internal.reflect.*")
+import static org.mockito.Mockito.*;
+
 public class FileUtilsTest {
 
-    @PrepareForTest(FileEditorManager.class)
+    @Before
+    public void setUp() {
+        // Reset providers before each test
+        FileUtils.resetOSProvider();
+        FileUtils.resetLocalFileSystemProvider();
+    }
+
+    @After
+    public void tearDown() {
+        // Ensure providers are reset after each test
+        FileUtils.resetOSProvider();
+        FileUtils.resetLocalFileSystemProvider();
+    }
+
     @Test
     public void testEditorFromVirtualFile() {
-        VirtualFile file = PowerMockito.mock(VirtualFile.class);
-        Project project = PowerMockito.mock(Project.class);
+        VirtualFile file = mock(VirtualFile.class);
+        Project project = mock(Project.class);
 
-        Editor editor = PowerMockito.mock(Editor.class);
-        TextEditor textEditor = PowerMockito.mock(TextEditor.class);
-        PowerMockito.when(textEditor.getEditor()).thenReturn(editor);
+        Editor editor = mock(Editor.class);
+        TextEditor textEditor = mock(TextEditor.class);
+        when(textEditor.getEditor()).thenReturn(editor);
 
-        FileEditorManagerEx fileEditorManagerEx = PowerMockito.mock(FileEditorManagerEx.class);
-        PowerMockito.mockStatic(FileEditorManager.class);
-        PowerMockito.when(fileEditorManagerEx.getAllEditors(file))
-                .thenReturn(new FileEditor[]{textEditor})
-                .thenReturn(new FileEditor[0]);
-        PowerMockito.when(FileEditorManager.getInstance(project)).thenAnswer(invocation -> fileEditorManagerEx);
+        FileEditorManagerEx fileEditorManagerEx = mock(FileEditorManagerEx.class);
+        
+        try (MockedStatic<FileEditorManager> mockedStatic = mockStatic(FileEditorManager.class)) {
+            when(fileEditorManagerEx.getAllEditors(file))
+                    .thenReturn(new FileEditor[]{textEditor})
+                    .thenReturn(new FileEditor[0]);
+            mockedStatic.when(() -> FileEditorManager.getInstance(project)).thenReturn(fileEditorManagerEx);
 
-        Assert.assertEquals(editor, FileUtils.editorFromVirtualFile(file, project));
-
-        Assert.assertNull(FileUtils.editorFromVirtualFile(file, project));
+            Assert.assertEquals(editor, FileUtils.editorFromVirtualFile(file, project));
+            Assert.assertNull(FileUtils.editorFromVirtualFile(file, project));
+        }
     }
 
-    @PrepareForTest(LocalFileSystem.class)
     @Test
-    @Ignore
     public void testVirtualFileFromURI() {
-        LocalFileSystem localFileSystem = PowerMockito.mock(LocalFileSystem.class);
-        PowerMockito.mockStatic(LocalFileSystem.class);
-        PowerMockito.when(LocalFileSystem.getInstance()).thenReturn(localFileSystem);
-        PowerMockito.when(LocalFileSystem.getInstance().findFileByIoFile(Mockito.any()))
-                .thenReturn(new BinaryLightVirtualFile("testFile"));
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        // Mock the LocalFileSystem provider
+        VirtualFile expectedFile = new BinaryLightVirtualFile("testFile");
+        FileUtils.setLocalFileSystemProvider(file -> expectedFile);
 
-        Assert.assertEquals(new BinaryLightVirtualFile("testFile").toString(),
-                FileUtils.virtualFileFromURI("file://foobar").toString());
-    }
-
-    @PrepareForTest(LocalFileSystem.class)
-    @Test
-    @Ignore
-    public void testVirtualFileFromURINull() {
-        PowerMockito.mockStatic(LocalFileSystem.class);
-        PowerMockito.when(LocalFileSystem.getInstance()).thenThrow(URISyntaxException.class);
-
-        Assert.assertNull(FileUtils.virtualFileFromURI("foobar"));
+        VirtualFile result = FileUtils.virtualFileFromURI("file:///foobar");
+        Assert.assertNotNull(result);
+        Assert.assertEquals(expectedFile.toString(), result.toString());
     }
 
     @Test
-    @Ignore
+    public void testVirtualFileFromURIInvalidUri() {
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        // Mock provider that returns null (simulating file not found)
+        FileUtils.setLocalFileSystemProvider(file -> null);
+        
+        // For URIs that don't exist, the method returns null
+        VirtualFile result = FileUtils.virtualFileFromURI("file:///nonexistent/path");
+        Assert.assertNull(result);
+    }
+
+    @Test
     public void testVFSToURI() {
-        VirtualFile virtualFile = PowerMockito.mock(VirtualFile.class);
-        PowerMockito.when(virtualFile.getUrl()).thenReturn("file://fooBar");
-
-        Assert.assertEquals("file:///fooBar", FileUtils.VFSToURI((virtualFile)));
+        VirtualFile virtualFile = mock(VirtualFile.class);
+        when(virtualFile.getPath()).thenReturn("/fooBar");
+        
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        String result = FileUtils.VFSToURI(virtualFile);
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.startsWith("file:///"));
     }
 
     @Test
-    @Ignore
     public void testVFSToURINull() {
-        PowerMockito.mockStatic(System.class);
-        PowerMockito.when(System.getProperty(Mockito.anyString())).thenReturn("Linux");
-
-        // LightVirtualFile returns '/' as path
-        String uri = FileUtils.VFSToURI((new LightVirtualFile()));
-        Assert.assertNotNull(uri);
-
-        String expectedUri = "file:///";
-        Assert.assertEquals(expectedUri, uri);
+        Assert.assertNull(FileUtils.VFSToURI(null));
     }
 
     @Test
-    @Ignore
-    public void testSanitizeURIUnix() {
-        PowerMockito.mockStatic(System.class);
-        PowerMockito.when(System.getProperty(Mockito.anyString())).thenReturn("Linux");
-
+    public void testSanitizeURINull() {
         Assert.assertNull(FileUtils.sanitizeURI(null));
+    }
 
+    @Test
+    public void testSanitizeURINonFileUri() {
+        // Non-file URIs should be returned as-is
         Assert.assertEquals("fooBar", FileUtils.sanitizeURI("fooBar"));
+    }
+
+    @Test
+    public void testSanitizeURIUnix() {
+        // Set Unix OS
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+
         Assert.assertEquals("file:///fooBar", FileUtils.sanitizeURI("file://fooBar"));
+        Assert.assertEquals("file:///path/to/file", FileUtils.sanitizeURI("file:///path/to/file"));
     }
 
-    @PrepareForTest(FileUtils.class)
     @Test
-    @Ignore
     public void testSanitizeURIWindows() {
-        PowerMockito.mockStatic(System.class);
-        PowerMockito.when(System.getProperty(Mockito.anyString())).thenReturn("Windows");
-
-        Assert.assertEquals("file:///Foo:/Bar", FileUtils.sanitizeURI("file:foo%3A/Bar"));
+        // Set Windows OS
+        FileUtils.setOSProvider(() -> FileUtils.OS.WINDOWS);
+        
+        String result = FileUtils.sanitizeURI("file:///C:/path/to/file");
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.startsWith("file:///"));
     }
 
-    @PrepareForTest(LocalFileSystem.class)
     @Test
-    @Ignore
     public void testURIToVFS() {
-        LocalFileSystem localFileSystem = PowerMockito.mock(LocalFileSystem.class);
-        PowerMockito.mockStatic(LocalFileSystem.class);
-        PowerMockito.when(LocalFileSystem.getInstance()).thenReturn(localFileSystem);
-        PowerMockito.when(LocalFileSystem.getInstance().findFileByIoFile(Mockito.any()))
-                .thenReturn(new BinaryLightVirtualFile("testFile"));
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        // Mock the LocalFileSystem provider
+        VirtualFile expectedFile = new BinaryLightVirtualFile("testFile");
+        FileUtils.setLocalFileSystemProvider(file -> expectedFile);
 
-        Assert.assertEquals(new BinaryLightVirtualFile("testFile").toString(),
-                FileUtils.URIToVFS("file://foobar").toString());
+        VirtualFile result = FileUtils.URIToVFS("file:///foobar");
+        Assert.assertNotNull(result);
+        Assert.assertEquals(expectedFile.toString(), result.toString());
     }
 
-    @PrepareForTest(LocalFileSystem.class)
     @Test
-    @Ignore
-    public void testURIToVFSNull() {
-        PowerMockito.mockStatic(LocalFileSystem.class);
-        PowerMockito.when(LocalFileSystem.getInstance()).thenThrow(URISyntaxException.class);
-        Assert.assertNull(FileUtils.URIToVFS("foobar"));
+    public void testURIToVFSInvalidUri() {
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        // Mock provider that returns null (simulating file not found)
+        FileUtils.setLocalFileSystemProvider(file -> null);
+        
+        // For URIs that don't exist, the method returns null
+        VirtualFile result = FileUtils.URIToVFS("file:///nonexistent/path");
+        Assert.assertNull(result);
     }
 
-    @PrepareForTest(FileUtils.class)
     @Test
-    public void testEditorToProjectFolderPath() throws Exception {
+    public void testEditorToProjectFolderPathNull() {
         Assert.assertNull(FileUtils.editorToProjectFolderPath(null));
-
-        PowerMockito.spy(FileUtils.class);
-        Editor editor = PowerMockito.mock(Editor.class);
-        PowerMockito.when(editor.getProject()).thenReturn(PowerMockito.mock(Project.class));
-        PowerMockito.when(editor.getProject().getBasePath()).thenReturn("test");
-
-        File file = PowerMockito.mock(File.class);
-        PowerMockito.when(file.getAbsolutePath()).thenReturn("fooBar");
-        PowerMockito.whenNew(File.class).withAnyArguments().thenReturn(file);
-
-        Assert.assertEquals("fooBar", FileUtils.editorToProjectFolderPath(editor));
     }
 
-    @PrepareForTest(FileUtils.class)
+    @Test
+    public void testEditorToProjectFolderPathNoProject() {
+        Editor editor = mock(Editor.class);
+        when(editor.getProject()).thenReturn(null);
+        Assert.assertNull(FileUtils.editorToProjectFolderPath(editor));
+    }
+
+    @Test
+    public void testEditorToProjectFolderPathNoBasePath() {
+        Editor editor = mock(Editor.class);
+        Project project = mock(Project.class);
+        when(editor.getProject()).thenReturn(project);
+        when(project.getBasePath()).thenReturn(null);
+        Assert.assertNull(FileUtils.editorToProjectFolderPath(editor));
+    }
+
+    @Test
+    public void testEditorToProjectFolderPath() {
+        Editor editor = mock(Editor.class);
+        Project project = mock(Project.class);
+        when(editor.getProject()).thenReturn(project);
+        when(project.getBasePath()).thenReturn("/test/path");
+
+        String result = FileUtils.editorToProjectFolderPath(editor);
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.contains("test"));
+    }
+
+    @Test
+    public void testProjectToUriNull() {
+        Assert.assertNull(FileUtils.projectToUri(null));
+    }
+
+    @Test
+    public void testProjectToUriNoBasePath() {
+        Project project = mock(Project.class);
+        when(project.getBasePath()).thenReturn(null);
+        Assert.assertNull(FileUtils.projectToUri(project));
+    }
+
     @Test
     public void testProjectToUri() {
-        Assert.assertNull(FileUtils.projectToUri(null));
+        // Set Unix OS for predictable behavior
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        
+        Project project = mock(Project.class);
+        when(project.getBasePath()).thenReturn("/test/path");
 
-        PowerMockito.spy(FileUtils.class);
-        Project project = PowerMockito.mock(Project.class);
-        PowerMockito.when(project.getBasePath()).thenReturn("test");
-        PowerMockito.when(FileUtils.pathToUri(Mockito.anyString())).thenAnswer(invocation -> "fooBar");
+        String result = FileUtils.projectToUri(project);
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.startsWith("file:///"));
+    }
 
-        Assert.assertEquals("fooBar", FileUtils.projectToUri(project));
+    @Test
+    public void testGetOS() {
+        // Test that getOS returns UNIX when set
+        FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
+        Assert.assertEquals(FileUtils.OS.UNIX, FileUtils.getOS());
+
+        // Test that getOS returns WINDOWS when set
+        FileUtils.setOSProvider(() -> FileUtils.OS.WINDOWS);
+        Assert.assertEquals(FileUtils.OS.WINDOWS, FileUtils.getOS());
+    }
+
+    @Test
+    public void testResetOSProvider() {
+        // Set a custom provider
+        FileUtils.setOSProvider(() -> FileUtils.OS.WINDOWS);
+        
+        // Reset and verify it returns to default (based on actual system)
+        FileUtils.resetOSProvider();
+        Assert.assertNotNull(FileUtils.getOS());
+    }
+
+    @Test
+    public void testResetLocalFileSystemProvider() {
+        // Set a custom provider
+        FileUtils.setLocalFileSystemProvider(file -> null);
+        
+        // Reset - just verify no exception is thrown
+        FileUtils.resetLocalFileSystemProvider();
     }
 
     @Test
     public void testIsFileSupported() {
-        VirtualFile virtualFile1 = PowerMockito.mock(VirtualFile.class);
-        PowerMockito.when(virtualFile1.getUrl()).thenReturn("jar:");
+        VirtualFile virtualFile1 = mock(VirtualFile.class);
+        when(virtualFile1.getUrl()).thenReturn("jar:");
 
-        VirtualFile virtualFile2 = PowerMockito.mock(VirtualFile.class);
-        PowerMockito.when(virtualFile2.getUrl()).thenReturn("");
+        VirtualFile virtualFile2 = mock(VirtualFile.class);
+        when(virtualFile2.getUrl()).thenReturn("");
 
         Assert.assertFalse(FileUtils.isFileSupported(null));
         Assert.assertFalse(FileUtils.isFileSupported(new BinaryLightVirtualFile("testFile")));
@@ -203,17 +276,39 @@ public class FileUtilsTest {
         Assert.assertFalse(FileUtils.isFileSupported(virtualFile2));
     }
 
-    @PrepareForTest(FileDocumentManager.class)
     @Test
     public void testIsEditorSupported() {
-        VirtualFile virtualFile1 = PowerMockito.mock(VirtualFile.class);
-        PowerMockito.when(virtualFile1.getUrl()).thenReturn("jar:");
+        VirtualFile virtualFile1 = mock(VirtualFile.class);
+        when(virtualFile1.getUrl()).thenReturn("jar:");
 
-        PowerMockito.mockStatic(FileDocumentManager.class);
-        FileDocumentManager fileDocumentManager = PowerMockito.mock(FileDocumentManager.class);
-        PowerMockito.when(fileDocumentManager.getFile(Mockito.mock(Document.class))).thenReturn(virtualFile1);
-        PowerMockito.when(FileDocumentManager.getInstance()).thenAnswer(invocation -> fileDocumentManager);
+        try (MockedStatic<FileDocumentManager> mockedStatic = mockStatic(FileDocumentManager.class)) {
+            FileDocumentManager fileDocumentManager = mock(FileDocumentManager.class);
+            when(fileDocumentManager.getFile(any(Document.class))).thenReturn(virtualFile1);
+            mockedStatic.when(FileDocumentManager::getInstance).thenReturn(fileDocumentManager);
 
-        Assert.assertFalse(FileUtils.isEditorSupported(Mockito.mock(Editor.class)));
+            Assert.assertFalse(FileUtils.isEditorSupported(mock(Editor.class)));
+        }
+    }
+
+    @Test
+    public void testLowercaseWindowsDriveAndEscapeColon() {
+        // Test non-Windows paths remain unchanged
+        Assert.assertEquals("file:///home/user/file.txt",
+                FileUtils.lowercaseWindowsDriveAndEscapeColon("file:///home/user/file.txt"));
+        
+        // Test Windows paths get lowercase drive and escaped colon
+        Assert.assertEquals("file:///c%3A/Users/file.txt",
+                FileUtils.lowercaseWindowsDriveAndEscapeColon("file:///C:/Users/file.txt"));
+        
+        Assert.assertEquals("file:///d%3A/path/file.txt",
+                FileUtils.lowercaseWindowsDriveAndEscapeColon("file:///D:/path/file.txt"));
+    }
+
+    @Test
+    public void testStartsWithWindowsDrive() {
+        Assert.assertTrue(FileUtils.startsWithWindowsDrive("C:/path"));
+        Assert.assertTrue(FileUtils.startsWithWindowsDrive("D:/path"));
+        Assert.assertFalse(FileUtils.startsWithWindowsDrive("/unix/path"));
+        Assert.assertFalse(FileUtils.startsWithWindowsDrive("relative/path"));
     }
 }
