@@ -186,7 +186,10 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
         }
         final TextRange range = new TextRange(start, end);
 
-        holder.newAnnotation(annotationsMap.get(diagnostic.getSeverity()), diagnostic.getMessage())
+        HighlightSeverity severity = annotationsMap.getOrDefault(diagnostic.getSeverity(), HighlightSeverity.ERROR);
+        String message = diagnostic.getMessage() != null ? diagnostic.getMessage() : "";
+
+        holder.newAnnotation(severity, message)
                 .range(range)
                 .create();
 
