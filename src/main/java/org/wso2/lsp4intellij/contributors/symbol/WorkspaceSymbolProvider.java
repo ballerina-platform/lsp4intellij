@@ -17,19 +17,12 @@ package org.wso2.lsp4intellij.contributors.symbol;
 
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import com.intellij.openapi.vfs.VirtualFile;
-import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.SymbolInformation;
+import org.eclipse.lsp4j.SymbolTag;
+import org.eclipse.lsp4j.WorkspaceSymbol;
+import org.eclipse.lsp4j.WorkspaceSymbolParams;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
@@ -42,8 +35,19 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 /**
- * The workspace symbole provider implementation based on LSP
+ * The workspace symbole provider implementation based on LSP.
  *
  * @author gayanper
  */
@@ -66,7 +70,7 @@ public class WorkspaceSymbolProvider {
     final SymbolInformation information = (result.getSymbolInformation() != null) ?
             result.getSymbolInformation() : from(result.getWorkspaceSymbol());
     final Location location = information.getLocation();
-    final VirtualFile file = FileUtils.URIToVFS(location.getUri());
+    final VirtualFile file = FileUtils.uriToVfs(location.getUri());
 
     if (file != null) {
       final LSPIconProvider iconProviderFor = GUIUtils.getIconProviderFor(result.getDefinition());
@@ -86,14 +90,14 @@ public class WorkspaceSymbolProvider {
     information.setContainerName(symbol.getContainerName());
     information.setKind(symbol.getKind());
     information.setName(symbol.getName());
-    if(symbol.getLocation().isLeft()) {
+    if (symbol.getLocation().isLeft()) {
       information.setLocation(symbol.getLocation().getLeft());
     } else {
       information.setLocation(new Location());
       information.getLocation().setUri(symbol.getLocation().getRight().getUri());
     }
     information.setTags(symbol.getTags());
-    if(symbol.getTags() != null) {
+    if (symbol.getTags() != null) {
       information.setDeprecated(symbol.getTags().contains(SymbolTag.Deprecated));
     }
     return information;
@@ -103,8 +107,9 @@ public class WorkspaceSymbolProvider {
   private Stream<LSPSymbolResult> collectSymbol(LanguageServerWrapper wrapper,
       RequestManager requestManager,
       WorkspaceSymbolParams symbolParams) {
-    final CompletableFuture<Either<List<? extends SymbolInformation>, List<? extends WorkspaceSymbol>>> request = requestManager
-        .symbol(symbolParams);
+    final CompletableFuture<Either<List<? extends SymbolInformation>,
+            List<? extends WorkspaceSymbol>>> request =
+            requestManager.symbol(symbolParams);
 
     if (request == null) {
       return Stream.empty();
@@ -114,7 +119,7 @@ public class WorkspaceSymbolProvider {
       Either<List<? extends SymbolInformation>, List<? extends WorkspaceSymbol>> symbolInformations = request
           .get(20000, TimeUnit.MILLISECONDS);
       wrapper.notifySuccess(Timeouts.SYMBOLS);
-      if(symbolInformations.isLeft()) {
+      if (symbolInformations.isLeft()) {
         return symbolInformations.getLeft().stream().map(si -> new LSPSymbolResult(si, wrapper.getServerDefinition()));
       } else if (symbolInformations.isRight()) {
         return symbolInformations.getRight().stream().map(si -> new LSPSymbolResult(si, wrapper.getServerDefinition()));

@@ -42,13 +42,15 @@ import com.intellij.usages.UsageViewPresentation;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.*;
+
+import javax.swing.JLabel;
 
 /**
- * Action for references / see usages (SHIFT+ALT+F7)
+ * Action for references / see usages (SHIFT+ALT+F7).
  */
 public class LSPReferencesAction extends DumbAwareAction {
 

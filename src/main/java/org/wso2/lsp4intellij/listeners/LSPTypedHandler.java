@@ -26,7 +26,7 @@ import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 /**
- * This class notifies an EditorEventManager that a character has been typed in the editor
+ * This class notifies an EditorEventManager that a character has been typed in the editor.
  */
 public class LSPTypedHandler extends TypedHandlerDelegate {
 
@@ -44,7 +44,8 @@ public class LSPTypedHandler extends TypedHandlerDelegate {
     }
 
     @Override
-    public @NotNull Result checkAutoPopup(char charTyped, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
+    public @NotNull Result checkAutoPopup(char charTyped, @NotNull Project project,
+            @NotNull Editor editor, @NotNull PsiFile file) {
         if (!FileUtils.isFileSupported(file.getVirtualFile())) {
             return Result.CONTINUE;
         }

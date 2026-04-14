@@ -136,7 +136,7 @@ import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
 import static org.wso2.lsp4intellij.utils.FileUtils.sanitizeURI;
 
 /**
- * The implementation of a LanguageServerWrapper (specific to a serverDefinition and a project)
+ * The implementation of a LanguageServerWrapper (specific to a serverDefinition and a project).
  */
 public class LanguageServerWrapper {
 
@@ -192,7 +192,8 @@ public class LanguageServerWrapper {
     }
 
     public static LanguageServerWrapper forVirtualFile(VirtualFile file, Project project) {
-        return uriToLanguageServerWrapper.get(new ImmutablePair<>(FileUtils.VFSToURI(file), FileUtils.projectToUri(project)));
+        return uriToLanguageServerWrapper.get(
+                new ImmutablePair<>(FileUtils.vfsToUri(file), FileUtils.projectToUri(project)));
     }
 
     /**
@@ -200,7 +201,8 @@ public class LanguageServerWrapper {
      * @return The wrapper for the given editor, or None
      */
     public static LanguageServerWrapper forEditor(Editor editor) {
-        return uriToLanguageServerWrapper.get(new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
+        return uriToLanguageServerWrapper.get(
+                new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
     }
 
     public static LanguageServerWrapper forProject(Project project) {
@@ -227,15 +229,15 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Warning: this is a long running operation
+     * Warning: this is a long running operation.
      *
      * @return the languageServer capabilities, or null if initialization job didn't complete
      */
     @Nullable
     public ServerCapabilities getServerCapabilities() {
-        if (initializeResult != null)
+        if (initializeResult != null) {
             return initializeResult.getCapabilities();
-        else {
+        } else {
             try {
                 start();
                 if (initializeFuture != null) {
@@ -279,7 +281,8 @@ public class LanguageServerWrapper {
     /**
      * Returns the EditorEventManager for a given uri
      * <p>
-     * WARNING: actually a file can be present in multiple editors, this function just gives you one editor. use {@link #getEditorManagersFor(String)} instead
+     * WARNING: actually a file can be present in multiple editors, this function just gives you one editor.
+     * use {@link #getEditorManagersFor(String)} instead
      * only use for document level events such as open, close, ...
      *
      * @param uri the URI as a string
@@ -297,7 +300,8 @@ public class LanguageServerWrapper {
             return null;
         }
         if (requestedFile.equals(currentOpenFile)) {
-            return EditorEventManagerBase.forEditor((Editor) FileEditorManager.getInstance(project).getSelectedEditor());
+            return EditorEventManagerBase.forEditor(
+                    (Editor) FileEditorManager.getInstance(project).getSelectedEditor());
         }
         if (uriToEditorManagers.containsKey(uri) && !uriToEditorManagers.get(uri).isEmpty()) {
             return (EditorEventManager) uriToEditorManagers.get(uri).toArray()[0];
@@ -326,7 +330,7 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Connects an editor to the languageServer
+     * Connects an editor to the languageServer.
      *
      * @param editor the editor
      */
@@ -361,7 +365,8 @@ public class LanguageServerWrapper {
                     return;
                 }
                 try {
-                    Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions = capabilities.getTextDocumentSync();
+                    Either<TextDocumentSyncKind, TextDocumentSyncOptions> syncOptions =
+                            capabilities.getTextDocumentSync();
                     if (syncOptions != null) {
                         //Todo - Implement
                         //  SelectionListenerImpl selectionListener = new SelectionListenerImpl();
@@ -473,7 +478,8 @@ public class LanguageServerWrapper {
                 disconnect(ed);
             }
 
-            // sadly this whole editor closing stuff runs asynchronously, so we cannot be sure the state is really clean here...
+            // sadly this whole editor closing stuff runs asynchronously,
+            // so we cannot be sure the state is really clean here...
             // therefore clear the mapping from here as it should be empty by now.
             uriToEditorManagers.clear();
             urisUnderLspControl.clear();
@@ -509,7 +515,7 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Starts the LanguageServer
+     * Starts the LanguageServer.
      */
     public void start() {
         if (status == STOPPED && !alreadyShownCrash && !alreadyShownTimeout) {
@@ -520,7 +526,8 @@ public class LanguageServerWrapper {
                 OutputStream outputStream = streams.getValue();
                 InitializeParams initParams = getInitParams();
                 ExecutorService executorService = Executors.newCachedThreadPool();
-                MessageHandler messageHandler = new MessageHandler(serverDefinition.getServerListener(), () -> getStatus() != STOPPED);
+                MessageHandler messageHandler = new MessageHandler(
+                        serverDefinition.getServerListener(), () -> getStatus() != STOPPED);
                 if (extManager != null && extManager.getExtendedServerInterface() != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
                     client = extManager.getExtendedClientFor(new ServerWrapperBaseClientContext(this));
@@ -544,12 +551,15 @@ public class LanguageServerWrapper {
                     initializeResult = res;
                     LOG.info("Got initializeResult for " + serverDefinition + " ; " + projectRootPath);
                     if (extManager != null) {
-                        requestManager = extManager.getExtendedRequestManagerFor(this, languageServer, client, res.getCapabilities());
+                        requestManager = extManager.getExtendedRequestManagerFor(
+                                this, languageServer, client, res.getCapabilities());
                         if (requestManager == null) {
-                            requestManager = new DefaultRequestManager(this, languageServer, client, res.getCapabilities());
+                            requestManager = new DefaultRequestManager(
+                                    this, languageServer, client, res.getCapabilities());
                         }
                     } else {
-                        requestManager = new DefaultRequestManager(this, languageServer, client, res.getCapabilities());
+                        requestManager = new DefaultRequestManager(
+                                this, languageServer, client, res.getCapabilities());
                     }
                     setStatus(STARTED);
                     // send the initialized message since some language servers depends on this message
@@ -586,8 +596,10 @@ public class LanguageServerWrapper {
         // text document capabilities
         TextDocumentClientCapabilities textDocumentClientCapabilities = new TextDocumentClientCapabilities();
         textDocumentClientCapabilities.setCodeAction(new CodeActionCapabilities());
-        textDocumentClientCapabilities.getCodeAction().setCodeActionLiteralSupport(new CodeActionLiteralSupportCapabilities(new CodeActionKindCapabilities()));
-        textDocumentClientCapabilities.getCodeAction().setResolveSupport(new CodeActionResolveSupportCapabilities(codeActionResolveProperties));
+        textDocumentClientCapabilities.getCodeAction().setCodeActionLiteralSupport(
+                new CodeActionLiteralSupportCapabilities(new CodeActionKindCapabilities()));
+        textDocumentClientCapabilities.getCodeAction().setResolveSupport(
+                new CodeActionResolveSupportCapabilities(codeActionResolveProperties));
         textDocumentClientCapabilities.setCompletion(new CompletionCapabilities(new CompletionItemCapabilities(true)));
         textDocumentClientCapabilities.setDefinition(new DefinitionCapabilities());
         textDocumentClientCapabilities.setDocumentHighlight(new DocumentHighlightCapabilities());
@@ -601,17 +613,23 @@ public class LanguageServerWrapper {
         textDocumentClientCapabilities.setSynchronization(new SynchronizationCapabilities(true, true, true));
 
         FoldingRangeCapabilities foldingRangeCapabilities = new FoldingRangeCapabilities();
-        foldingRangeCapabilities.setFoldingRangeKind(new FoldingRangeKindSupportCapabilities(List.of(FoldingRangeKind.Comment, FoldingRangeKind.Imports, FoldingRangeKind.Region)));
+        foldingRangeCapabilities.setFoldingRangeKind(
+                new FoldingRangeKindSupportCapabilities(List.of(
+                        FoldingRangeKind.Comment, FoldingRangeKind.Imports, FoldingRangeKind.Region)));
         foldingRangeCapabilities.setFoldingRange(new FoldingRangeSupportCapabilities(true));
         foldingRangeCapabilities.setLineFoldingOnly(false);
         textDocumentClientCapabilities.setFoldingRange(foldingRangeCapabilities);
 
         initParams.setCapabilities(
                 new ClientCapabilities(workspaceClientCapabilities, textDocumentClientCapabilities, null));
-        initParams.setClientInfo(new ClientInfo(ApplicationInfo.getInstance().getVersionName(), ApplicationInfo.getInstance().getFullVersion()));
+        initParams.setClientInfo(new ClientInfo(
+                ApplicationInfo.getInstance().getVersionName(),
+                ApplicationInfo.getInstance().getFullVersion()));
 
         // custom initialization options and initialize params provided by users
-        initParams.setInitializationOptions(serverDefinition.getInitializationOptions(URI.create(initParams.getWorkspaceFolders().get(0).getUri())));
+        initParams.setInitializationOptions(
+                serverDefinition.getInitializationOptions(
+                        URI.create(initParams.getWorkspaceFolders().get(0).getUri())));
         serverDefinition.customizeInitializeParams(initParams);
         return initParams;
     }
@@ -653,8 +671,10 @@ public class LanguageServerWrapper {
                                     , serverDefinition.toString(), project.getName(), e.getMessage()),
                             "Language Server Client Warning", "Keep Connected", "Disconnect", PlatformIcons.CHECK_ICON);
                     if (response == Messages.NO) {
-                        int confirm = Messages.showYesNoDialog("All the language server based plugin features will be disabled.\n" +
-                                "Do you wish to continue?", "", PlatformIcons.WARNING_INTRODUCTION_ICON);
+                        int confirm = Messages.showYesNoDialog(
+                                "All the language server based plugin features will be disabled.\n"
+                                + "Do you wish to continue?", "",
+                                PlatformIcons.WARNING_INTRODUCTION_ICON);
                         if (confirm == Messages.YES) {
                             // Disconnects from the language server.
                             stop(true);
@@ -708,7 +728,7 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Disconnects an editor from the LanguageServer
+     * Disconnects an editor from the LanguageServer.
      *
      * @param editor The editor
      */
@@ -738,9 +758,10 @@ public class LanguageServerWrapper {
     }
 
     /**
-     * Disconnects an editor from the LanguageServer
+     * Disconnects an editor from the LanguageServer.
      * <p>
-     * WARNING: only use this method if you have no editor instance and you restart all connections to the language server for all open editors
+     * WARNING: only use this method if you have no editor instance and you restart all connections
+     * to the language server for all open editors
      * prefer using disconnect(editor)
      *
      * @param uri        The file uri
@@ -806,7 +827,8 @@ public class LanguageServerWrapper {
 
     private Optional<LSPServerStatusWidget> getWidget() {
         try {
-            LSPServerStatusWidgetFactory factory = ((LSPServerStatusWidgetFactory) project.getService(StatusBarWidgetsManager.class).findWidgetFactory("LSP"));
+            LSPServerStatusWidgetFactory factory = ((LSPServerStatusWidgetFactory) project
+                    .getService(StatusBarWidgetsManager.class).findWidgetFactory("LSP"));
             if (factory != null) {
                 return Optional.of(factory.getWidget(project));
             } else {

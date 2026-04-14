@@ -34,9 +34,9 @@ public class EditorEventManagerBase {
     private static final Map<String, Set<EditorEventManager>> uriToManagers = new ConcurrentHashMap<>();
     private static final Map<Editor, EditorEventManager> editorToManager = new ConcurrentHashMap<>();
     private static final int CTRL_KEY_CODE = OSUtils.isMac() ? KeyEvent.VK_META : KeyEvent.VK_CONTROL;
-    private volatile static boolean isKeyPressed = false;
-    private volatile static boolean isCtrlDown = false;
-    private volatile static CtrlRangeMarker ctrlRange;
+    private static volatile boolean isKeyPressed = false;
+    private static volatile boolean isCtrlDown = false;
+    private static volatile CtrlRangeMarker ctrlRange;
 
     static {
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher((KeyEvent e) -> {
@@ -152,7 +152,7 @@ public class EditorEventManagerBase {
     }
 
     /**
-     * Tells the server that all the documents will be saved
+     * Tells the server that all the documents will be saved.
      */
     public static void willSaveAll() {
         prune();
@@ -169,7 +169,7 @@ public class EditorEventManagerBase {
         HashSet<EditorEventManager> result = new HashSet<>();
         synchronized (uriToManagers) {
             Set<EditorEventManager> managers = uriToManagers.get(uri);
-            if(managers != null) {
+            if (managers != null) {
                 result.addAll(managers);
             }
         }
@@ -178,7 +178,7 @@ public class EditorEventManagerBase {
 
     public static void willSave(String uri) {
         EditorEventManager editorManager = forUri(uri);
-        if(editorManager != null) {
+        if (editorManager != null) {
             editorManager.willSave();
         }
     }
@@ -188,13 +188,16 @@ public class EditorEventManagerBase {
     }
 
     /**
-     * WARNING: avoid using this function! It only gives you one editorEventManager, not all and not the one of the current editor.
-     * Only use for operations which are file-level (save, open, close,...) otherwise use {@link #managersForUri(String)} or {@link #forEditor(Editor)}
+     * WARNING: avoid using this function! It only gives you one
+     * editorEventManager, not all and not the one of the current editor.
+     * Only use for operations which are file-level (save, open, close,...)
+     * otherwise use {@link #managersForUri(String)}
+     * or {@link #forEditor(Editor)}
      */
     public static EditorEventManager forUri(String uri) {
         prune();
         Set<EditorEventManager> managers = managersForUri(uri);
-        if(managers.size() >= 1) {
+        if (managers.size() >= 1) {
             return managers.iterator().next();
         }
         return null;
@@ -202,7 +205,7 @@ public class EditorEventManagerBase {
 
     public static void documentSaved(String uri) {
         EditorEventManager editorManager = forUri(uri);
-        if(editorManager != null){
+        if (editorManager != null) {
             editorManager.documentSaved();
         }
     }

@@ -35,8 +35,14 @@ import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServ
 import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 import org.wso2.lsp4intellij.contributors.label.LSPDefaultLabelProvider;
-import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.contributors.label.LSPLabelProvider;
+import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
+
+import java.awt.Color;
+import java.awt.Point;
+import java.net.URISyntaxException;
+import java.util.Objects;
+import java.util.Optional;
 
 import javax.swing.JTextPane;
 import javax.swing.event.HyperlinkEvent;
@@ -44,12 +50,6 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.html.HTMLDocument;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
-
-import java.awt.Color;
-import java.awt.Point;
-import java.net.URISyntaxException;
-import java.util.Objects;
-import java.util.Optional;
 
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
 
@@ -132,13 +132,15 @@ public final class GUIUtils {
                             255 - bodyFontColor.getGreen(),
                             255 - bodyFontColor.getBlue()).darker();
 
-        String hexColor = String.format("#%02x%02x%02x", inverseColor.getRed(), inverseColor.getGreen(), inverseColor.getBlue());
+        String hexColor = String.format("#%02x%02x%02x",
+                inverseColor.getRed(), inverseColor.getGreen(),
+                inverseColor.getBlue());
 
         styleSheet.addRule("code { background-color: " + hexColor + "; }");
     }
 
     /**
-     * Shows a hint in the editor
+     * Shows a hint in the editor.
      *
      * @param editor     The editor
      * @param string     The message / text of the hint
@@ -171,8 +173,10 @@ public final class GUIUtils {
                                 .map(f -> new ImmutablePair<>(p, f)));
 
                         fileToOpen.ifPresent(f -> {
-                            final OpenFileDescriptor descriptor = new OpenFileDescriptor(f.getLeft(), f.getRight());
-                            writeAction(() -> FileEditorManager.getInstance(f.getLeft()).openTextEditor(descriptor, true));
+                            final OpenFileDescriptor descriptor =
+                                new OpenFileDescriptor(f.getLeft(), f.getRight());
+                            writeAction(() -> FileEditorManager.getInstance(f.getLeft())
+                                    .openTextEditor(descriptor, true));
                         });
                     }
                 } catch (URISyntaxException ex) {
@@ -189,7 +193,7 @@ public final class GUIUtils {
     }
 
     /**
-     * Returns a suitable LSPIconProvider given a ServerDefinition
+     * Returns a suitable LSPIconProvider given a ServerDefinition.
      *
      * @param serverDefinition The serverDefinition
      * @return The LSPIconProvider, or LSPDefaultIconProvider if none are found
@@ -200,7 +204,7 @@ public final class GUIUtils {
     }
 
     /**
-     * Returns a suitable LSPLabelProvider given a ServerDefinition
+     * Returns a suitable LSPLabelProvider given a ServerDefinition.
      *
      * @param serverDefinition The serverDefinition
      * @return The LSPLabelProvider, or the default if none are found

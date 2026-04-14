@@ -53,15 +53,16 @@ import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import javax.annotation.Nullable;
-import javax.swing.*;
+import javax.swing.Icon;
 
 /**
- * A simple PsiElement for LSP
+ * A simple PsiElement for LSP.
  */
 public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElement {
 
-    private final Key<KeyFMap> COPYABLE_USER_MAP_KEY = Key.create("COPYABLE_USER_MAP_KEY");
-    private final AtomicFieldUpdater<LSPPsiElement, KeyFMap> updater = AtomicFieldUpdater.forFieldOfType(LSPPsiElement.class, KeyFMap.class);
+    private static final Key<KeyFMap> COPYABLE_USER_MAP_KEY = Key.create("COPYABLE_USER_MAP_KEY");
+    private final AtomicFieldUpdater<LSPPsiElement, KeyFMap> updater =
+            AtomicFieldUpdater.forFieldOfType(LSPPsiElement.class, KeyFMap.class);
     private final PsiManager manager;
     private final LSPPsiReference reference;
     private final Project project;
@@ -87,7 +88,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
     }
 
     /**
-     * Concurrent writes to this field are via CASes only, using the {@link #updater}
+     * Concurrent writes to this field are via CASes only, using the {@link #updater}.
      */
     private volatile KeyFMap myUserMap = KeyFMap.EMPTY_MAP;
 
@@ -474,7 +475,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
     }
 
     /**
-     * Checks if the contents of the element can be modified (if it belongs to a non-read-only source file.)
+     * Checks if the contents of the element can be modified (if it belongs to a non-read-only source file.).
      *
      * @return true if the element can be modified, false otherwise.
      */
@@ -666,14 +667,16 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
         while (control) {
             KeyFMap map = getUserMap();
             KeyFMap copyableMap = map.get(COPYABLE_USER_MAP_KEY);
-            if (copyableMap == null)
+            if (copyableMap == null) {
                 copyableMap = KeyFMap.EMPTY_MAP;
+            }
             KeyFMap newCopyableMap = (value == null) ? copyableMap.minus(key) : copyableMap.plus(key, value);
             KeyFMap newMap = (newCopyableMap.isEmpty()) ?
                     map.minus(COPYABLE_USER_MAP_KEY) :
                     map.plus(COPYABLE_USER_MAP_KEY, newCopyableMap);
-            if ((newMap.equalsByReference(map)) || changeUserMap(map, newMap))
+            if ((newMap.equalsByReference(map)) || changeUserMap(map, newMap)) {
                 control = false;
+            }
         }
     }
 

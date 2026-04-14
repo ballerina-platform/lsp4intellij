@@ -29,14 +29,14 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * A class symbolizing a stream to a process
+ * A class symbolizing a stream to a process.
  * <p>
  * commands - The commands to start the process
  * workingDir - The working directory of the process
  */
 public class ProcessStreamConnectionProvider implements StreamConnectionProvider {
 
-    private final Logger LOG = Logger.getInstance(ProcessStreamConnectionProvider.class);
+    private static final Logger LOG = Logger.getInstance(ProcessStreamConnectionProvider.class);
 
     @Nullable
     private final ProcessBuilder builder;
@@ -56,7 +56,8 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
     }
 
     public void start() throws IOException {
-        if ((workingDir == null || commands == null || commands.isEmpty() || commands.contains(null)) && builder == null) {
+        if ((workingDir == null || commands == null || commands.isEmpty()
+                || commands.contains(null)) && builder == null) {
             throw new IOException("Unable to start language server: " + this);
         }
         ProcessBuilder builder = createProcessBuilder();
@@ -103,7 +104,8 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
     public boolean equals(Object obj) {
         if (obj instanceof ProcessStreamConnectionProvider) {
             ProcessStreamConnectionProvider other = (ProcessStreamConnectionProvider) obj;
-            return commands.size() == other.commands.size() && new HashSet<>(commands).equals(new HashSet<>(other.commands))
+            return commands.size() == other.commands.size()
+                    && new HashSet<>(commands).equals(new HashSet<>(other.commands))
                     && workingDir.equals(other.workingDir);
         }
         return false;

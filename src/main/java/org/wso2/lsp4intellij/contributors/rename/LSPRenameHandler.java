@@ -44,7 +44,7 @@ import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
-import java.util.ArrayList;
+
 import java.util.List;
 
 import static com.intellij.openapi.command.impl.StartMarkAction.START_MARK_ACTION_KEY;

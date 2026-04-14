@@ -79,7 +79,8 @@ public class VFSListener implements VirtualFileListener {
     }
 
     /**
-     * Fired when a virtual file is created. This event is not fired for files discovered during initial VFS initialization.
+     * Fired when a virtual file is created. This event is not fired for files
+     * discovered during initial VFS initialization.
      *
      * @param event the event object containing information about the change.
      */

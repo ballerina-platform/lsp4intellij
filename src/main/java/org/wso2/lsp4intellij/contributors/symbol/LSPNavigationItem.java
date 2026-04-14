@@ -23,11 +23,12 @@ import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.*;
 import java.util.Objects;
 
+import javax.swing.Icon;
+
 /**
- * LSP implementation of NavigationItem for intellij
+ * LSP implementation of NavigationItem for intellij.
  *
  * @author gayanper
  */
@@ -55,7 +56,7 @@ public class LSPNavigationItem extends OpenFileDescriptor implements NavigationI
 
     @Override
     public boolean equals(Object obj) {
-        if(obj instanceof LSPNavigationItem) {
+        if (obj instanceof LSPNavigationItem) {
             LSPNavigationItem other = (LSPNavigationItem) obj;
             return this.getLine() == other.getLine() && this.getColumn() == other.getColumn() &&
                     Objects.equals(this.getName(), other.getName());

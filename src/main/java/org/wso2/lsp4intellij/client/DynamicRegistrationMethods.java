@@ -19,7 +19,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 /**
- * Enum for methods which may support DynamicRegistration
+ * Enum for methods which may support DynamicRegistration.
  */
 public enum DynamicRegistrationMethods {
 

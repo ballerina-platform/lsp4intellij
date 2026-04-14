@@ -49,11 +49,12 @@ public class DocumentEventManager {
     private final LanguageServerWrapper wrapper;
     private final TextDocumentIdentifier identifier;
     private int version = -1;
-    protected Logger LOG = Logger.getInstance(DocumentEventManager.class);
+    protected static final Logger LOG = Logger.getInstance(DocumentEventManager.class);
 
     private final Set<Document> openDocuments = new HashSet<>();
 
-    DocumentEventManager(Document document, DocumentListener documentListener, TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper) {
+    DocumentEventManager(Document document, DocumentListener documentListener,
+                         TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper) {
         this.document = document;
         this.documentListener = documentListener;
         this.syncKind = syncKind;
@@ -75,7 +76,8 @@ public class DocumentEventManager {
 
     public void documentChanged(DocumentEvent event) {
 
-        DidChangeTextDocumentParams changesParams = new DidChangeTextDocumentParams(new VersionedTextDocumentIdentifier(),
+        DidChangeTextDocumentParams changesParams = new DidChangeTextDocumentParams(
+                new VersionedTextDocumentIdentifier(),
                 Collections.singletonList(new TextDocumentContentChangeEvent()));
         changesParams.getTextDocument().setUri(identifier.getUri());
 
@@ -109,7 +111,8 @@ public class DocumentEventManager {
                 String content = oldText.toString();
                 String[] oldLines = content.split("\n");
                 int oldTextLength = oldLines.length == 0 ? 0 : oldLines[oldLines.length - 1].length();
-                endColumn = content.endsWith("\n") ? 0 : oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
+                endColumn = content.endsWith("\n") ? 0
+                        : oldLines.length == 1 ? startColumn + oldTextLength : oldTextLength;
             } else { //if insert or no text change, the end position is the same
                 endLine = startLine;
                 endColumn = startColumn;
@@ -129,7 +132,8 @@ public class DocumentEventManager {
             LOG.warn("trying to send open notification for document which was already opened!");
         } else {
             openDocuments.add(document);
-            final String extension = FileUtilRt.getExtension(FileDocumentManager.getInstance().getFile(document).getName());
+            final String extension = FileUtilRt.getExtension(
+                    FileDocumentManager.getInstance().getFile(document).getName());
             wrapper.getRequestManager().didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
                     wrapper.serverDefinition.languageIdFor(extension),
                     ++version,

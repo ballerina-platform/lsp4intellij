@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 public class LSPCaretListenerImpl extends LSPListener implements CaretListener {
 
-    private final Logger LOG = Logger.getInstance(LSPCaretListenerImpl.class);
+    private static final Logger LOG = Logger.getInstance(LSPCaretListenerImpl.class);
 
     private final ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
@@ -44,7 +44,9 @@ public class LSPCaretListenerImpl extends LSPListener implements CaretListener {
             if (scheduledFuture != null && !scheduledFuture.isCancelled()) {
                 scheduledFuture.cancel(false);
             }
-            scheduledFuture = scheduler.schedule(this::debouncedCaretPositionChanged, DEBOUNCE_INTERVAL_MS, TimeUnit.MILLISECONDS);
+            scheduledFuture = scheduler.schedule(
+                    this::debouncedCaretPositionChanged,
+                    DEBOUNCE_INTERVAL_MS, TimeUnit.MILLISECONDS);
         } catch (Exception err) {
             LOG.warn("Error occurred when trying to update code actions", err);
         }

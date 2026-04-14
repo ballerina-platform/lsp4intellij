@@ -31,14 +31,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Object used to process Hover responses
+ * Object used to process Hover responses.
  */
 public class HoverHandler {
 
-    private final Logger LOG = Logger.getInstance(HoverHandler.class);
+    private static final Logger LOG = Logger.getInstance(HoverHandler.class);
 
     /**
-     * Returns the hover string corresponding to a Hover response
+     * Returns the hover string corresponding to a Hover response.
      *
      * @param hover The Hover
      * @return The string response
@@ -82,7 +82,8 @@ public class HoverHandler {
             MutableDataSet options = new MutableDataSet();
             Parser parser = Parser.builder(options).build();
             HtmlRenderer renderer = HtmlRenderer.builder(options).build();
-            return "<html>" + UIUtil.getCssFontDeclaration(font) + renderer.render(parser.parse(markedContent)) + "</html>";
+            return "<html>" + UIUtil.getCssFontDeclaration(font)
+                    + renderer.render(parser.parse(markedContent)) + "</html>";
         } else {
             return "";
         }

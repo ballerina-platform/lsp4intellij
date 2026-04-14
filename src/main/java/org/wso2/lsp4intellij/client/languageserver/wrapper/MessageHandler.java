@@ -40,7 +40,7 @@ class MessageHandler implements Function<MessageConsumer, MessageConsumer> {
     @Override
     public MessageConsumer apply(MessageConsumer messageConsumer) {
         return message -> {
-            if(isRunning.getAsBoolean()) {
+            if (isRunning.getAsBoolean()) {
                 handleMessage(message);
                 messageConsumer.consume(message);
             }

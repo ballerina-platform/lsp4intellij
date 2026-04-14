@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An object containing the Timeout for the various requests
+ * An object containing the Timeout for the various requests.
  */
 public class Timeout {
 

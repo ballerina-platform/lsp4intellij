@@ -26,7 +26,6 @@ import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.io.FileUtilRt;
-import com.intellij.openapi.util.io.OSAgnosticPathUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
@@ -54,14 +53,14 @@ import static com.intellij.openapi.util.io.OSAgnosticPathUtil.isDriveLetter;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 
 /**
- * Various file / uri related methods
+ * Various file / uri related methods.
  */
 public class FileUtils {
-    private final static String COLON_ENCODED = "%3A";
-    public final static String SPACE_ENCODED = "%20";
-    private final static String URI_FILE_BEGIN = "file:";
-    private final static String URI_VALID_FILE_BEGIN = "file:///";
-    private final static char URI_PATH_SEP = '/';
+    private static final String COLON_ENCODED = "%3A";
+    public static final String SPACE_ENCODED = "%20";
+    private static final String URI_FILE_BEGIN = "file:";
+    private static final String URI_VALID_FILE_BEGIN = "file:///";
+    private static final char URI_PATH_SEP = '/';
 
     private static final Logger LOG = Logger.getInstance(FileUtils.class);
 
@@ -244,7 +243,7 @@ public class FileUtils {
     }
 
     /**
-     * Returns a file type given an editor
+     * Returns a file type given an editor.
      *
      * @param editor The editor
      * @return The FileType
@@ -254,7 +253,7 @@ public class FileUtils {
     }
 
     /**
-     * Transforms an editor (Document) identifier to an LSP identifier
+     * Transforms an editor (Document) identifier to an LSP identifier.
      *
      * @param editor The editor
      * @return The TextDocumentIdentifier
@@ -264,13 +263,13 @@ public class FileUtils {
     }
 
     /**
-     * Returns the URI string corresponding to an Editor (Document)
+     * Returns the URI string corresponding to an Editor (Document).
      *
      * @param editor The Editor
      * @return The URI
      */
     public static String editorToURIString(Editor editor) {
-        return sanitizeURI(VFSToURI(FileDocumentManager.getInstance().getFile(editor.getDocument())));
+        return sanitizeURI(vfsToUri(FileDocumentManager.getInstance().getFile(editor.getDocument())));
     }
 
     public static VirtualFile virtualFileFromEditor(Editor editor) {
@@ -278,17 +277,17 @@ public class FileUtils {
     }
 
     /**
-     * Returns the URI string corresponding to a VirtualFileSystem file
+     * Returns the URI string corresponding to a VirtualFileSystem file.
      *
      * @param file The file
      * @return the URI
      */
-    public static String VFSToURI(VirtualFile file) {
+    public static String vfsToUri(VirtualFile file) {
         return file == null ? null : pathToUri(file.getPath());
     }
 
     /**
-     * Fixes common problems in uri, mainly related to Windows
+     * Fixes common problems in uri, mainly related to Windows.
      *
      * @param uri The uri to sanitize
      * @return The sanitized uri
@@ -330,8 +329,10 @@ public class FileUtils {
         }
     }
    /**
-     * The LSP specification <a href="https://microsoft.github.io/language-server-protocol/specification/#uri">requires</a>
-     * all servers to handle two URI formats correctly: {@code file:///C:/foo} and {@code file:///c%3A/foo}.
+     * The LSP specification
+     * <a href="https://microsoft.github.io/language-server-protocol/specification/#uri">requires</a>
+     * all servers to handle two URI formats correctly:
+     * {@code file:///C:/foo} and {@code file:///c%3A/foo}.
      * <p>
      * VS Code always sends lowercase Windows drive letters and always escapes colons
      * (see this <a href="https://github.com/microsoft/vscode-languageserver-node/issues/1280">issue</a>
@@ -343,7 +344,8 @@ public class FileUtils {
     public static String lowercaseWindowsDriveAndEscapeColon(String uri) {
         String prefix = "file:///";
         if (uri.startsWith(prefix) && startsWithWindowsDrive(uri.substring(prefix.length()))) {
-            return prefix + Character.toLowerCase(uri.charAt(prefix.length())) + "%3A" + uri.substring(prefix.length() + 2);
+            return prefix + Character.toLowerCase(uri.charAt(prefix.length()))
+                    + "%3A" + uri.substring(prefix.length() + 2);
         }
         return uri;
     }
@@ -353,12 +355,12 @@ public class FileUtils {
     }
 
     /**
-     * Transforms an URI string into a VFS file
+     * Transforms an URI string into a VFS file.
      *
      * @param uri The uri
      * @return The virtual file
      */
-    public static VirtualFile URIToVFS(String uri) {
+    public static VirtualFile uriToVfs(String uri) {
         try {
             return localFileSystemProvider.findFileByIoFile(new File(new URI(sanitizeURI(uri))));
         } catch (URISyntaxException e) {
@@ -368,7 +370,7 @@ public class FileUtils {
     }
 
     /**
-     * Returns the project base dir uri given an editor
+     * Returns the project base dir uri given an editor.
      *
      * @param editor The editor
      * @return The project whose the editor belongs
@@ -385,7 +387,7 @@ public class FileUtils {
     }
 
     /**
-     * Transforms a path into an URI string
+     * Transforms a path into an URI string.
      *
      * @param path The path
      * @return The uri
@@ -402,11 +404,11 @@ public class FileUtils {
     }
 
     public static String documentToUri(Document document) {
-        return sanitizeURI(VFSToURI(FileDocumentManager.getInstance().getFile(document)));
+        return sanitizeURI(vfsToUri(FileDocumentManager.getInstance().getFile(document)));
     }
 
     /**
-     * Object representing the OS type (Windows or Unix)
+     * Object representing the OS type (Windows or Unix).
      */
     public enum OS {
         WINDOWS, UNIX
@@ -444,7 +446,8 @@ public class FileUtils {
 
     public static PsiFile[] searchFiles(String fileName, Project p) {
         try {
-            return computableReadAction(() -> FilenameIndex.getFilesByName(p, fileName, GlobalSearchScope.projectScope(p)));
+            return computableReadAction(() -> FilenameIndex.getFilesByName(
+                    p, fileName, GlobalSearchScope.projectScope(p)));
         } catch (Throwable t) {
             // Todo - Find a proper way to handle when IDEA file indexing is in-progress.
             return new PsiFile[0];
@@ -472,7 +475,8 @@ public class FileUtils {
             if (file == null) {
                 return true;
             }
-            LSPExtensionManager lspExtManager = IntellijLanguageClient.getExtensionManagerFor(FileUtilRt.getExtension(file.getName()));
+            LSPExtensionManager lspExtManager = IntellijLanguageClient
+                    .getExtensionManagerFor(FileUtilRt.getExtension(file.getName()));
             if (lspExtManager == null) {
                 return true;
             }

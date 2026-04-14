@@ -47,7 +47,12 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.io.File;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
@@ -58,9 +63,11 @@ import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
 public class IntellijLanguageClient implements ApplicationComponent, Disposable {
 
     private static final Logger LOG = Logger.getInstance(IntellijLanguageClient.class);
-    private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper = new ConcurrentHashMap<>();
+    private static final Map<Pair<String, String>, LanguageServerWrapper> extToLanguageWrapper =
+            new ConcurrentHashMap<>();
     private static final Map<String, Set<LanguageServerWrapper>> projectToLanguageWrappers = new ConcurrentHashMap<>();
-    private static final Map<Pair<String, String>, LanguageServerDefinition> extToServerDefinition = new ConcurrentHashMap<>();
+    private static final Map<Pair<String, String>, LanguageServerDefinition> extToServerDefinition =
+            new ConcurrentHashMap<>();
     private static final Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
     private static final Predicate<LanguageServerWrapper> RUNNING = (s) -> s.getStatus() != ServerStatus.STOPPED;
 
@@ -89,12 +96,13 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     }
 
     /**
-     * Use it to initialize the server connection for the given project (useful if no editor is launched)
+     * Use it to initialize the server connection for the given project (useful if no editor is launched).
      */
     public void initProjectConnections(@NotNull Project project) {
         String projectStr = FileUtils.projectToUri(project);
         // find serverdefinition keys for this project and try to start a wrapper
-        extToServerDefinition.entrySet().stream().filter(e -> e.getKey().getRight().equals(projectStr)).forEach(entry -> {
+        extToServerDefinition.entrySet().stream()
+                .filter(e -> e.getKey().getRight().equals(projectStr)).forEach(entry -> {
             updateLanguageWrapperContainers(project, entry.getKey(), entry.getValue()).start();
         });
 
@@ -174,11 +182,13 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      */
     public static boolean isExtensionSupported(VirtualFile virtualFile) {
         return extToServerDefinition.keySet().stream().anyMatch(keyMap ->
-                keyMap.getLeft().equals(virtualFile.getExtension()) || (virtualFile.getName().matches(keyMap.getLeft())));
+                keyMap.getLeft().equals(virtualFile.getExtension())
+                        || (virtualFile.getName().matches(keyMap.getLeft())));
     }
 
     /**
-     * Called when an editor is opened. Instantiates a LanguageServerWrapper if necessary, and adds the Editor to the Wrapper
+     * Called when an editor is opened. Instantiates a LanguageServerWrapper
+     * if necessary, and adds the Editor to the Wrapper
      *
      * @param editor the editor
      */
@@ -243,14 +253,17 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
                 return;
             }
             // Update project mapping for language servers.
-            LanguageServerWrapper wrapper = updateLanguageWrapperContainers(project, new ImmutablePair<>(ext, projectUri), serverDefinition);
+            LanguageServerWrapper wrapper = updateLanguageWrapperContainers(
+                    project, new ImmutablePair<>(ext, projectUri), serverDefinition);
 
             LOG.info("Adding file " + fileName);
             wrapper.connect(editor);
         });
     }
 
-    private static synchronized LanguageServerWrapper updateLanguageWrapperContainers(Project project, final Pair<String, String> key, LanguageServerDefinition serverDefinition) {
+    private static synchronized LanguageServerWrapper updateLanguageWrapperContainers(
+            Project project, final Pair<String, String> key,
+            LanguageServerDefinition serverDefinition) {
         String projectUri = FileUtils.projectToUri(project);
         LanguageServerWrapper wrapper = extToLanguageWrapper.get(key);
         String ext = key.getLeft();
@@ -383,7 +396,8 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      *
      * @param definition The LanguageServerDefinition
      */
-    public static Optional<LSPExtensionManager> getExtensionManagerForDefinition(@NotNull LanguageServerDefinition definition) {
+    public static Optional<LSPExtensionManager> getExtensionManagerForDefinition(
+            @NotNull LanguageServerDefinition definition) {
         return Optional.ofNullable(extToExtManager.get(definition.ext.split(",")[0]));
     }
 

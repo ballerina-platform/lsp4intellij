@@ -32,10 +32,10 @@ import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
 /**
- * Action overriding QuickDoc (CTRL+Q)
+ * Action overriding QuickDoc (CTRL+Q).
  */
 class LSPQuickDocAction extends ShowQuickDocInfoAction implements DumbAware {
-    private final Logger LOG = Logger.getInstance(LSPQuickDocAction.class);
+    private static final Logger LOG = Logger.getInstance(LSPQuickDocAction.class);
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -52,7 +52,8 @@ class LSPQuickDocAction extends ShowQuickDocInfoAction implements DumbAware {
             } else {
                 super.actionPerformed(e);
             }
-        } else
+        } else {
             super.actionPerformed(e);
+        }
     }
 }

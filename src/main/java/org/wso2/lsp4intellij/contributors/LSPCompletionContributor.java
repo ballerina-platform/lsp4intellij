@@ -33,7 +33,7 @@ import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 
 /**
- * The completion contributor for the LSP
+ * The completion contributor for the LSP.
  */
 class LSPCompletionContributor extends CompletionContributor {
     private static final Logger LOG = Logger.getInstance(LSPCompletionContributor.class);
@@ -42,7 +42,9 @@ class LSPCompletionContributor extends CompletionContributor {
     public void fillCompletionVariants(@NotNull CompletionParameters parameters, @NotNull CompletionResultSet result) {
         CompletionProvider<CompletionParameters> provider = new CompletionProvider<CompletionParameters>() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
+            protected void addCompletions(@NotNull CompletionParameters parameters,
+                    @NotNull ProcessingContext context,
+                    @NotNull CompletionResultSet result) {
                 try {
                     ApplicationUtil.runWithCheckCanceled(() -> {
                         Editor editor = parameters.getEditor();
@@ -67,7 +69,8 @@ class LSPCompletionContributor extends CompletionContributor {
         EditorEventManager manager = EditorEventManagerBase.forEditor(editor);
         if (manager != null) {
             String prefix = manager.getCompletionPrefix(editor, offset);
-            provider.addCompletionVariants(parameters, new ProcessingContext(), result.withPrefixMatcher(new PlainPrefixMatcher(prefix)));
+            provider.addCompletionVariants(parameters, new ProcessingContext(),
+                    result.withPrefixMatcher(new PlainPrefixMatcher(prefix)));
             if (result.isStopped()) {
                 return;
             }

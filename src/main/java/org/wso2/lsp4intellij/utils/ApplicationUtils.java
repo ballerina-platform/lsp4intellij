@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 
 public class ApplicationUtils {
 
-    private final static ExecutorService EXECUTOR_SERVICE;
+    private static final ExecutorService EXECUTOR_SERVICE;
 
     static {
         // Single threaded executor is used to simulate a behavior of async sequencial execution.
@@ -40,27 +40,27 @@ public class ApplicationUtils {
     }
 
 
-    static public void invokeLater(Runnable runnable) {
+    public static void invokeLater(Runnable runnable) {
         ApplicationManager.getApplication().invokeLater(runnable);
     }
 
-    static public void pool(Runnable runnable) {
+    public static void pool(Runnable runnable) {
         EXECUTOR_SERVICE.submit(runnable);
     }
 
-    static public <T> T computableReadAction(Computable<T> computable) {
+    public static <T> T computableReadAction(Computable<T> computable) {
         return ApplicationManager.getApplication().runReadAction(computable);
     }
 
-    static public void writeAction(Runnable runnable) {
+    public static void writeAction(Runnable runnable) {
         ApplicationManager.getApplication().runWriteAction(runnable);
     }
 
-    static public <T> T computableWriteAction(Computable<T> computable) {
+    public static <T> T computableWriteAction(Computable<T> computable) {
         return ApplicationManager.getApplication().runWriteAction(computable);
     }
 
-    static public void invokeAfterPsiEvents(Runnable runnable) {
+    public static void invokeAfterPsiEvents(Runnable runnable) {
         Runnable wrapper = () -> {
             if (NoAccessDuringPsiEvents.isInsideEventProcessing()) {
                 invokeAfterPsiEvents(runnable);

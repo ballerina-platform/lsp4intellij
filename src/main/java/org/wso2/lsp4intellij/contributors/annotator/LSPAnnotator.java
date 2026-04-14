@@ -99,15 +99,17 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
     @Override
     public void apply(@NotNull PsiFile file, Object annotationResult, @NotNull AnnotationHolder holder) {
 
-        LanguageServerWrapper languageServerWrapper = LanguageServerWrapper.forVirtualFile(file.getVirtualFile(), file.getProject());
+        LanguageServerWrapper languageServerWrapper = LanguageServerWrapper
+                .forVirtualFile(file.getVirtualFile(), file.getProject());
         if (languageServerWrapper == null || languageServerWrapper.getStatus() != ServerStatus.INITIALIZED) {
             return;
         }
 
         VirtualFile virtualFile = file.getVirtualFile();
         if (FileUtils.isFileSupported(virtualFile) && IntellijLanguageClient.isExtensionSupported(virtualFile)) {
-            String uri = FileUtils.VFSToURI(virtualFile);
-            // TODO annotations are applied to a file / document not to an editor. so store them by file and not by editor..
+            String uri = FileUtils.vfsToUri(virtualFile);
+            // TODO annotations are applied to a file / document not to an editor.
+            // so store them by file and not by editor..
             EditorEventManager eventManager = EditorEventManagerBase.forUri(uri);
 
             if (Objects.nonNull(eventManager) && eventManager.isDiagnosticSyncRequired()) {
@@ -139,7 +141,8 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
             return;
         }
 
-        final List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> annotations = eventManager.getSilentAnnotations();
+        final List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> annotations =
+                eventManager.getSilentAnnotations();
         if (annotations == null) {
             return;
         }
@@ -179,8 +182,8 @@ public class LSPAnnotator extends ExternalAnnotator<Object, Object> {
 
     @Nullable
     protected Annotation createAnnotation(Editor editor, AnnotationHolder holder, Diagnostic diagnostic) {
-        final int start = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getStart());
-        final int end = DocumentUtils.LSPPosToOffset(editor, diagnostic.getRange().getEnd());
+        final int start = DocumentUtils.lspPosToOffset(editor, diagnostic.getRange().getStart());
+        final int end = DocumentUtils.lspPosToOffset(editor, diagnostic.getRange().getEnd());
         if (start > end) {
             return null;
         }

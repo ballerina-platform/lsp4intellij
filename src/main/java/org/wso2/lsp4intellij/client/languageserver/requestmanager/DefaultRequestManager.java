@@ -99,7 +99,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public class DefaultRequestManager implements RequestManager {
 
-    private final Logger LOG = Logger.getInstance(DefaultRequestManager.class);
+    private static final Logger LOG = Logger.getInstance(DefaultRequestManager.class);
 
     private final LanguageServerWrapper wrapper;
     private final LanguageServer server;
@@ -119,7 +119,8 @@ public class DefaultRequestManager implements RequestManager {
         this.client = client;
         this.serverCapabilities = serverCapabilities;
 
-        textDocumentOptions = serverCapabilities.getTextDocumentSync().isRight() ? serverCapabilities.getTextDocumentSync().getRight() : null;
+        textDocumentOptions = serverCapabilities.getTextDocumentSync().isRight()
+                ? serverCapabilities.getTextDocumentSync().getRight() : null;
         textDocumentSyncKind =
                 serverCapabilities.getTextDocumentSync().isLeft() ? serverCapabilities.getTextDocumentSync().getLeft() :
                         null;
@@ -291,7 +292,8 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
-    public CompletableFuture<Either<List<? extends SymbolInformation>, List<? extends WorkspaceSymbol>>> symbol(WorkspaceSymbolParams params) {
+    public CompletableFuture<Either<List<? extends SymbolInformation>, List<? extends WorkspaceSymbol>>>
+            symbol(WorkspaceSymbolParams params) {
         if (checkStatus()) {
             try {
                 return Optional.ofNullable(serverCapabilities.getWorkspaceSymbolProvider())
@@ -301,14 +303,16 @@ public class DefaultRequestManager implements RequestManager {
                 crashed(e);
                 return null;
             }
-        } else
+        } else {
             return null;
+        }
     }
 
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
         if (checkStatus()) {
             try {
-                return serverCapabilities.getExecuteCommandProvider() != null ? workspaceService.executeCommand(params) : null;
+                return serverCapabilities.getExecuteCommandProvider() != null
+                        ? workspaceService.executeCommand(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -363,7 +367,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<TextEdit>> willSaveWaitUntil(WillSaveTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                return Optional.ofNullable(textDocumentOptions).map(TextDocumentSyncOptions::getWillSaveWaitUntil).orElse(false) ?
+                return Optional.ofNullable(textDocumentOptions)
+                        .map(TextDocumentSyncOptions::getWillSaveWaitUntil).orElse(false) ?
                         textDocumentService.willSaveWaitUntil(params) : null;
             } catch (Exception e) {
                 crashed(e);
@@ -403,7 +408,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getCompletionProvider() != null) ? textDocumentService.completion(params) : null;
+                return (serverCapabilities.getCompletionProvider() != null)
+                        ? textDocumentService.completion(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -416,7 +422,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<CompletionItem> resolveCompletionItem(CompletionItem unresolved) {
         if (checkStatus()) {
             try {
-                return (Optional.ofNullable(serverCapabilities.getCompletionProvider()).map(CompletionOptions::getResolveProvider).orElse(false)) ?
+                return (Optional.ofNullable(serverCapabilities.getCompletionProvider())
+                        .map(CompletionOptions::getResolveProvider).orElse(false)) ?
                         textDocumentService.resolveCompletionItem(unresolved) : null;
             } catch (Exception e) {
                 crashed(e);
@@ -457,7 +464,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<SignatureHelp> signatureHelp(SignatureHelpParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getSignatureHelpProvider() != null) ? textDocumentService.signatureHelp(params) : null;
+                return (serverCapabilities.getSignatureHelpProvider() != null)
+                        ? textDocumentService.signatureHelp(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -502,7 +510,8 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     @Override
-    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(DocumentSymbolParams params) {
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>
+            documentSymbol(DocumentSymbolParams params) {
         if (checkStatus()) {
             try {
                 return Optional.ofNullable(serverCapabilities.getDocumentSymbolProvider())
@@ -536,7 +545,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
         if (checkStatus()) {
             try {
-                return (serverCapabilities.getDocumentRangeFormattingProvider() != null) ? textDocumentService.rangeFormatting(params) : null;
+                return (serverCapabilities.getDocumentRangeFormattingProvider() != null)
+                        ? textDocumentService.rangeFormatting(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -560,12 +570,14 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(TextDocumentPositionParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>>
+            definition(TextDocumentPositionParams params) {
         return definition(new DefinitionParams(params.getTextDocument(), params.getPosition()));
     }
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>>
+            definition(DefinitionParams params) {
         if (checkStatus()) {
             try {
                 return Optional.ofNullable(serverCapabilities.getDefinitionProvider())
@@ -583,7 +595,8 @@ public class DefaultRequestManager implements RequestManager {
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
         if (checkStatus()) {
             try {
-                return checkCodeActionProvider(serverCapabilities.getCodeActionProvider()) ? textDocumentService.codeAction(params) : null;
+                return checkCodeActionProvider(serverCapabilities.getCodeActionProvider())
+                        ? textDocumentService.codeAction(params) : null;
             } catch (Exception e) {
                 crashed(e);
                 return null;
@@ -687,12 +700,14 @@ public class DefaultRequestManager implements RequestManager {
     }
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(ImplementationParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>>
+            implementation(ImplementationParams params) {
         return null;
     }
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> typeDefinition(TypeDefinitionParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>>
+            typeDefinition(TypeDefinitionParams params) {
         return null;
     }
 

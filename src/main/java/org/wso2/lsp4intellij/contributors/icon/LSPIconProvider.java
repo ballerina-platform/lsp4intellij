@@ -22,7 +22,8 @@ import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 
 import java.util.Map;
-import javax.swing.*;
+
+import javax.swing.Icon;
 
 public abstract class LSPIconProvider {
 
