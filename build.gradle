@@ -3,6 +3,7 @@ import java.util.Calendar
 plugins {
     id 'java'
     id 'jacoco'
+    id 'checkstyle'
     id 'signing'
     id 'org.jetbrains.intellij.platform' version '2.2.1'
     id 'com.github.hierynomus.license' version '0.16.1'
@@ -95,6 +96,15 @@ spotbugsMain {
 }
 
 spotbugsTest {
+    enabled = false
+}
+
+checkstyle {
+    toolVersion = '10.12.5'
+    configFile = file('config/checkstyle/checkstyle.xml')
+}
+
+checkstyleTest {
     enabled = false
 }
 
