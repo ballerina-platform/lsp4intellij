@@ -292,6 +292,7 @@ public class DefaultRequestManager implements RequestManager {
         }
     }
 
+    @Override
     public CompletableFuture<Either<List<? extends SymbolInformation>, List<? extends WorkspaceSymbol>>>
             symbol(WorkspaceSymbolParams params) {
         if (checkStatus()) {

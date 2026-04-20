@@ -33,7 +33,7 @@ public class LSPListener {
     }
 
     /**
-     * Checks if a manager is set, and logs and error if not the case.
+     * Checks if a manager is set, and logs an error if not the case.
      *
      * @return true or false depending on if the manager is set
      */

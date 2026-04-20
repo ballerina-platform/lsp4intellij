@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * The workspace symbole provider implementation based on LSP.
+ * The workspace symbol provider implementation based on LSP.
  *
  * @author gayanper
  */
