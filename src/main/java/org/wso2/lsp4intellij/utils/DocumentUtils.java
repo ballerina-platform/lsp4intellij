@@ -29,6 +29,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
 import javax.annotation.Nullable;
 
 import static java.lang.Math.max;
@@ -36,7 +37,7 @@ import static java.lang.Math.min;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 
 /**
- * Various methods to convert offsets / logical position / server position
+ * Various methods to convert offsets / logical position / server position.
  */
 public class DocumentUtils {
 
@@ -45,7 +46,7 @@ public class DocumentUtils {
     public static final String LINUX_SEPARATOR = "\n";
 
     /**
-     * Transforms a LogicalPosition (IntelliJ) to an LSP Position
+     * Transforms a LogicalPosition (IntelliJ) to an LSP Position.
      *
      * @param position the LogicalPosition
      * @param editor   The editor
@@ -57,7 +58,7 @@ public class DocumentUtils {
     }
 
     /**
-     * Transforms a LogicalPosition (IntelliJ) to an LSP Position
+     * Transforms a LogicalPosition (IntelliJ) to an LSP Position.
      *
      * @param position the LogicalPosition
      * @param editor   The editor
@@ -69,7 +70,7 @@ public class DocumentUtils {
     }
 
     /**
-     * Calculates a Position given an editor and an offset
+     * Calculates a Position given an editor and an offset.
      *
      * @param editor The editor
      * @param offset The offset
@@ -91,13 +92,13 @@ public class DocumentUtils {
     }
 
     /**
-     * Transforms an LSP position to an editor offset
+     * Transforms an LSP position to an editor offset.
      *
      * @param editor The editor
      * @param pos    The LSPPos
      * @return The offset
      */
-    public static int LSPPosToOffset(Editor editor, Position pos) {
+    public static int lspPosToOffset(Editor editor, Position pos) {
         return computableReadAction(() -> {
             if (editor == null) {
                 return -1;

@@ -17,7 +17,6 @@ package org.wso2.lsp4intellij;
 
 import com.intellij.DynamicBundle;
 import org.jetbrains.annotations.NonNls;
-
 import org.jetbrains.annotations.PropertyKey;
 
 /**

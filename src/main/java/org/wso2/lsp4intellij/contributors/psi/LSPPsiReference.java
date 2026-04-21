@@ -21,7 +21,7 @@ import com.intellij.psi.PsiPolyVariantReference;
 import com.intellij.psi.PsiReference;
 
 /**
- * A simple PsiReference for LSP
+ * A simple PsiReference for LSP.
  */
 public class LSPPsiReference implements PsiReference {
 

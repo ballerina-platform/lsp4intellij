@@ -22,7 +22,7 @@ import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 public class ReformatHandler {
 
     /**
-     * Reformat a file given its editor
+     * Reformat a file given its editor.
      *
      * @param editor The editor
      */
@@ -34,7 +34,7 @@ public class ReformatHandler {
     }
 
     /**
-     * Reformat a selection in a file given its editor
+     * Reformat a selection in a file given its editor.
      *
      * @param editor The editor
      */

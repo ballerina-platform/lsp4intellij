@@ -16,7 +16,7 @@
 package org.wso2.lsp4intellij.requests;
 
 /**
- * Enumeration for the timeouts
+ * Enumeration for the timeouts.
  */
 public enum Timeouts {
     CODEACTION(2000), CODELENS(2000), COMPLETION(1000), DEFINITION(2000), DOC_HIGHLIGHT(1000), EXECUTE_COMMAND(

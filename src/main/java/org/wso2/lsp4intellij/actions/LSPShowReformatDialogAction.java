@@ -35,12 +35,12 @@ import org.wso2.lsp4intellij.editor.EditorEventManager;
 import org.wso2.lsp4intellij.editor.EditorEventManagerBase;
 
 /**
- * Class overriding the default action handling the Reformat dialog event (CTRL+ALT+SHIFT+L by default)
+ * Class overriding the default action handling the Reformat dialog event (CTRL+ALT+SHIFT+L by default).
  * Fallback to the default action if the language is already supported or not supported by any language server
  */
 public class LSPShowReformatDialogAction extends ShowReformatFileDialog implements DumbAware {
-    private String HELP_ID = "editing.codeReformatting";
-    private final Logger LOG = Logger.getInstance(LSPShowReformatDialogAction.class);
+    private static final String HELP_ID = "editing.codeReformatting";
+    private static final Logger LOG = Logger.getInstance(LSPShowReformatDialogAction.class);
 
     @Override
     public void actionPerformed(AnActionEvent e) {

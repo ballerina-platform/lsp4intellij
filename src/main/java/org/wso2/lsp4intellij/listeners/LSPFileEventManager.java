@@ -47,17 +47,17 @@ class LSPFileEventManager {
     private static final Logger LOG = Logger.getInstance(LSPFileEventManager.class);
 
     /**
-     * Indicates that a document will be saved
+     * Indicates that a document will be saved.
      *
      * @param doc The document
      */
     static void willSave(Document doc) {
-        String uri = FileUtils.VFSToURI(FileDocumentManager.getInstance().getFile(doc));
+        String uri = FileUtils.vfsToUri(FileDocumentManager.getInstance().getFile(doc));
         EditorEventManagerBase.willSave(uri);
     }
 
     /**
-     * Indicates that all documents will be saved
+     * Indicates that all documents will be saved.
      */
     static void willSaveAllDocuments() {
         EditorEventManagerBase.willSaveAll();
@@ -73,7 +73,7 @@ class LSPFileEventManager {
         if (!FileUtils.isFileSupported(file)) {
             return;
         }
-        String uri = FileUtils.VFSToURI(file);
+        String uri = FileUtils.vfsToUri(file);
         if (uri == null) {
             return;
         }
@@ -97,8 +97,8 @@ class LSPFileEventManager {
                 return;
             }
 
-            String newFileUri = FileUtils.VFSToURI(file);
-            String oldParentUri = FileUtils.VFSToURI(event.getOldParent());
+            String newFileUri = FileUtils.vfsToUri(file);
+            String oldParentUri = FileUtils.vfsToUri(event.getOldParent());
             if (newFileUri == null || oldParentUri == null) {
                 return;
             }
@@ -118,7 +118,7 @@ class LSPFileEventManager {
         if (!FileUtils.isFileSupported(file)) {
             return;
         }
-        String uri = FileUtils.VFSToURI(file);
+        String uri = FileUtils.vfsToUri(file);
         if (uri == null) {
             return;
         }
@@ -137,8 +137,9 @@ class LSPFileEventManager {
     static void fileRenamed(String oldFileName, String newFileName) {
         ApplicationUtils.invokeAfterPsiEvents(() -> {
             try {
-                // Getting the right file is not trivial here since we only have the file name. Since we have to iterate over
-                // all opened projects and filter based on the file name.
+                // Getting the right file is not trivial here since we only
+                // have the file name. Since we have to iterate over all
+                // opened projects and filter based on the file name.
                 Set<VirtualFile> files = Arrays.stream(ProjectManager.getInstance().getOpenProjects())
                     .flatMap(p -> Arrays.stream(searchFiles(newFileName, p)))
                     .map(PsiFile::getVirtualFile)
@@ -148,7 +149,7 @@ class LSPFileEventManager {
                     if (!FileUtils.isFileSupported(file)) {
                         continue;
                     }
-                    String newFileUri = FileUtils.VFSToURI(file);
+                    String newFileUri = FileUtils.vfsToUri(file);
                     String oldFileUri = newFileUri.replace(file.getName(), oldFileName);
                     closeAndReopenAffectedFile(file, oldFileUri);
                 }
@@ -159,7 +160,7 @@ class LSPFileEventManager {
     }
 
     private static void closeAndReopenAffectedFile(VirtualFile file, String oldFileUri) {
-        String newFileUri = FileUtils.VFSToURI(file);
+        String newFileUri = FileUtils.vfsToUri(file);
 
         // Notifies the language server.
         FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(oldFileUri,
@@ -169,8 +170,10 @@ class LSPFileEventManager {
 
         FileUtils.findProjectsFor(file).forEach(p -> {
             // Detaches old file from the wrappers.
-            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient.getAllServerWrappersFor(FileUtils.projectToUri(p));
-            wrappers.forEach(wrapper -> wrapper.disconnect(oldFileUri, FileUtils.projectToUri(p)));
+            Set<LanguageServerWrapper> wrappers = IntellijLanguageClient
+                    .getAllServerWrappersFor(FileUtils.projectToUri(p));
+            wrappers.forEach(wrapper -> wrapper.disconnect(
+                    oldFileUri, FileUtils.projectToUri(p)));
             if (!newFileUri.equals(oldFileUri)) {
                 // TODO: abort if the file was not opened prior to this operation
                 // Re-open file to so that the new editor will be connected to the language server.
@@ -193,7 +196,7 @@ class LSPFileEventManager {
         if (!FileUtils.isFileSupported(file)) {
             return;
         }
-        String uri = FileUtils.VFSToURI(file);
+        String uri = FileUtils.vfsToUri(file);
         if (uri != null) {
             ApplicationUtils.invokeAfterPsiEvents(() -> {
                 FileUtils.findProjectsFor(file).forEach(p -> changedConfiguration(uri,

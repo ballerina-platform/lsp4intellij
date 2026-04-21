@@ -68,11 +68,12 @@ import javax.swing.Icon;
 public class DefaultLanguageClient implements LanguageClient {
 
     @NotNull
-    final private Logger LOG = Logger.getInstance(DefaultLanguageClient.class);
+    private static final Logger LOG = Logger.getInstance(DefaultLanguageClient.class);
     @NotNull
-    private final NotificationGroup STICKY_NOTIFICATION_GROUP = NotificationGroupManager.getInstance().getNotificationGroup("lsp");
+    private static final NotificationGroup STICKY_NOTIFICATION_GROUP =
+            NotificationGroupManager.getInstance().getNotificationGroup("lsp");
     @NotNull
-    final private Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
+    private final Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
     @NotNull
     private final ClientContext context;
     protected boolean isModal = false;
@@ -217,7 +218,8 @@ public class DefaultLanguageClient implements LanguageClient {
 
         } else {
 
-            final Notification notification = STICKY_NOTIFICATION_GROUP.createNotification(title, null, message, getNotificationType(msgType));
+            final Notification notification = STICKY_NOTIFICATION_GROUP
+                    .createNotification(title, null, message, getNotificationType(msgType));
             final CompletableFuture<Integer> integerCompletableFuture = new CompletableFuture<>();
             for (int i = 0, optionsSize = options.length; i < optionsSize; i++) {
                 int finalI = i;
@@ -296,7 +298,7 @@ public class DefaultLanguageClient implements LanguageClient {
         String token;
         if (params.getToken().getLeft() != null) {
             token = params.getToken().getLeft();
-        } else if (params.getToken().getRight() != null){
+        } else if (params.getToken().getRight() != null) {
             token = params.getToken().getRight().toString();
         } else {
             return null;
@@ -314,7 +316,7 @@ public class DefaultLanguageClient implements LanguageClient {
         String token;
         if (params.getToken().getLeft() != null) {
             token = params.getToken().getLeft();
-        } else if (params.getToken().getRight() != null){
+        } else if (params.getToken().getRight() != null) {
             token = params.getToken().getRight().toString();
         } else {
             return;

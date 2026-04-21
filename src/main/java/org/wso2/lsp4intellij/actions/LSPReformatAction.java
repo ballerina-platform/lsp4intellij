@@ -29,11 +29,11 @@ import org.wso2.lsp4intellij.IntellijLanguageClient;
 import org.wso2.lsp4intellij.requests.ReformatHandler;
 
 /**
- * Action overriding the default reformat action
+ * Action overriding the default reformat action.
  * Fallback to the default action if the language is already supported or not supported by any language server
  */
 public class LSPReformatAction extends ReformatCodeAction implements DumbAware {
-    private final Logger LOG = Logger.getInstance(LSPReformatAction.class);
+    private static final Logger LOG = Logger.getInstance(LSPReformatAction.class);
 
     @Override
     public void actionPerformed(AnActionEvent e) {

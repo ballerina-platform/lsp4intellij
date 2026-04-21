@@ -100,21 +100,21 @@ public class FileUtilsTest {
     }
 
     @Test
-    public void testVFSToURI() {
+    public void testvfsToUri() {
         VirtualFile virtualFile = mock(VirtualFile.class);
         when(virtualFile.getPath()).thenReturn("/fooBar");
         
         // Set Unix OS for predictable behavior
         FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
         
-        String result = FileUtils.VFSToURI(virtualFile);
+        String result = FileUtils.vfsToUri(virtualFile);
         Assert.assertNotNull(result);
         Assert.assertTrue(result.startsWith("file:///"));
     }
 
     @Test
-    public void testVFSToURINull() {
-        Assert.assertNull(FileUtils.VFSToURI(null));
+    public void testvfsToUriNull() {
+        Assert.assertNull(FileUtils.vfsToUri(null));
     }
 
     @Test
@@ -148,7 +148,7 @@ public class FileUtilsTest {
     }
 
     @Test
-    public void testURIToVFS() {
+    public void testuriToVfs() {
         // Set Unix OS for predictable behavior
         FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
         
@@ -156,13 +156,13 @@ public class FileUtilsTest {
         VirtualFile expectedFile = new BinaryLightVirtualFile("testFile");
         FileUtils.setLocalFileSystemProvider(file -> expectedFile);
 
-        VirtualFile result = FileUtils.URIToVFS("file:///foobar");
+        VirtualFile result = FileUtils.uriToVfs("file:///foobar");
         Assert.assertNotNull(result);
         Assert.assertEquals(expectedFile.toString(), result.toString());
     }
 
     @Test
-    public void testURIToVFSInvalidUri() {
+    public void testuriToVfsInvalidUri() {
         // Set Unix OS for predictable behavior
         FileUtils.setOSProvider(() -> FileUtils.OS.UNIX);
         
@@ -170,7 +170,7 @@ public class FileUtilsTest {
         FileUtils.setLocalFileSystemProvider(file -> null);
         
         // For URIs that don't exist, the method returns null
-        VirtualFile result = FileUtils.URIToVFS("file:///nonexistent/path");
+        VirtualFile result = FileUtils.uriToVfs("file:///nonexistent/path");
         Assert.assertNull(result);
     }
 

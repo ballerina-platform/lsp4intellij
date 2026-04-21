@@ -20,7 +20,7 @@ import com.intellij.openapi.editor.event.EditorMouseMotionListener;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Class listening for mouse movement in an editor (used for hover)
+ * Class listening for mouse movement in an editor (used for hover).
  */
 public class EditorMouseMotionListenerImpl extends LSPListener implements EditorMouseMotionListener {
 

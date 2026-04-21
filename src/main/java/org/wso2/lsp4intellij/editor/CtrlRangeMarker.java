@@ -20,7 +20,7 @@ import com.intellij.openapi.editor.markup.RangeHighlighter;
 import org.eclipse.lsp4j.Location;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 
-import java.awt.*;
+import java.awt.Cursor;
 
 public class CtrlRangeMarker {
 
@@ -44,12 +44,12 @@ public class CtrlRangeMarker {
     }
 
     boolean definitionContainsOffset(int offset) {
-        return DocumentUtils.LSPPosToOffset(editor, location.getRange().getStart()) <= offset && offset <= DocumentUtils
-                .LSPPosToOffset(editor, location.getRange().getEnd());
+        return DocumentUtils.lspPosToOffset(editor, location.getRange().getStart()) <= offset && offset <= DocumentUtils
+                .lspPosToOffset(editor, location.getRange().getEnd());
     }
 
     /**
-     * Removes the highlighter and restores the default cursor
+     * Removes the highlighter and restores the default cursor.
      */
     void dispose() {
         if (!isDefinition()) {
@@ -59,7 +59,7 @@ public class CtrlRangeMarker {
     }
 
     /**
-     * If the marker points to the definition itself
+     * If the marker points to the definition itself.
      */
     boolean isDefinition() {
         return range == null;

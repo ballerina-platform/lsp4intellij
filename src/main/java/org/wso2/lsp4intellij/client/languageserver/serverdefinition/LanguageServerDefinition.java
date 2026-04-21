@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * A trait representing a ServerDefinition
+ * A trait representing a ServerDefinition.
  */
 public class LanguageServerDefinition {
 
@@ -42,7 +42,7 @@ public class LanguageServerDefinition {
     public static final String SPLIT_CHAR = ",";
 
     /**
-     * Starts a Language server for the given directory and returns a tuple (InputStream, OutputStream)
+     * Starts a Language server for the given directory and returns a tuple (InputStream, OutputStream).
      *
      * @param workingDir The root directory
      * @return The input and output streams of the server
@@ -51,17 +51,19 @@ public class LanguageServerDefinition {
     public Pair<InputStream, OutputStream> start(String workingDir) throws IOException {
         StreamConnectionProvider streamConnectionProvider = streamConnectionProviders.get(workingDir);
         if (streamConnectionProvider != null) {
-            return new ImmutablePair<>(streamConnectionProvider.getInputStream(), streamConnectionProvider.getOutputStream());
+            return new ImmutablePair<>(streamConnectionProvider.getInputStream(),
+                    streamConnectionProvider.getOutputStream());
         } else {
             streamConnectionProvider = createConnectionProvider(workingDir);
             streamConnectionProvider.start();
             streamConnectionProviders.put(workingDir, streamConnectionProvider);
-            return new ImmutablePair<>(streamConnectionProvider.getInputStream(), streamConnectionProvider.getOutputStream());
+            return new ImmutablePair<>(streamConnectionProvider.getInputStream(),
+                    streamConnectionProvider.getOutputStream());
         }
     }
 
     /**
-     * Stops the Language server corresponding to the given working directory
+     * Stops the Language server corresponding to the given working directory.
      *
      * @param workingDir The root directory
      */
@@ -102,7 +104,7 @@ public class LanguageServerDefinition {
     }
 
     /**
-     * Creates a StreamConnectionProvider given the working directory
+     * Creates a StreamConnectionProvider given the working directory.
      *
      * @param workingDir The root directory
      * @return The stream connection provider

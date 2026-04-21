@@ -62,7 +62,7 @@ import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
 import static org.wso2.lsp4intellij.utils.DocumentUtils.toEither;
 
 /**
- * An Object handling WorkspaceEdits
+ * An Object handling WorkspaceEdits.
  */
 public class WorkspaceEditHandler {
 
@@ -107,7 +107,7 @@ public class WorkspaceEditHandler {
     }
 
     /**
-     * Applies a WorkspaceEdit
+     * Applies a WorkspaceEdit.
      *
      * @param edit    The edit
      * @param name    edit name
@@ -136,7 +136,8 @@ public class WorkspaceEditHandler {
                         EditorEventManager manager = EditorEventManagerBase.forUri(uri);
                         if (manager != null) {
                             curProject[0] = manager.editor.getProject();
-                            toApply.add(manager.getEditsRunnable(version, toEither(textEdit.getEdits()), newName, true));
+                            toApply.add(manager.getEditsRunnable(
+                            version, toEither(textEdit.getEdits()), newName, true));
                         } else {
                             toApply.add(
                                     manageUnopenedEditor(textEdit.getEdits(), uri, version, openedEditors, curProject,
@@ -183,7 +184,7 @@ public class WorkspaceEditHandler {
     }
 
     /**
-     * Opens an editor when needed and gets the Runnable
+     * Opens an editor when needed and gets the Runnable.
      *
      * @param edits         The text edits
      * @param uri           The uri of the file
@@ -198,7 +199,7 @@ public class WorkspaceEditHandler {
         Project[] projects = ProjectManager.getInstance().getOpenProjects();
         //Infer the project from the uri
         Project project = Stream.of(projects)
-                .map(p -> new ImmutablePair<>(FileUtils.VFSToURI(ProjectUtil.guessProjectDir(p)), p))
+                .map(p -> new ImmutablePair<>(FileUtils.vfsToUri(ProjectUtil.guessProjectDir(p)), p))
                 .filter(p -> uri.startsWith(p.getLeft())).sorted(Collections.reverseOrder())
                 .map(ImmutablePair::getRight).findFirst().orElse(projects[0]);
         VirtualFile file = null;

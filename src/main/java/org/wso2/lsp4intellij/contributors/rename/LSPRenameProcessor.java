@@ -68,14 +68,20 @@ public class LSPRenameProcessor extends RenamePsiElementProcessor {
                                                    boolean searchInCommentsAndStrings) {
         if (element instanceof LSPPsiElement) {
             if (elements.contains(element)) {
-                return elements.stream().map(PsiElement::getReference).filter(Objects::nonNull).collect(Collectors.toList());
+                return elements.stream().map(PsiElement::getReference)
+                        .filter(Objects::nonNull).collect(Collectors.toList());
             }
-            EditorEventManager manager = EditorEventManagerBase.forEditor(FileUtils.editorFromPsiFile(element.getContainingFile()));
+            EditorEventManager manager = EditorEventManagerBase.forEditor(
+                    FileUtils.editorFromPsiFile(element.getContainingFile()));
             if (manager != null) {
-                Pair<List<PsiElement>, List<VirtualFile>> refs = manager.references(element.getTextOffset(), true, false);
+                Pair<List<PsiElement>, List<VirtualFile>> refs =
+                        manager.references(element.getTextOffset(), true, false);
                 if (refs.getFirst() != null && refs.getSecond() != null) {
                     addEditors(refs.getSecond());
-                    return refs.getFirst().stream().map(PsiElement::getReference).filter(Objects::nonNull).collect(Collectors.toList());
+                    return refs.getFirst().stream()
+                            .map(PsiElement::getReference)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
                 }
             }
         }

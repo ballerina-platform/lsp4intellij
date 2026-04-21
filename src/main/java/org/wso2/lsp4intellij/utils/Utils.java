@@ -20,12 +20,12 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Object containing some useful methods for the plugin
+ * Object containing some useful methods for the plugin.
  */
 public class Utils {
 
     /**
-     * Transforms an array into a string (using mkString, useful for Java)
+     * Transforms an array into a string (using mkString, useful for Java).
      *
      * @param arr The array
      * @param sep A separator
@@ -37,7 +37,7 @@ public class Utils {
     }
 
     /**
-     * Concatenate multiple arrays
+     * Concatenate multiple arrays.
      *
      * @param arr The arrays
      * @return The concatenated arrays

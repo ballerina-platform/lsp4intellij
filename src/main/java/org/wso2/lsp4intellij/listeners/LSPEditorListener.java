@@ -24,13 +24,13 @@ import org.wso2.lsp4intellij.IntellijLanguageClient;
 public class LSPEditorListener implements EditorFactoryListener {
 
     public void editorReleased(@NotNull EditorFactoryEvent editorFactoryEvent) {
-        if(editorFactoryEvent.getEditor().getEditorKind() == EditorKind.MAIN_EDITOR){
+        if (editorFactoryEvent.getEditor().getEditorKind() == EditorKind.MAIN_EDITOR) {
             IntellijLanguageClient.editorClosed(editorFactoryEvent.getEditor());
         }
     }
 
     public void editorCreated(@NotNull EditorFactoryEvent editorFactoryEvent) {
-        if(editorFactoryEvent.getEditor().getEditorKind() == EditorKind.MAIN_EDITOR) {
+        if (editorFactoryEvent.getEditor().getEditorKind() == EditorKind.MAIN_EDITOR) {
             IntellijLanguageClient.editorOpened(editorFactoryEvent.getEditor());
         }
     }

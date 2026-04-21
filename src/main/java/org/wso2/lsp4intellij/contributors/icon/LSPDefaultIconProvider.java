@@ -30,9 +30,9 @@ import javax.swing.Icon;
 
 public class LSPDefaultIconProvider extends LSPIconProvider {
 
-    private final static Icon GREEN = IconLoader.getIcon("/images/started.png", LSPDefaultIconProvider.class);
-    private final static Icon YELLOW = IconLoader.getIcon("/images/starting.png", LSPDefaultIconProvider.class);
-    private final static Icon RED = IconLoader.getIcon("/images/stopped.png", LSPDefaultIconProvider.class);
+    private static final Icon GREEN = IconLoader.getIcon("/images/started.png", LSPDefaultIconProvider.class);
+    private static final Icon YELLOW = IconLoader.getIcon("/images/starting.png", LSPDefaultIconProvider.class);
+    private static final Icon RED = IconLoader.getIcon("/images/stopped.png", LSPDefaultIconProvider.class);
 
     public Icon getCompletionIcon(CompletionItemKind kind) {
 

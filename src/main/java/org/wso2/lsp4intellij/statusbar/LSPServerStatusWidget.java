@@ -41,14 +41,16 @@ import org.wso2.lsp4intellij.contributors.icon.LSPDefaultIconProvider;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.utils.GUIUtils;
 
-import java.awt.*;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Point;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.swing.*;
+import javax.swing.Icon;
 
 public class LSPServerStatusWidget implements StatusBarWidget {
 
@@ -84,7 +86,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
     }
 
     /**
-     * Sets the status of the server
+     * Sets the status of the server.
      *
      * @param status The new status
      */
@@ -136,7 +138,9 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                 JBPopupFactory.ActionSelectionAid mnemonics = JBPopupFactory.ActionSelectionAid.MNEMONICS;
                 Component component = t.getComponent();
                 List<AnAction> actions = new ArrayList<>();
-                if (LanguageServerWrapper.forProject(project)!= null && LanguageServerWrapper.forProject(project).getStatus() == ServerStatus.INITIALIZED) {
+                if (LanguageServerWrapper.forProject(project) != null
+                    && LanguageServerWrapper.forProject(project).getStatus()
+                    == ServerStatus.INITIALIZED) {
                     actions.add(new ShowConnectedFiles());
                 }
                 actions.add(new ShowTimeouts());
@@ -164,9 +168,12 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
-                StringBuilder connectedFiles = new StringBuilder(Lsp4IntellijBundle.message("connected.files.prefix"));
-                LanguageServerWrapper.forProject(project).getConnectedFiles().forEach(f -> connectedFiles.append(System.lineSeparator()).append(f));
-                Messages.showInfoMessage(connectedFiles.toString(), Lsp4IntellijBundle.message("connected.files.title"));
+                StringBuilder connectedFiles = new StringBuilder(
+                        Lsp4IntellijBundle.message("connected.files.prefix"));
+                LanguageServerWrapper.forProject(project).getConnectedFiles()
+                        .forEach(f -> connectedFiles.append(System.lineSeparator()).append(f));
+                Messages.showInfoMessage(connectedFiles.toString(),
+                        Lsp4IntellijBundle.message("connected.files.title"));
             }
         }
 

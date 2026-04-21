@@ -19,12 +19,12 @@ import com.intellij.openapi.diagnostic.Logger;
 import org.wso2.lsp4intellij.editor.EditorEventManager;
 
 public class LSPListener {
-    private final Logger LOG = Logger.getInstance(LSPListener.class);
+    private static final Logger LOG = Logger.getInstance(LSPListener.class);
     protected EditorEventManager manager = null;
     protected boolean enabled = true;
 
     /**
-     * Sets the manager for this listener
+     * Sets the manager for this listener.
      *
      * @param manager The manager
      */
@@ -33,7 +33,7 @@ public class LSPListener {
     }
 
     /**
-     * Checks if a manager is set, and logs and error if not the case
+     * Checks if a manager is set, and logs an error if not the case.
      *
      * @return true or false depending on if the manager is set
      */
