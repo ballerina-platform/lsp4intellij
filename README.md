@@ -130,8 +130,13 @@ Add a preloading activity to initialize and configure LSP support:
 ```java
 public class BallerinaPreloadingActivity extends PreloadingActivity {
     @Override
-    public void preload(ProgressIndicator indicator) {
+    public void preload() {
         IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
+    }
+
+    @Override
+    public void preload(ProgressIndicator indicator) {
+        preload();
     }
 }
 ```
