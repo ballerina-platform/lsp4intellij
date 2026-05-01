@@ -12,15 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.event.repository.full_name
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: ''
-      - run: |
-          git fetch --prune --unshallow
+          fetch-depth: 0
       - name: Set up JDK 17
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v4
         with:
           java-version: 17
+          distribution: temurin
       - name: SonarCloud Scan
         run: ./gradlew check sonarqube
         env:
