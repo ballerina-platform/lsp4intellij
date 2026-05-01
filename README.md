@@ -13,6 +13,7 @@ Designed for plugin developers, it facilitates integration with LSP-based featur
 
 ## Table of Contents
 
+- [IDE Compatibility Matrix](#ide-compatibility-matrix)
 - [How to Use](#how-to-use)
 - [Features](#features)
     - [Code Completion](#code-completion-with-code-snippet-support)
@@ -29,6 +30,31 @@ Designed for plugin developers, it facilitates integration with LSP-based featur
 - [License](#license)
 - [Inspiration](#inspiration)
 - [Useful Links](#useful-links)
+
+---
+
+## IDE Compatibility Matrix
+
+The table below lists the IntelliJ IDEA version range each released `lsp4intellij` artifact is known to be compatible with. Because `lsp4intellij` is consumed as a library, your plugin's own `plugin.xml` ultimately controls runtime compatibility — but picking a library version whose range overlaps your plugin's target avoids API surface mismatches.
+
+| LSP4IntelliJ | Compatible IDEA versions |
+|--------------|--------------------------|
+| `0.96.2`     | 2021.1 – 2024.2          |
+| `0.96.1`     | 2021.1 – 2024.2          |
+| `0.96.0`     | 2021.1 – 2024.2          |
+| `0.95.2`     | 2021.1 – 2024.2          |
+| `0.95.1`     | 2021.1 – 2024.2          |
+| `0.95.0`     | 2021.1 – 2024.2          |
+| `0.94.2`     | 2017.3 – 2020.3          |
+| `0.94.0`     | 2017.3 – 2020.3          |
+| `0.92.1`     | 2017.3 – 2020.3          |
+| `0.91.0`     | 2017.3 – 2020.3          |
+| `0.9.0`      | 2017.3 – 2020.3          |
+| `0.8.0`      | 2017.3 – 2020.3          |
+| `0.1.1`      | 2017.3 – 2020.3          |
+| `0.1.0`      | 2017.3 – 2020.3          |
+
+> **Note:** Ranges reflect the IDEA versions covered while each release line was actively maintained. No upper bound (`untilBuild`) is enforced in the artifact itself, so newer IDEs are not artificially blocked — but compatibility outside the listed range is unverified and depends on whether the IntelliJ Platform APIs used by the library remain available in the target IDE.
 
 ---
 
