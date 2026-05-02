@@ -52,6 +52,8 @@ The table below groups released `lsp4intellij` artifacts by the IntelliJ IDEA ve
 
 ## Projects Powered by LSP4IntelliJ
 
+The table below lists known projects using `lsp4intellij`. If your project is missing or should be removed, please open a PR.
+
 | Project                                 | Repository                                                                                                  | Focus                          |
 |-----------------------------------------|-------------------------------------------------------------------------------------------------------------|--------------------------------|
 | 1C:Enterprise BSL Language Support      | [1c-syntax/intellij-language-1c-bsl](https://github.com/1c-syntax/intellij-language-1c-bsl)                 | 1C BSL / OScript               |
@@ -416,7 +418,7 @@ A huge thanks to all the amazing contributors! 🚀
 
 ## Inspiration
 
-`Lsp4IntelliJ` is heavily inspired by the [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community.
+`LSP4IntelliJ` is heavily inspired by the [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community.
 Credits should go to the original author for his astounding work.
 
 
