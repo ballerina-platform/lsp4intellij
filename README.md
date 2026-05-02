@@ -14,6 +14,7 @@ Designed for plugin developers, it facilitates integration with LSP-based featur
 ## Table of Contents
 
 - [IDE Compatibility Matrix](#ide-compatibility-matrix)
+- [Projects Powered by LSP4IntelliJ](#projects-powered-by-lsp4intellij)
 - [How to Use](#how-to-use)
 - [Features](#features)
     - [Code Completion](#code-completion-with-code-snippet-support)
@@ -28,6 +29,7 @@ Designed for plugin developers, it facilitates integration with LSP-based featur
 - [User API](#user-api)
     - [Timeouts](#timeouts)
 - [License](#license)
+- [Contributors](#contributors)
 - [Inspiration](#inspiration)
 - [Useful Links](#useful-links)
 
@@ -55,6 +57,32 @@ The table below lists the IntelliJ IDEA version range each released `lsp4intelli
 | `0.1.0`      | 2017.3 – 2020.3          |
 
 > **Note:** Ranges reflect the IDEA versions covered while each release line was actively maintained. No upper bound (`untilBuild`) is enforced in the artifact itself, so newer IDEs are not artificially blocked — but compatibility outside the listed range is unverified and depends on whether the IntelliJ Platform APIs used by the library remain available in the target IDE.
+
+---
+
+## Projects Powered by LSP4IntelliJ
+
+| Project                                 | Repository                                                                                                  | Focus                          |
+|-----------------------------------------|-------------------------------------------------------------------------------------------------------------|--------------------------------|
+| 1C:Enterprise BSL Language Support      | [1c-syntax/intellij-language-1c-bsl](https://github.com/1c-syntax/intellij-language-1c-bsl)                 | 1C BSL / OScript               |
+| AWS Smithy IntelliJ                     | [awslabs/smithy-intellij](https://github.com/awslabs/smithy-intellij)                                       | Smithy IDL                     |
+| Ballerina IntelliJ Plugin               | [ballerina-platform/plugin-intellij](https://github.com/ballerina-platform/plugin-intellij)                 | Ballerina                      |
+| Cadence for IntelliJ Platform           | [cadence-tools/cadence-for-intellij-platform](https://github.com/cadence-tools/cadence-for-intellij-platform) | Cadence (Flow blockchain)      |
+| Chester IntelliJ Plugin                 | [chester-lang/chester](https://github.com/chester-lang/chester)                                             | Chester                        |
+| CSL IntelliJ Extension                  | [nullptr-0/csl](https://github.com/nullptr-0/csl)                                                           | CSL                            |
+| DiveKit Language Plugin                 | [divekit/divekit-language-plugin-intellij](https://github.com/divekit/divekit-language-plugin-intellij)     | DiveKit                        |
+| EO IntelliJ LSP Plugin                  | [GeorgySabaev/eo-intellij-lsp-plugin](https://github.com/GeorgySabaev/eo-intellij-lsp-plugin)               | EO                             |
+| IntelliJ Jsonnet                        | [zzehring/intellij-jsonnet](https://github.com/zzehring/intellij-jsonnet)                                   | Jsonnet                        |
+| IntelliJ V                              | [nedpals/intellij-vlang](https://github.com/nedpals/intellij-vlang)                                         | V                              |
+| Marko.js IntelliJ Plugin                | [biaspro/markojs-intellij-plugin](https://github.com/biaspro/markojs-intellij-plugin)                       | Marko.js                       |
+| nimtellij                               | [observant2/nimtellij](https://github.com/observant2/nimtellij)                                             | Nim                            |
+| Robot Framework LSP (IntelliJ client)   | [robocorp/robotframework-lsp](https://github.com/robocorp/robotframework-lsp)                               | Robot Framework                |
+| Seedwing Enforcer IntelliJ              | [seedwing-io/seedwing-enforcer-intellij-plugin](https://github.com/seedwing-io/seedwing-enforcer-intellij-plugin) | Seedwing policy           |
+| Spring Tools for IDEA                   | [gayanper/idea-spring-tools](https://github.com/gayanper/idea-spring-tools)                                 | Spring config / properties     |
+| Valkyrie IntelliJ                       | [valkyrie-language/valkyrie-intellij](https://github.com/valkyrie-language/valkyrie-intellij)               | Valkyrie                       |
+| WDL IDE                                 | [broadinstitute/wdl-ide](https://github.com/broadinstitute/wdl-ide)                                         | Workflow Description Language  |
+| Yarn Spinner JetBrains Plugin           | [dogboydog/yarnspinner-jetbrains-plugin](https://github.com/dogboydog/yarnspinner-jetbrains-plugin)         | Yarn Spinner (game dialogue)   |
+| Yggdrasil IntelliJ                      | [ygg-lang/yggdrasil-intellij](https://github.com/ygg-lang/yggdrasil-intellij)                               | Yggdrasil grammar              |
 
 ---
 
@@ -389,17 +417,17 @@ The LspIntelliJ language client provides following methods related to timeout co
 The LSP4Intellij code is distributed under the [Apache license 2.0](LICENSE).
 
 
-## Inspiration
-
-`Lsp4IntelliJ` is heavily inspired by the [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community.
-Credits should go to the original author for his astounding work.
-
-
 ## Contributors
 
 A huge thanks to all the amazing contributors! 🚀
 
 <a href="https://github.com/ballerina-platform/lsp4intellij/pulse"> <img align="center" src="https://contrib.rocks/image?max=100&repo=ballerina-platform/lsp4intellij" /> </a> 
+
+
+## Inspiration
+
+`Lsp4IntelliJ` is heavily inspired by the [intellij-lsp](https://github.com/gtache/intellij-lsp) plugin community.
+Credits should go to the original author for his astounding work.
 
 
 ## Useful links
