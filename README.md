@@ -1,7 +1,9 @@
-# [LSP4IntelliJ](#lsp4intellij) - Language Server Protocol Support for JetBrains Plugins
+# LSP4IntelliJ - Language Server Protocol Support for JetBrains Plugins
 
 [![Build status](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml/badge.svg)](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml)
-[![](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
+[![JitPack](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
+[![License](https://img.shields.io/github/license/ballerina-platform/lsp4intellij.svg)](LICENSE)
+[![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ%20IDEA-2021.1%2B-blue.svg)](#compatibility-matrix)
 [![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)
 [![Gitter](https://badges.gitter.im/ballerina-platform-lsp4intellij/community.svg)](https://gitter.im/ballerina-platform-lsp4intellij/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
@@ -13,25 +15,37 @@ Designed for plugin developers, it facilitates integration with LSP-based featur
 
 ## Table of Contents
 
+<!-- The TOC below is auto-generated. To regenerate after editing headings, run: npx markdown-toc -i README.md --maxdepth 4 -->
+<!-- toc -->
+
 - [Compatibility Matrix](#compatibility-matrix)
 - [Projects Powered by LSP4IntelliJ](#projects-powered-by-lsp4intellij)
+- [Quick Start](#quick-start)
 - [How to Use](#how-to-use)
+  * [1. Add the `lsp4intellij` dependency](#1-add-the-lsp4intellij-dependency)
+  * [2. Add a `plugin.xml` file](#2-add-a-pluginxml-file)
+  * [3. Configure preloading activity](#3-configure-preloading-activity)
+  * [4. Confirm language server connection](#4-confirm-language-server-connection)
+    + [Alternative ways to connect to a language server](#alternative-ways-to-connect-to-a-language-server)
+    + [Custom initialization parameters](#custom-initialization-parameters)
 - [Features](#features)
-    - [Code Completion](#code-completion-with-code-snippet-support)
-    - [Code Formatting](#code-formatting)
-    - [Diagnostics](#diagnostics)
-    - [Code Actions](#code-actions)
-    - [Goto Definition](#go-to-definition)
-    - [Goto References / Find Usages](#goto-references--find-usages)
-    - [Hover Support](#hover-support)
-    - [Workspace Symbols](#workspace-symbols)
-    - [Renaming Support](#renaming-support)
+    + [Code Completion (with code snippet support)](#code-completion-with-code-snippet-support)
+    + [Code Formatting](#code-formatting)
+    + [Diagnostics](#diagnostics)
+    + [Code Actions](#code-actions)
+    + [Go to Definition](#go-to-definition)
+    + [Go to References / Find Usages](#go-to-references--find-usages)
+    + [Hover Support](#hover-support)
+    + [Workspace Symbols](#workspace-symbols)
+    + [Renaming Support](#renaming-support)
 - [User API](#user-api)
-    - [Timeouts](#timeouts)
+  * [Timeouts](#timeouts)
 - [License](#license)
 - [Contributors](#contributors)
 - [Inspiration](#inspiration)
 - [Useful Links](#useful-links)
+
+<!-- tocstop -->
 
 ---
 
@@ -78,7 +92,42 @@ The table below lists known projects using `lsp4intellij`. If your project is mi
 
 ---
 
-## How to use
+## Quick Start
+
+The minimum integration is three pieces: add the dependency, register a language server in a preloading activity, and wire that activity into `plugin.xml`. Replace the command and file extension with your own.
+
+**`build.gradle`** — see [JitPack](https://jitpack.io/#ballerina-platform/lsp4intellij) for Maven and SBT snippets.
+
+```gradle
+implementation 'com.github.ballerina-platform:lsp4intellij:<version>'
+```
+
+**Preloading activity**
+
+```java
+public class MyLspPreloader extends PreloadingActivity {
+    @Override
+    public void preload(@NotNull ProgressIndicator indicator) {
+        IntellijLanguageClient.addServerDefinition(
+            new RawCommandServerDefinition("mylang", new String[]{"path/to/language-server"}));
+    }
+}
+```
+
+**`plugin.xml`**
+
+```xml
+<extensions defaultExtensionNs="com.intellij">
+    <preloadingActivity implementation="com.example.MyLspPreloader"
+                        id="com.example.MyLspPreloader"/>
+</extensions>
+```
+
+A green icon in the IDE's bottom-right confirms a successful connection. See [How to Use](#how-to-use) below for the full set of `plugin.xml` extension points, alternative server-definition styles, and custom initialization parameters.
+
+---
+
+## How to Use
 
 Follow the below steps to integrate `LSP4IntelliJ` into your custom language plugin.
 
@@ -196,7 +245,7 @@ Update your `plugin.xml` to include the preloading activity:
 </extensions>
 ```
 
->**Tip:** For other options you can use instead of implementing a preloading activity, go to [InteliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/)
+>**Tip:** For other options you can use instead of implementing a preloading activity, go to [IntelliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/)
 
 ### 4. Confirm language server connection
 
@@ -291,56 +340,96 @@ IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", process
 Press the `CTRL+SPACE` keys to see the completion items list, which depends on your cursor position.(Code completion items 
 will also pop-up automatically based on your language-server-specific trigger characters.)
 
+<details><summary>Show demo</summary>
+
 ![](resources/images/lsp4intellij-completion.gif)
 
+</details>
 
 For Code Snippets, you can use TAB/ENTER to navigate to the next place holder position or ESC to apply the code
 snippets with the default values.
- 
+
+<details><summary>Show demo</summary>
+
 ![](resources/images/lsp4intellij-snippets.gif)
+
+</details>
 
 #### Code Formatting
 Navigate to **Code->Reformat Code** and you will get a dialog to choose whether to format the whole file or the 
 selected range.
 
+<details><summary>Show demo</summary>
+
 ![](resources/images/lsp4intellij-formatting.gif)
+
+</details>
 
 #### Diagnostics
 To see diagnostics (errors, warnings etc.), hover over them to view the message.
 
-![](resources/images/lsp4intellij-dignostics.gif)
+<details><summary>Show demo</summary>
+
+![](resources/images/lsp4intellij-diagnostics.gif)
+
+</details>
 
 #### Code Actions
 Hover over any diagnostic highlight to view and apply related code actions using the light bulb that pops up as 
 shown below.
-![](resources/images/lsp4intellij-codeactions.gif)  
+
+<details><summary>Show demo</summary>
+
+![](resources/images/lsp4intellij-codeactions.gif)
+
+</details>
 
 #### Go to Definition
 You can use `CTRL+CLICK`(`COMMAND+CLICK` in MacOS) to navigate to its definition.
- 
+
+<details><summary>Show demo</summary>
+
 ![](resources/images/lsp4intellij-gotodef.gif)
 
-#### Goto References / Find Usages
+</details>
+
+#### Go to References / Find Usages
 You can use `CTRL+CLICK`(`COMMAND+CLICK` in MacOS) or `SHIFT+ALT+F7` for a symbol to view the list of its references/usages.
- 
+
+<details><summary>Show demo</summary>
+
 ![](resources/images/lsp4intellij-gotoref.gif)
+
+</details>
 
 #### Hover Support
 You can hover over an element while pressing the `CTRL`(`COMMAND` in MacOS) key to view its documentation if available.
 
+<details><summary>Show demo</summary>
+
 ![](resources/images/lsp4intellij-hover.gif)
+
+</details>
 
 #### Workspace Symbols
 Click **Navigate** in the top menu, then click **Symbol...**,  and enter the name of the symbol you want to search in the search box that 
 pops up.
 
+<details><summary>Show demo</summary>
+
 ![](resources/images/lsp4intellij-workspacesymbols.gif)
 
+</details>
+
 #### Renaming Support
-Set the courser to the element which needs to renamed and press `SHIFT+F6` to trigger the in-place renaming as shown
+Set the cursor to the element which needs to renamed and press `SHIFT+F6` to trigger the in-place renaming as shown
 below.
 
+<details><summary>Show demo</summary>
+
 ![](resources/images/lsp4intellij-renaming.gif)
+
+</details>
 
 > **Note** - Above features are currently tested only with IntelliJ IDEA and
 > the [Ballerina Language Server](https://github.com/ballerina-platform/ballerina-lang/tree/master/language-server).
@@ -353,7 +442,7 @@ below.
 ## User API
 
 ### Timeouts
-The Lsp4IntelliJ language client has default timeout values for LSP-based requests as shown below.
+The LSP4IntelliJ language client has default timeout values for LSP-based requests as shown below.
 
 | Type            | Default timeout value(in milliseconds) |
 |-----------------|:--------------------------------------:|
@@ -368,13 +457,13 @@ The Lsp4IntelliJ language client has default timeout values for LSP-based reques
 | Shutdown        |                  5000                  |
 | WillSave        |                  2000                  |
 
-The LspIntelliJ language client provides following methods related to timeout configurations.
+The LSP4IntelliJ language client provides following methods related to timeout configurations.
 
 - **getTimeouts()** - Returns the current timeout values (in milliseconds).
 
     Example:
     ```java
-    Map<Timeouts, Integer> timeouts = IntelliJLnaguageClient.getTimeouts();
+    Map<Timeouts, Integer> timeouts = IntellijLanguageClient.getTimeouts();
     ```
 
 - **getTimeout(Timeouts timeoutType)** - Returns the current timeout value of a given timeout type (in milliseconds).
@@ -422,7 +511,7 @@ A huge thanks to all the amazing contributors! 🚀
 Credits should go to the original author for his astounding work.
 
 
-## Useful links
+## Useful Links
 
 - [langserver.org](https://langserver.org/)
 - [Language Server Protocol Specification](https://microsoft.github.io/language-server-protocol/specification)
