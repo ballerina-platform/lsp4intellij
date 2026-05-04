@@ -50,29 +50,27 @@ The table below groups released `lsp4intellij` artifacts by the IntelliJ IDEA ve
 
 ## Projects Powered by LSP4IntelliJ
 
-The table below lists known projects using `lsp4intellij`. If your project is missing or should be removed, please open a PR.
+Here are some open-source projects that use `lsp4intellij` to integrate their language servers. Feel free to open a PR to add or remove an entry.
 
-| Project                                 | Repository                                                                                                  | Focus                          |
-|-----------------------------------------|-------------------------------------------------------------------------------------------------------------|--------------------------------|
-| 1C:Enterprise BSL Language Support      | [1c-syntax/intellij-language-1c-bsl](https://github.com/1c-syntax/intellij-language-1c-bsl)                 | 1C BSL / OScript               |
-| AWS Smithy IntelliJ                     | [awslabs/smithy-intellij](https://github.com/awslabs/smithy-intellij)                                       | Smithy IDL                     |
-| Ballerina IntelliJ Plugin               | [ballerina-platform/plugin-intellij](https://github.com/ballerina-platform/plugin-intellij)                 | Ballerina                      |
-| Cadence for IntelliJ Platform           | [cadence-tools/cadence-for-intellij-platform](https://github.com/cadence-tools/cadence-for-intellij-platform) | Cadence (Flow blockchain)      |
-| Chester IntelliJ Plugin                 | [chester-lang/chester](https://github.com/chester-lang/chester)                                             | Chester                        |
-| CSL IntelliJ Extension                  | [nullptr-0/csl](https://github.com/nullptr-0/csl)                                                           | CSL                            |
-| DiveKit Language Plugin                 | [divekit/divekit-language-plugin-intellij](https://github.com/divekit/divekit-language-plugin-intellij)     | DiveKit                        |
-| EO IntelliJ LSP Plugin                  | [GeorgySabaev/eo-intellij-lsp-plugin](https://github.com/GeorgySabaev/eo-intellij-lsp-plugin)               | EO                             |
-| IntelliJ Jsonnet                        | [zzehring/intellij-jsonnet](https://github.com/zzehring/intellij-jsonnet)                                   | Jsonnet                        |
-| IntelliJ V                              | [nedpals/intellij-vlang](https://github.com/nedpals/intellij-vlang)                                         | V                              |
-| Marko.js IntelliJ Plugin                | [biaspro/markojs-intellij-plugin](https://github.com/biaspro/markojs-intellij-plugin)                       | Marko.js                       |
-| nimtellij                               | [observant2/nimtellij](https://github.com/observant2/nimtellij)                                             | Nim                            |
-| Robot Framework LSP (IntelliJ client)   | [robocorp/robotframework-lsp](https://github.com/robocorp/robotframework-lsp)                               | Robot Framework                |
-| Seedwing Enforcer IntelliJ              | [seedwing-io/seedwing-enforcer-intellij-plugin](https://github.com/seedwing-io/seedwing-enforcer-intellij-plugin) | Seedwing policy           |
-| Spring Tools for IDEA                   | [gayanper/idea-spring-tools](https://github.com/gayanper/idea-spring-tools)                                 | Spring config / properties     |
-| Valkyrie IntelliJ                       | [valkyrie-language/valkyrie-intellij](https://github.com/valkyrie-language/valkyrie-intellij)               | Valkyrie                       |
-| WDL IDE                                 | [broadinstitute/wdl-ide](https://github.com/broadinstitute/wdl-ide)                                         | Workflow Description Language  |
-| Yarn Spinner JetBrains Plugin           | [dogboydog/yarnspinner-jetbrains-plugin](https://github.com/dogboydog/yarnspinner-jetbrains-plugin)         | Yarn Spinner (game dialogue)   |
-| Yggdrasil IntelliJ                      | [ygg-lang/yggdrasil-intellij](https://github.com/ygg-lang/yggdrasil-intellij)                               | Yggdrasil grammar              |
+- [1C:Enterprise BSL Language Support](https://github.com/1c-syntax/intellij-language-1c-bsl)
+- [AWS Smithy IntelliJ](https://github.com/awslabs/smithy-intellij)
+- [Ballerina IntelliJ Plugin](https://github.com/ballerina-platform/plugin-intellij)
+- [Cadence for IntelliJ Platform](https://github.com/cadence-tools/cadence-for-intellij-platform)
+- [Chester IntelliJ Plugin](https://github.com/chester-lang/chester)
+- [CSL IntelliJ Extension](https://github.com/nullptr-0/csl)
+- [DiveKit Language Plugin](https://github.com/divekit/divekit-language-plugin-intellij)
+- [EO IntelliJ LSP Plugin](https://github.com/GeorgySabaev/eo-intellij-lsp-plugin)
+- [IntelliJ Jsonnet](https://github.com/zzehring/intellij-jsonnet)
+- [IntelliJ V](https://github.com/nedpals/intellij-vlang)
+- [Marko.js IntelliJ Plugin](https://github.com/biaspro/markojs-intellij-plugin)
+- [nimtellij](https://github.com/observant2/nimtellij)
+- [Robot Framework LSP (IntelliJ client)](https://github.com/robocorp/robotframework-lsp)
+- [Seedwing Enforcer IntelliJ](https://github.com/seedwing-io/seedwing-enforcer-intellij-plugin)
+- [Spring Tools for IDEA](https://github.com/gayanper/idea-spring-tools)
+- [Valkyrie IntelliJ](https://github.com/valkyrie-language/valkyrie-intellij)
+- [WDL IDE](https://github.com/broadinstitute/wdl-ide)
+- [Yarn Spinner JetBrains Plugin](https://github.com/dogboydog/yarnspinner-jetbrains-plugin)
+- [Yggdrasil IntelliJ](https://github.com/ygg-lang/yggdrasil-intellij)
 
 ---
 
