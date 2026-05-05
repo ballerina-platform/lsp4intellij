@@ -1,4 +1,4 @@
-# LSP4IntelliJ - Language Server Protocol Support for JetBrains Plugins
+# LSP4IntelliJ — LSP Client Library for JetBrains Plugins
 
 [![Build status](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml/badge.svg)](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml)
 [![JitPack](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
@@ -7,9 +7,9 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)
 [![Gitter](https://badges.gitter.im/ballerina-platform-lsp4intellij/community.svg)](https://gitter.im/ballerina-platform-lsp4intellij/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-**LSP4IntelliJ** is a client library that enables Language Server Protocol (LSP) support for IntelliJ IDEA and other JetBrains IDEs.
+**LSP4IntelliJ** is a client library that brings Language Server Protocol (LSP) support to IntelliJ IDEA and other JetBrains IDEs.
 
-Designed for plugin developers, it facilitates integration with LSP-based features and supports language-specific extensions via the [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) protocol.
+Designed for plugin developers, it streamlines LSP integration and supports language-specific extensions over the [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) protocol.
 
 ---
 
