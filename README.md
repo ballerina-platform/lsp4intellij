@@ -3,7 +3,7 @@
 [![Build status](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml/badge.svg)](https://github.com/ballerina-platform/lsp4intellij/actions/workflows/build.yml)
 [![JitPack](https://jitpack.io/v/ballerina-platform/lsp4intellij.svg)](https://jitpack.io/#ballerina-platform/lsp4intellij)
 [![License](https://img.shields.io/github/license/ballerina-platform/lsp4intellij.svg)](LICENSE)
-[![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ%20IDEA-2021.1%2B-blue.svg)](#compatibility-matrix)
+[![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ%20IDEA-2024.3%2B-blue.svg)](#compatibility-matrix)
 [![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/lsp4intellij.svg)](https://github.com/ballerina-platform/lsp4intellij/commits/master)
 [![Gitter](https://badges.gitter.im/ballerina-platform-lsp4intellij/community.svg)](https://gitter.im/ballerina-platform-lsp4intellij/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 

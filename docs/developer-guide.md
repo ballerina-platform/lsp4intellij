@@ -46,13 +46,8 @@ Add a preloading activity to initialize and configure LSP support:
 ```java
 public class BallerinaPreloadingActivity extends PreloadingActivity {
     @Override
-    public void preload() {
-        IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
-    }
-
-    @Override
     public void preload(ProgressIndicator indicator) {
-        preload();
+        IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
     }
 }
 ```
@@ -72,11 +67,11 @@ Update your `plugin.xml` to include the preloading activity:
 
 After successfully connecting to the language server, a green icon will appear in the bottom-right corner of your IDE. Clicking on the icon will display connection details and timeouts.
 
-![](../resources/images/lang-server-connect.gif)
+![Green status icon appearing in the IDE's bottom-right corner after the language server connects](../resources/images/lang-server-connect.gif)
 
 > **Tip:** A green icon in the IDE's bottom-right corner indicates a successful connection to the language server. Clicking on the icon will display connection details and timeouts.
 
-![](../resources/images/connected-and-timeouts.gif)
+![Clicking the status icon to open the connection details and timeouts panel](../resources/images/connected-and-timeouts.gif)
 
 ---
 
@@ -88,7 +83,7 @@ In addition to `RawCommandServerDefinition`, several classes implement [Language
 
 ### RawCommandServerDefinition
 
-You can specify multiple extensions for a server by separating them with a comma (e.g., `"ts,js"`). To bind your language server definition to a specific set of files, use a regex pattern instead of a file extension (e.g., `"application*.properties"`).
+The first argument is a file extension or a comma-separated list of file extensions (e.g., `"ts,js"`). Matching is based on file extensions only; filename patterns or regex-style values such as `"application*.properties"` are not supported by this API.
 
 **Example usage:**
 
@@ -105,7 +100,7 @@ new RawCommandServerDefinition("bsl,os", command);
 
 This definition is an extended form of `RawCommandServerDefinition` that accepts `java.lang.ProcessBuilder` instances, giving you more control over the language server process.
 
-You can specify multiple extensions for a server by separating them with a comma (e.g., `"ts,js"`). To bind your language server definition to a specific set of files, use a regex pattern instead of a file extension (e.g., `"application*.properties"`).
+You can specify one or more file extensions for a server definition. To associate multiple extensions with the same server, separate them with a comma (e.g., `"ts,js"`).
 
 **Example usage:**
 
@@ -131,7 +126,7 @@ public class MyServerDefinition extends ProcessBuilderServerDefinition {
 
     @Override
     public void customizeInitializeParams(InitializeParams params) {
-        params.clientInfo = new ClientInfo("MyName", "MyVersion");
+        params.setClientInfo(new ClientInfo("MyName", "MyVersion"));
     }
 }
 ```
@@ -140,7 +135,7 @@ Then assign your class as a server definition:
 
 ```java
 ProcessBuilder process = new ProcessBuilder("path/to/launcher-script.sh");
-IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", processBuilder));
+IntellijLanguageClient.addServerDefinition(new MyServerDefinition("xxx", process));
 ```
 
 See [#311](https://github.com/ballerina-platform/lsp4intellij/pull/311) for more details.
