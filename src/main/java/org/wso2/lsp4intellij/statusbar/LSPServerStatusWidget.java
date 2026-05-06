@@ -138,9 +138,8 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                 JBPopupFactory.ActionSelectionAid mnemonics = JBPopupFactory.ActionSelectionAid.MNEMONICS;
                 Component component = t.getComponent();
                 List<AnAction> actions = new ArrayList<>();
-                if (LanguageServerWrapper.forProject(project) != null
-                    && LanguageServerWrapper.forProject(project).getStatus()
-                    == ServerStatus.INITIALIZED) {
+                LanguageServerWrapper wrapper = LanguageServerWrapper.forProject(project);
+                if (wrapper != null && wrapper.getStatus() == ServerStatus.INITIALIZED) {
                     actions.add(new ShowConnectedFiles());
                 }
                 actions.add(new ShowTimeouts());
@@ -168,9 +167,13 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
+                LanguageServerWrapper wrapper = LanguageServerWrapper.forProject(project);
+                if (wrapper == null) {
+                    return;
+                }
                 StringBuilder connectedFiles = new StringBuilder(
                         Lsp4IntellijBundle.message("connected.files.prefix"));
-                LanguageServerWrapper.forProject(project).getConnectedFiles()
+                wrapper.getConnectedFiles()
                         .forEach(f -> connectedFiles.append(System.lineSeparator()).append(f));
                 Messages.showInfoMessage(connectedFiles.toString(),
                         Lsp4IntellijBundle.message("connected.files.title"));
@@ -219,8 +222,9 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
             @Override
             public void actionPerformed(@NotNull AnActionEvent anActionEvent) {
-                if (LanguageServerWrapper.forProject(project) != null) {
-                    LanguageServerWrapper.forProject(project).restart();
+                LanguageServerWrapper wrapper = LanguageServerWrapper.forProject(project);
+                if (wrapper != null) {
+                    wrapper.restart();
                 }
             }
         }
