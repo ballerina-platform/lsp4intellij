@@ -201,8 +201,18 @@ public class LanguageServerWrapper {
      * @return The wrapper for the given editor, or None
      */
     public static LanguageServerWrapper forEditor(Editor editor) {
-        return uriToLanguageServerWrapper.get(
+        LanguageServerWrapper wrapper = uriToLanguageServerWrapper.get(
                 new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
+        if (wrapper != null) {
+            return wrapper;
+        }
+        // Fallback for when the editor's URI drifted (file moved/renamed) after it was connected.
+        for (LanguageServerWrapper candidate : uriToLanguageServerWrapper.values()) {
+            if (candidate.connectedEditors.contains(editor)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     public static LanguageServerWrapper forProject(Project project) {
@@ -737,7 +747,8 @@ public class LanguageServerWrapper {
         connectedEditors.remove(editor);
         if (manager != null) {
             manager.removeListeners();
-            String uri = editorToURIString(editor);
+            // URI captured at connect time — the editor's current URI may have drifted since.
+            String uri = manager.getIdentifier().getUri();
             Set<EditorEventManager> set = uriToEditorManagers.get(uri);
             if (set != null) {
                 set.remove(manager);
