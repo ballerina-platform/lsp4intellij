@@ -180,13 +180,17 @@ public class LanguageServerDefinitionTest {
 
     /**
      * Verifies that calling {@link LanguageServerDefinition#stop(String)} on an unknown
-     * working directory is a no-op and does not throw an exception.
+     * working directory is a no-op: no exception is thrown and any existing providers are unaffected.
      */
     @Test
-    public void stopOnUnknownWorkingDirIsNoOp() {
+    public void stopOnUnknownWorkingDirIsNoOp() throws IOException {
         TestableDefinition def = new TestableDefinition("go");
+        def.start("/work");
+        FakeConnection c = def.created.get("/work");
+
         def.stop("/never-started");
-        // No exception, no state change — passes if we reach this point.
+
+        Assert.assertEquals("known provider must not be stopped", 0, c.stopCount.get());
     }
 
     /**
