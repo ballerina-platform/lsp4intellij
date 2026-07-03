@@ -388,6 +388,10 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     public static void didChangeConfiguration(@NotNull DidChangeConfigurationParams params, @NotNull Project project) {
         final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient.getProjectToLanguageWrappers()
                 .get(FileUtils.projectToUri(project));
+        if (serverWrappers == null) {
+            LOG.warn("No language servers registered for project " + project.getName());
+            return;
+        }
         serverWrappers.forEach(s -> s.getRequestManager().didChangeConfiguration(params));
     }
 
