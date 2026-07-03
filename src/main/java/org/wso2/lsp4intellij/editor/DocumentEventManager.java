@@ -34,7 +34,6 @@ import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import org.wso2.lsp4intellij.utils.ApplicationUtils;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
@@ -126,7 +125,7 @@ public class DocumentEventManager {
         } else if (syncKind == TextDocumentSyncKind.Full) {
             changesParams.getContentChanges().get(0).setText(document.getText());
         }
-        ApplicationUtils.pool(() -> wrapper.getRequestManager().didChange(changesParams));
+        wrapper.pool(() -> wrapper.getRequestManager().didChange(changesParams));
     }
 
     public void documentOpened() {

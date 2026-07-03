@@ -92,6 +92,7 @@ import org.wso2.lsp4intellij.listeners.DocumentListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
+import org.wso2.lsp4intellij.requests.RequestExecutor;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory;
@@ -129,7 +130,6 @@ import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
 import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToProjectFolderUri;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToURIString;
 import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
@@ -154,6 +154,9 @@ public class LanguageServerWrapper {
     private RequestManager requestManager;
     private InitializeResult initializeResult;
     private Future<?> launcherFuture;
+    private ExecutorService launcherExecutor;
+    private final ExecutorService dispatcher;
+    private final RequestExecutor requestExecutor = new RequestExecutor(this);
     private CompletableFuture<InitializeResult> initializeFuture;
     private boolean capabilitiesAlreadyRequested = false;
     private final AtomicInteger crashCount = new AtomicInteger(0);
@@ -180,7 +183,31 @@ public class LanguageServerWrapper {
         // base path if the project is disposed.
         this.projectRootPath = project.getBasePath();
         this.extManager = extManager;
+        this.dispatcher = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "lsp4intellij-" + serverDefinition.ext);
+            thread.setDaemon(true);
+            return thread;
+        });
         projectToLanguageServerWrapper.put(project, this);
+    }
+
+    /**
+     * Submits a task to this wrapper's dispatcher thread. Tasks of one server are executed in submission
+     * order, but do not block tasks of other servers. Tasks submitted after {@link #dispose()} are dropped.
+     */
+    public void pool(Runnable task) {
+        try {
+            dispatcher.submit(task);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            LOG.debug("Task submitted after wrapper disposal was dropped", e);
+        }
+    }
+
+    /**
+     * @return The request executor which enforces the timeout/crash policy for blocking request waits
+     */
+    public RequestExecutor getRequestExecutor() {
+        return requestExecutor;
     }
 
     /**
@@ -482,6 +509,10 @@ public class LanguageServerWrapper {
             if (launcherFuture != null) {
                 launcherFuture.cancel(true);
             }
+            if (launcherExecutor != null) {
+                launcherExecutor.shutdownNow();
+                launcherExecutor = null;
+            }
             if (serverDefinition != null) {
                 serverDefinition.stop(projectRootPath);
             }
@@ -537,6 +568,7 @@ public class LanguageServerWrapper {
                 OutputStream outputStream = streams.getValue();
                 InitializeParams initParams = getInitParams();
                 ExecutorService executorService = Executors.newCachedThreadPool();
+                launcherExecutor = executorService;
                 MessageHandler messageHandler = new MessageHandler(
                         serverDefinition.getServerListener(), () -> getStatus() != STOPPED);
                 if (extManager != null && extManager.getExtendedServerInterface() != null) {
@@ -733,6 +765,7 @@ public class LanguageServerWrapper {
     public synchronized void dispose() {
         stop(true);
         removeWidget();
+        dispatcher.shutdownNow();
         projectToLanguageServerWrapper.remove(project);
         IntellijLanguageClient.removeWrapper(this);
     }
