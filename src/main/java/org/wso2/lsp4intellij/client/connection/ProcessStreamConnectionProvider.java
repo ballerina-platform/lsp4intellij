@@ -26,6 +26,7 @@ import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -95,8 +96,18 @@ public class ProcessStreamConnectionProvider implements StreamConnectionProvider
     }
 
     public void stop() {
-        if (process != null) {
-            process.destroy();
+        if (process == null) {
+            return;
+        }
+        process.destroy();
+        try {
+            // Kill the process if it does not terminate within the grace period.
+            if (!process.waitFor(5, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+            }
+        } catch (InterruptedException e) {
+            process.destroyForcibly();
+            Thread.currentThread().interrupt();
         }
     }
 
