@@ -764,7 +764,9 @@ public class LanguageServerWrapper {
         }
 
         if (connectedEditors.isEmpty()) {
-            stop(true);
+            // Deferred to the pool so that the didClose notification queued by documentClosed()
+            // is sent before the server is shut down.
+            pool(() -> stop(true));
         }
     }
 
@@ -801,7 +803,9 @@ public class LanguageServerWrapper {
             uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
         }
         if (connectedEditors.isEmpty()) {
-            stop(true);
+            // Deferred to the pool so that the didClose notification queued by documentClosed()
+            // is sent before the server is shut down.
+            pool(() -> stop(true));
         }
     }
 
