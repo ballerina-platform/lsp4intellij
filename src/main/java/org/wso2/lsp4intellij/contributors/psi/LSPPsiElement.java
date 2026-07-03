@@ -255,7 +255,7 @@ public class LSPPsiElement implements PsiNameIdentifierOwner, NavigatablePsiElem
      * @return true if the text is equal, false otherwise.
      */
     public boolean textMatches(@NotNull CharSequence text) {
-        return getText() == text;
+        return getText().contentEquals(text);
     }
 
     //Q: get rid of these methods?
