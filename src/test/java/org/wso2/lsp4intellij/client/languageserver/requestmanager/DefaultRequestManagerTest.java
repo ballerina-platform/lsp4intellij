@@ -338,14 +338,14 @@ public class DefaultRequestManagerTest {
     // ── didClose ──────────────────────────────────────────────────────────────
 
     /**
-     * Verifies that {@link DefaultRequestManager#didClose(DidCloseTextDocumentParams)} skips in
-     * sync-kind mode because textDocumentOptions is null, making openClose default to false.
+     * Verifies that {@link DefaultRequestManager#didClose(DidCloseTextDocumentParams)} delegates in
+     * sync-kind mode: a bare sync kind implies open/close notifications, consistent with didOpen.
      */
     @Test
-    public void didCloseSkipsInSyncKindMode() {
+    public void didCloseDelegatesInSyncKindMode() {
         when(wrapper.getStatus()).thenReturn(ServerStatus.INITIALIZED);
         managerWithSyncKind(TextDocumentSyncKind.Incremental).didClose(new DidCloseTextDocumentParams());
-        verify(textDocumentService, never()).didClose(any());
+        verify(textDocumentService).didClose(any());
     }
 
     /**
