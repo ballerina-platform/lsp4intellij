@@ -39,8 +39,9 @@ import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DocumentEventManager {
     private final Document document;
@@ -48,10 +49,11 @@ public class DocumentEventManager {
     private final TextDocumentSyncKind syncKind;
     private final LanguageServerWrapper wrapper;
     private final TextDocumentIdentifier identifier;
-    private int version = -1;
+    // Accessed from the EDT, the background pool, and lsp4j threads.
+    private final AtomicInteger version = new AtomicInteger(-1);
     protected static final Logger LOG = Logger.getInstance(DocumentEventManager.class);
 
-    private final Set<Document> openDocuments = new HashSet<>();
+    private final Set<Document> openDocuments = ConcurrentHashMap.newKeySet();
 
     DocumentEventManager(Document document, DocumentListener documentListener,
                          TextDocumentSyncKind syncKind, LanguageServerWrapper wrapper) {
@@ -71,7 +73,7 @@ public class DocumentEventManager {
     }
 
     public int getDocumentVersion() {
-        return this.version;
+        return this.version.get();
     }
 
     public void documentChanged(DocumentEvent event) {
@@ -82,7 +84,7 @@ public class DocumentEventManager {
         changesParams.getTextDocument().setUri(identifier.getUri());
 
 
-        changesParams.getTextDocument().setVersion(++version);
+        changesParams.getTextDocument().setVersion(version.incrementAndGet());
 
         if (syncKind == TextDocumentSyncKind.Incremental) {
             TextDocumentContentChangeEvent changeEvent = changesParams.getContentChanges().get(0);
@@ -136,7 +138,7 @@ public class DocumentEventManager {
                     FileDocumentManager.getInstance().getFile(document).getName());
             wrapper.getRequestManager().didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(identifier.getUri(),
                     wrapper.serverDefinition.languageIdFor(extension),
-                    ++version,
+                    version.incrementAndGet(),
                     document.getText())));
         }
     }

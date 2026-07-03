@@ -105,7 +105,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +117,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZED;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
@@ -143,11 +143,12 @@ public class LanguageServerWrapper {
     public LanguageServerDefinition serverDefinition;
     private final LSPExtensionManager extManager;
     private final Project project;
-    private final HashSet<Editor> toConnect = new HashSet<>();
+    // These collections are mutated from the EDT, the background pool, and lsp4j threads.
+    private final Set<Editor> toConnect = ConcurrentHashMap.newKeySet();
     private final String projectRootPath;
-    private final HashSet<String> urisUnderLspControl = new HashSet<>();
-    private final HashSet<Editor> connectedEditors = new HashSet<>();
-    private final Map<String, Set<EditorEventManager>> uriToEditorManagers = new HashMap<>();
+    private final Set<String> urisUnderLspControl = ConcurrentHashMap.newKeySet();
+    private final Set<Editor> connectedEditors = ConcurrentHashMap.newKeySet();
+    private final Map<String, Set<EditorEventManager>> uriToEditorManagers = new ConcurrentHashMap<>();
     private LanguageServer languageServer;
     private LanguageClient client;
     private RequestManager requestManager;
@@ -155,7 +156,7 @@ public class LanguageServerWrapper {
     private Future<?> launcherFuture;
     private CompletableFuture<InitializeResult> initializeFuture;
     private boolean capabilitiesAlreadyRequested = false;
-    private int crashCount = 0;
+    private final AtomicInteger crashCount = new AtomicInteger(0);
     private volatile boolean alreadyShownTimeout = false;
     private volatile boolean alreadyShownCrash = false;
     private volatile ServerStatus status = STOPPED;
@@ -668,8 +669,7 @@ public class LanguageServerWrapper {
     }
 
     public void crashed(Exception e) {
-        crashCount += 1;
-        if (crashCount <= 3) {
+        if (crashCount.incrementAndGet() <= 3) {
             reconnect();
         } else {
             invokeLater(() -> {
@@ -696,7 +696,7 @@ public class LanguageServerWrapper {
                     }
                 }
                 alreadyShownCrash = true;
-                crashCount = 0;
+                crashCount.set(0);
             });
         }
     }
