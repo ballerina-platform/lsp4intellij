@@ -481,8 +481,12 @@ public class LanguageServerWrapper {
      * The shutdown request is sent from the client to the server. It asks the server to shut down, but to not exit \
      * (otherwise the response might not be delivered correctly to the client).
      * Only if the exit flag is true, particular server instance will exit.
+     *
+     * Synchronized so that concurrent stops (for example a stop queued on the dispatcher and a direct
+     * stop from dispose or the shutdown hook) cannot both enter cleanup; the status guard turns the
+     * second caller into a no-op.
      */
-    public void stop(boolean exit) {
+    public synchronized void stop(boolean exit) {
         if (this.status == STOPPED || this.status == STOPPING) {
             return;
         }

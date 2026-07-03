@@ -49,6 +49,9 @@ import java.util.List;
 
 import javax.swing.JLabel;
 
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
+import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
+
 /**
  * Action for references / see usages (SHIFT+ALT+F7).
  */
@@ -62,24 +65,30 @@ public class LSPReferencesAction extends DumbAwareAction {
             if (eventManager == null) {
                 return;
             }
-            List<PsiElement2UsageTargetAdapter> targets = new ArrayList<>();
-            Pair<List<PsiElement>, List<VirtualFile>> references = eventManager
-                    .references(editor.getCaretModel().getCurrentCaret().getOffset());
-            if (references.first != null && references.second != null) {
-                references.first.forEach(element -> targets.add(new PsiElement2UsageTargetAdapter(element, true)));
-            }
-            showReferences(editor, targets, editor.getCaretModel().getCurrentCaret().getLogicalPosition());
+            forManagerAndOffset(eventManager, editor.getCaretModel().getCurrentCaret().getOffset());
         }
     }
 
     public void forManagerAndOffset(EditorEventManager manager, int offset) {
-        List<PsiElement2UsageTargetAdapter> targets = new ArrayList<>();
-        Pair<List<PsiElement>, List<VirtualFile>> references = manager.references(offset);
-        if (references.first != null && references.second != null) {
-            references.first.forEach(element -> targets.add(new PsiElement2UsageTargetAdapter(element, true)));
-        }
-        Editor editor = manager.editor;
-        showReferences(editor, targets, editor.offsetToLogicalPosition(offset));
+        // The references lookup blocks on the server response, so it runs on the wrapper's
+        // dispatcher; only showing the results runs on the EDT.
+        manager.wrapper.pool(() -> {
+            Pair<List<PsiElement>, List<VirtualFile>> references = manager.references(offset);
+            List<PsiElement2UsageTargetAdapter> targets = computableReadAction(() -> {
+                List<PsiElement2UsageTargetAdapter> adapters = new ArrayList<>();
+                if (references.first != null && references.second != null) {
+                    references.first.forEach(element ->
+                            adapters.add(new PsiElement2UsageTargetAdapter(element, true)));
+                }
+                return adapters;
+            });
+            Editor editor = manager.editor;
+            invokeLater(() -> {
+                if (!editor.isDisposed()) {
+                    showReferences(editor, targets, editor.offsetToLogicalPosition(offset));
+                }
+            });
+        });
     }
 
     private void showReferences(Editor editor, List<PsiElement2UsageTargetAdapter> targets, LogicalPosition position) {

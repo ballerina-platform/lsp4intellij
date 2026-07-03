@@ -61,7 +61,13 @@ public class RequestExecutor {
             LOG.warn(e);
             wrapper.notifyFailure(timeoutType);
             return null;
-        } catch (InterruptedException | JsonRpcException | ExecutionException e) {
+        } catch (InterruptedException e) {
+            // The dispatcher is interrupted when the wrapper is disposed; routing this to the crash
+            // handler could restart the server while it is being torn down.
+            LOG.warn(e);
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (JsonRpcException | ExecutionException e) {
             LOG.warn(e);
             wrapper.crashed(e);
             return null;
