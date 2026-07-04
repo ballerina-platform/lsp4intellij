@@ -63,6 +63,12 @@ public class LSPFoldingRangeProvider extends CustomFoldingBuilder {
             wrapper = LanguageServerWrapper.forVirtualFile(psiFile.getVirtualFile(), root.getProject());
         }
 
+        // No initialized language server is connected for this file yet, so there is nothing to fold.
+        // getRequestManager() stays null until the server has started and initialized.
+        if (wrapper == null || wrapper.getRequestManager() == null) {
+            return;
+        }
+
         String url = root.getContainingFile().getVirtualFile().getUrl();
         TextDocumentIdentifier textDocumentIdentifier = new TextDocumentIdentifier(url);
         FoldingRangeRequestParams params = new FoldingRangeRequestParams(textDocumentIdentifier);
