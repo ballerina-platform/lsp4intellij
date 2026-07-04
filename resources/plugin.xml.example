@@ -12,8 +12,9 @@ see also jetbrains documentation: https://plugins.jetbrains.com/docs/intellij/pl
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- register a preloading activity. You need to init IntellijLanguageClient with your config, see readme -->
-        <preloadingActivity implementation="your.plugin.MyPreloadingActivity" id="your.plugin.MyPreloadingActivity"/>
+        <!-- register a startup activity. You need to init IntellijLanguageClient with your config, see readme.
+             On IntelliJ 2024.3+, PreloadingActivity is no longer run; use a ProjectActivity here instead. -->
+        <postStartupActivity implementation="your.plugin.MyStartupActivity"/>
 
         <!-- register intellijLanguageClient as a Service OR as a plugin component (see readme)... -->
         <applicationService serviceImplementation="org.wso2.lsp4intellij.IntellijLanguageClient"/>

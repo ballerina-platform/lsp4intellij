@@ -10,7 +10,7 @@ This guide walks through integrating `lsp4intellij` into your custom JetBrains p
 
 - [1. Add the `lsp4intellij` dependency](#1-add-the-lsp4intellij-dependency)
 - [2. Add a `plugin.xml` file](#2-add-a-pluginxml-file)
-- [3. Configure a preloading activity](#3-configure-a-preloading-activity)
+- [3. Configure a startup activity](#3-configure-a-startup-activity)
 - [4. Confirm the language server connection](#4-confirm-the-language-server-connection)
 - [Alternative ways to connect to a language server](#alternative-ways-to-connect-to-a-language-server)
   * [RawCommandServerDefinition](#rawcommandserverdefinition)
@@ -39,29 +39,32 @@ Supported build tools:
 
 Define the required configurations in your `plugin.xml` file. Copy the example from [resources/plugin.xml.example](../resources/plugin.xml.example), place it under `src/resources/META-INF`, and adjust it as needed.
 
-## 3. Configure a preloading activity
+## 3. Configure a startup activity
 
-Add a preloading activity to initialize and configure LSP support:
+Add a startup activity to initialize and configure LSP support. On IntelliJ 2024.3+, `PreloadingActivity` is no longer run, so implement `ProjectActivity` and register it through the `postStartupActivity` extension point:
 
 ```java
-public class BallerinaPreloadingActivity extends PreloadingActivity {
+public class BallerinaStartupActivity implements ProjectActivity {
+    @Nullable
     @Override
-    public void preload(ProgressIndicator indicator) {
+    public Object execute(@NotNull Project project, @NotNull Continuation<? super Unit> continuation) {
         IntellijLanguageClient.addServerDefinition(new RawCommandServerDefinition("bal", new String[]{"path/to/launcher-script.sh"}));
+        return Unit.INSTANCE;
     }
 }
 ```
 
-Update your `plugin.xml` to include the preloading activity:
+`addServerDefinition` registers the server application-wide and reconnects any editors that are already open, so running it once per project open is sufficient.
+
+Update your `plugin.xml` to include the startup activity:
 
 ```xml
 <extensions defaultExtensionNs="com.intellij">
-    <preloadingActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity"
-                        id="io.ballerina.plugins.idea.preloading.BallerinaPreloadingActivity" />
+    <postStartupActivity implementation="io.ballerina.plugins.idea.preloading.BallerinaStartupActivity" />
 </extensions>
 ```
 
-> **Tip:** For other options instead of a preloading activity, see [IntelliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/).
+> **Tip:** For other options instead of a startup activity, see [IntelliJ Plugin initialization on startup](https://www.plugin-dev.com/intellij/general/plugin-initial-load/).
 
 ## 4. Confirm the language server connection
 
