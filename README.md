@@ -76,7 +76,7 @@ Here are some open-source projects that use `lsp4intellij` to integrate their la
 
 ## Quick Start
 
-The minimum integration is three pieces: add the dependency, register a language server in a preloading activity, and wire that activity into `plugin.xml`. Replace the command and file extension with your own.
+The minimum integration is three pieces: add the dependency, register a language server from a startup activity, and wire that activity into `plugin.xml`. Replace the command and file extension with your own.
 
 **`build.gradle`** — see [JitPack](https://jitpack.io/#ballerina-platform/lsp4intellij) for Maven and SBT snippets.
 
@@ -84,14 +84,16 @@ The minimum integration is three pieces: add the dependency, register a language
 implementation 'com.github.ballerina-platform:lsp4intellij:<version>'
 ```
 
-**Preloading activity**
+**Startup activity**
 
 ```java
-public class MyLspPreloader extends PreloadingActivity {
+public class MyLspStartup implements ProjectActivity {
+    @Nullable
     @Override
-    public void preload(@NotNull ProgressIndicator indicator) {
+    public Object execute(@NotNull Project project, @NotNull Continuation<? super Unit> continuation) {
         IntellijLanguageClient.addServerDefinition(
             new RawCommandServerDefinition("mylang", new String[]{"path/to/language-server"}));
+        return Unit.INSTANCE;
     }
 }
 ```
@@ -100,10 +102,11 @@ public class MyLspPreloader extends PreloadingActivity {
 
 ```xml
 <extensions defaultExtensionNs="com.intellij">
-    <preloadingActivity implementation="com.example.MyLspPreloader"
-                        id="com.example.MyLspPreloader"/>
+    <postStartupActivity implementation="com.example.MyLspStartup"/>
 </extensions>
 ```
+
+> **Note:** On IntelliJ 2024.3+, `PreloadingActivity` is no longer run, so register the server definition from a `ProjectActivity` wired to the `postStartupActivity` extension point.
 
 A green icon in the IDE's bottom-right confirms a successful connection.
 
