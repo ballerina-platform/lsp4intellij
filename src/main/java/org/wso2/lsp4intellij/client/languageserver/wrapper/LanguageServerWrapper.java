@@ -92,6 +92,7 @@ import org.wso2.lsp4intellij.listeners.DocumentListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
+import org.wso2.lsp4intellij.requests.RequestExecutor;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory;
@@ -105,7 +106,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +118,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.INITIALIZED;
 import static org.wso2.lsp4intellij.client.languageserver.ServerStatus.STARTED;
@@ -129,7 +130,6 @@ import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
 import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.pool;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToProjectFolderUri;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToURIString;
 import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
@@ -143,19 +143,23 @@ public class LanguageServerWrapper {
     public LanguageServerDefinition serverDefinition;
     private final LSPExtensionManager extManager;
     private final Project project;
-    private final HashSet<Editor> toConnect = new HashSet<>();
+    // These collections are mutated from the EDT, the background pool, and lsp4j threads.
+    private final Set<Editor> toConnect = ConcurrentHashMap.newKeySet();
     private final String projectRootPath;
-    private final HashSet<String> urisUnderLspControl = new HashSet<>();
-    private final HashSet<Editor> connectedEditors = new HashSet<>();
-    private final Map<String, Set<EditorEventManager>> uriToEditorManagers = new HashMap<>();
+    private final Set<String> urisUnderLspControl = ConcurrentHashMap.newKeySet();
+    private final Set<Editor> connectedEditors = ConcurrentHashMap.newKeySet();
+    private final Map<String, Set<EditorEventManager>> uriToEditorManagers = new ConcurrentHashMap<>();
     private LanguageServer languageServer;
     private LanguageClient client;
     private RequestManager requestManager;
     private InitializeResult initializeResult;
     private Future<?> launcherFuture;
+    private ExecutorService launcherExecutor;
+    private final ExecutorService dispatcher;
+    private final RequestExecutor requestExecutor = new RequestExecutor(this);
     private CompletableFuture<InitializeResult> initializeFuture;
     private boolean capabilitiesAlreadyRequested = false;
-    private int crashCount = 0;
+    private final AtomicInteger crashCount = new AtomicInteger(0);
     private volatile boolean alreadyShownTimeout = false;
     private volatile boolean alreadyShownCrash = false;
     private volatile ServerStatus status = STOPPED;
@@ -179,7 +183,31 @@ public class LanguageServerWrapper {
         // base path if the project is disposed.
         this.projectRootPath = project.getBasePath();
         this.extManager = extManager;
+        this.dispatcher = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "lsp4intellij-" + serverDefinition.ext);
+            thread.setDaemon(true);
+            return thread;
+        });
         projectToLanguageServerWrapper.put(project, this);
+    }
+
+    /**
+     * Submits a task to this wrapper's dispatcher thread. Tasks of one server are executed in submission
+     * order, but do not block tasks of other servers. Tasks submitted after {@link #dispose()} are dropped.
+     */
+    public void pool(Runnable task) {
+        try {
+            dispatcher.submit(task);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            LOG.debug("Task submitted after wrapper disposal was dropped", e);
+        }
+    }
+
+    /**
+     * @return The request executor which enforces the timeout/crash policy for blocking request waits
+     */
+    public RequestExecutor getRequestExecutor() {
+        return requestExecutor;
     }
 
     /**
@@ -453,8 +481,12 @@ public class LanguageServerWrapper {
      * The shutdown request is sent from the client to the server. It asks the server to shut down, but to not exit \
      * (otherwise the response might not be delivered correctly to the client).
      * Only if the exit flag is true, particular server instance will exit.
+     *
+     * Synchronized so that concurrent stops (for example a stop queued on the dispatcher and a direct
+     * stop from dispose or the shutdown hook) cannot both enter cleanup; the status guard turns the
+     * second caller into a no-op.
      */
-    public void stop(boolean exit) {
+    public synchronized void stop(boolean exit) {
         if (this.status == STOPPED || this.status == STOPPING) {
             return;
         }
@@ -480,6 +512,10 @@ public class LanguageServerWrapper {
         } finally {
             if (launcherFuture != null) {
                 launcherFuture.cancel(true);
+            }
+            if (launcherExecutor != null) {
+                launcherExecutor.shutdownNow();
+                launcherExecutor = null;
             }
             if (serverDefinition != null) {
                 serverDefinition.stop(projectRootPath);
@@ -536,6 +572,7 @@ public class LanguageServerWrapper {
                 OutputStream outputStream = streams.getValue();
                 InitializeParams initParams = getInitParams();
                 ExecutorService executorService = Executors.newCachedThreadPool();
+                launcherExecutor = executorService;
                 MessageHandler messageHandler = new MessageHandler(
                         serverDefinition.getServerListener(), () -> getStatus() != STOPPED);
                 if (extManager != null && extManager.getExtendedServerInterface() != null) {
@@ -668,8 +705,7 @@ public class LanguageServerWrapper {
     }
 
     public void crashed(Exception e) {
-        crashCount += 1;
-        if (crashCount <= 3) {
+        if (crashCount.incrementAndGet() <= 3) {
             reconnect();
         } else {
             invokeLater(() -> {
@@ -696,7 +732,7 @@ public class LanguageServerWrapper {
                     }
                 }
                 alreadyShownCrash = true;
-                crashCount = 0;
+                crashCount.set(0);
             });
         }
     }
@@ -733,6 +769,7 @@ public class LanguageServerWrapper {
     public synchronized void dispose() {
         stop(true);
         removeWidget();
+        dispatcher.shutdownNow();
         projectToLanguageServerWrapper.remove(project);
         IntellijLanguageClient.removeWrapper(this);
     }
@@ -764,7 +801,9 @@ public class LanguageServerWrapper {
         }
 
         if (connectedEditors.isEmpty()) {
-            stop(true);
+            // Deferred to the pool so that the didClose notification queued by documentClosed()
+            // is sent before the server is shut down.
+            pool(() -> stop(true));
         }
     }
 
@@ -801,7 +840,9 @@ public class LanguageServerWrapper {
             uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
         }
         if (connectedEditors.isEmpty()) {
-            stop(true);
+            // Deferred to the pool so that the didClose notification queued by documentClosed()
+            // is sent before the server is shut down.
+            pool(() -> stop(true));
         }
     }
 

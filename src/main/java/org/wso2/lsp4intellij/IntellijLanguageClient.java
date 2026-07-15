@@ -257,7 +257,9 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
                     project, new ImmutablePair<>(ext, projectUri), serverDefinition);
 
             LOG.info("Adding file " + fileName);
-            wrapper.connect(editor);
+            // Connecting (which may start the server) runs on the wrapper's own dispatcher so that a slow
+            // server start does not block editor events of other servers.
+            wrapper.pool(() -> wrapper.connect(editor));
         });
     }
 
@@ -306,7 +308,7 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
             LanguageServerWrapper serverWrapper = LanguageServerWrapper.forEditor(editor);
             if (serverWrapper != null) {
                 LOG.info("Disconnecting " + FileUtils.editorToURIString(editor));
-                serverWrapper.disconnect(editor);
+                serverWrapper.pool(() -> serverWrapper.disconnect(editor));
             }
         });
     }
@@ -388,6 +390,10 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     public static void didChangeConfiguration(@NotNull DidChangeConfigurationParams params, @NotNull Project project) {
         final Set<LanguageServerWrapper> serverWrappers = IntellijLanguageClient.getProjectToLanguageWrappers()
                 .get(FileUtils.projectToUri(project));
+        if (serverWrappers == null) {
+            LOG.warn("No language servers registered for project " + project.getName());
+            return;
+        }
         serverWrappers.forEach(s -> s.getRequestManager().didChangeConfiguration(params));
     }
 

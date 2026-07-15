@@ -44,6 +44,10 @@ public class ApplicationUtils {
         ApplicationManager.getApplication().invokeLater(runnable);
     }
 
+    public static void invokeAndWait(Runnable runnable) {
+        ApplicationManager.getApplication().invokeAndWait(runnable);
+    }
+
     public static void pool(Runnable runnable) {
         EXECUTOR_SERVICE.submit(runnable);
     }

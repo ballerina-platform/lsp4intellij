@@ -18,9 +18,9 @@ package org.wso2.lsp4intellij.listeners;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.event.CaretEvent;
 import com.intellij.openapi.editor.event.CaretListener;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -29,12 +29,13 @@ public class LSPCaretListenerImpl extends LSPListener implements CaretListener {
 
     private static final Logger LOG = Logger.getInstance(LSPCaretListenerImpl.class);
 
+    // The shared application pool is used so that no thread has to be created (and disposed) per editor.
     private final ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
     private static final long DEBOUNCE_INTERVAL_MS = 500;
 
     public LSPCaretListenerImpl() {
-        scheduler = Executors.newScheduledThreadPool(1);
+        scheduler = AppExecutorUtil.getAppScheduledExecutorService();
         scheduledFuture = null;
     }
 

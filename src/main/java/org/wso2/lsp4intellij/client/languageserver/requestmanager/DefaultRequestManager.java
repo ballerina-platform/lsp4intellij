@@ -396,7 +396,10 @@ public class DefaultRequestManager implements RequestManager {
     public void didClose(DidCloseTextDocumentParams params) {
         if (checkStatus()) {
             try {
-                if (Optional.ofNullable(textDocumentOptions).map(TextDocumentSyncOptions::getOpenClose).orElse(false)) {
+                // A bare sync kind implies open/close notifications (LSP spec), consistent with didOpen.
+                if ((textDocumentSyncKind != null && textDocumentSyncKind != TextDocumentSyncKind.None) ||
+                        Optional.ofNullable(textDocumentOptions).map(TextDocumentSyncOptions::getOpenClose)
+                                .orElse(false)) {
                     textDocumentService.didClose(params);
                 }
             } catch (Exception e) {

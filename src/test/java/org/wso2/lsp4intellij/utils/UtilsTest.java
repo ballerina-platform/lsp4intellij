@@ -82,7 +82,7 @@ public class UtilsTest {
      */
     @Test
     public void testParseArgsC() {
-        Assert.assertArrayEquals(new String[]{"c"}, Utils.parseArgs(new String[]{"c"}));
+        Assert.assertArrayEquals(new String[]{"abc"}, Utils.parseArgs(new String[]{"abc"}));
     }
 
     /**
@@ -123,8 +123,7 @@ public class UtilsTest {
      */
     @Test
     public void testParseArgsSplitsOnUnquotedSpace() {
-        // parseArgs only knows about a small alphabet (', ", space, \, c). Use c-tokens.
-        Assert.assertArrayEquals(new String[]{"c", "c"}, Utils.parseArgs(new String[]{"c c"}));
+        Assert.assertArrayEquals(new String[]{"foo", "bar"}, Utils.parseArgs(new String[]{"foo bar"}));
     }
 
     /**
@@ -169,7 +168,17 @@ public class UtilsTest {
     @Test
     public void testArrayToStringDefaultSep() {
         Utils utils = new Utils();
-        Assert.assertEquals("[a, b]", utils.arrayToString(new String[]{"a", "b"}, null));
+        Assert.assertEquals("ab", utils.arrayToString(new String[]{"a", "b"}, null));
+    }
+
+    /**
+     * Verifies that {@link Utils#arrayToString(Object[], String)} joins elements with the
+     * supplied separator.
+     */
+    @Test
+    public void testArrayToStringWithSep() {
+        Utils utils = new Utils();
+        Assert.assertEquals("a,b", utils.arrayToString(new String[]{"a", "b"}, ","));
     }
 
     /**
@@ -178,7 +187,7 @@ public class UtilsTest {
     @Test
     public void testArrayToStringEmpty() {
         Utils utils = new Utils();
-        Assert.assertEquals("[]", utils.arrayToString(new Object[0], ","));
+        Assert.assertEquals("", utils.arrayToString(new Object[0], ","));
     }
 
     /**

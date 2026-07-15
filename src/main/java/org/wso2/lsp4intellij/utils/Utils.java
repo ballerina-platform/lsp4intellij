@@ -33,7 +33,14 @@ public class Utils {
      */
     public String arrayToString(Object[] arr, String sep) {
         sep = (sep != null) ? sep : "";
-        return String.join(sep, Arrays.toString(arr));
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) {
+                builder.append(sep);
+            }
+            builder.append(arr[i]);
+        }
+        return builder.toString();
     }
 
     /**
@@ -89,8 +96,8 @@ public class Utils {
                     wasEscaped = !wasEscaped;
                     curStr.append('\\');
                     break;
-                case 'c':
-                    curStr.append('c');
+                default:
+                    curStr.append(str.charAt(i));
                     wasEscaped = false;
                     break;
                 }
