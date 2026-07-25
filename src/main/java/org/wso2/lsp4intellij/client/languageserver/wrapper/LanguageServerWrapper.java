@@ -30,7 +30,6 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.remoteServer.util.CloudNotifier;
 import com.intellij.util.PlatformIcons;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.ClientInfo;
@@ -94,6 +93,7 @@ import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.RequestExecutor;
 import org.wso2.lsp4intellij.requests.Timeouts;
+import org.wso2.lsp4intellij.services.LspServerManager;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory;
 import org.wso2.lsp4intellij.utils.FileUtils;
@@ -130,7 +130,6 @@ import static org.wso2.lsp4intellij.requests.Timeouts.INIT;
 import static org.wso2.lsp4intellij.requests.Timeouts.SHUTDOWN;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
-import static org.wso2.lsp4intellij.utils.FileUtils.editorToProjectFolderUri;
 import static org.wso2.lsp4intellij.utils.FileUtils.editorToURIString;
 import static org.wso2.lsp4intellij.utils.FileUtils.reloadEditors;
 import static org.wso2.lsp4intellij.utils.FileUtils.sanitizeURI;
@@ -163,9 +162,6 @@ public class LanguageServerWrapper {
     private volatile boolean alreadyShownTimeout = false;
     private volatile boolean alreadyShownCrash = false;
     private volatile ServerStatus status = STOPPED;
-    private static final Map<Pair<String, String>, LanguageServerWrapper> uriToLanguageServerWrapper =
-            new ConcurrentHashMap<>();
-    private static final Map<Project, LanguageServerWrapper> projectToLanguageServerWrapper = new ConcurrentHashMap<>();
     private static final Logger LOG = Logger.getInstance(LanguageServerWrapper.class);
     private static final CloudNotifier notifier = new CloudNotifier("Language Server Protocol client");
 
@@ -188,7 +184,6 @@ public class LanguageServerWrapper {
             thread.setDaemon(true);
             return thread;
         });
-        projectToLanguageServerWrapper.put(project, this);
     }
 
     /**
@@ -216,12 +211,11 @@ public class LanguageServerWrapper {
      * @return The wrapper for the given uri, or None
      */
     public static LanguageServerWrapper forUri(String uri, Project project) {
-        return uriToLanguageServerWrapper.get(new ImmutablePair<>(uri, FileUtils.projectToUri(project)));
+        return LspServerManager.getInstance(project).wrapperForUri(uri);
     }
 
     public static LanguageServerWrapper forVirtualFile(VirtualFile file, Project project) {
-        return uriToLanguageServerWrapper.get(
-                new ImmutablePair<>(FileUtils.vfsToUri(file), FileUtils.projectToUri(project)));
+        return LspServerManager.getInstance(project).wrapperForUri(FileUtils.vfsToUri(file));
     }
 
     /**
@@ -229,13 +223,17 @@ public class LanguageServerWrapper {
      * @return The wrapper for the given editor, or None
      */
     public static LanguageServerWrapper forEditor(Editor editor) {
-        LanguageServerWrapper wrapper = uriToLanguageServerWrapper.get(
-                new ImmutablePair<>(editorToURIString(editor), editorToProjectFolderUri(editor)));
+        Project project = editor.getProject();
+        if (project == null) {
+            return null;
+        }
+        LspServerManager manager = LspServerManager.getInstance(project);
+        LanguageServerWrapper wrapper = manager.wrapperForUri(editorToURIString(editor));
         if (wrapper != null) {
             return wrapper;
         }
         // Fallback for when the editor's URI drifted (file moved/renamed) after it was connected.
-        for (LanguageServerWrapper candidate : uriToLanguageServerWrapper.values()) {
+        for (LanguageServerWrapper candidate : manager.allWrappers()) {
             if (candidate.connectedEditors.contains(editor)) {
                 return candidate;
             }
@@ -244,7 +242,7 @@ public class LanguageServerWrapper {
     }
 
     public static LanguageServerWrapper forProject(Project project) {
-        return projectToLanguageServerWrapper.get(project);
+        return LspServerManager.getInstance(project).lastWrapper();
     }
 
     public LanguageServerDefinition getServerDefinition() {
@@ -386,9 +384,8 @@ public class LanguageServerWrapper {
         if (connectedEditors.contains(editor)) {
             return;
         }
-        ImmutablePair<String, String> key = new ImmutablePair<>(uri, editorToProjectFolderUri(editor));
 
-        uriToLanguageServerWrapper.put(key, this);
+        LspServerManager.getInstance(project).mapUri(uri, this);
 
         start();
         if (initializeFuture != null) {
@@ -770,7 +767,6 @@ public class LanguageServerWrapper {
         stop(true);
         removeWidget();
         dispatcher.shutdownNow();
-        projectToLanguageServerWrapper.remove(project);
         IntellijLanguageClient.removeWrapper(this);
     }
 
@@ -795,7 +791,7 @@ public class LanguageServerWrapper {
 
                     uriToEditorManagers.remove(uri);
                     urisUnderLspControl.remove(uri);
-                    uriToLanguageServerWrapper.remove(new ImmutablePair<>(uri, editorToProjectFolderUri(editor)));
+                    LspServerManager.getInstance(project).unmapUri(uri);
                 }
             }
         }
@@ -815,10 +811,11 @@ public class LanguageServerWrapper {
      * prefer using disconnect(editor)
      *
      * @param uri        The file uri
-     * @param projectUri The project root uri
+     * @param projectUri The project root uri (unused: a wrapper only ever serves its own project,
+     *                    so {@code this.project} is used instead; kept for signature compatibility)
      */
     public void disconnect(String uri, String projectUri) {
-        uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
+        LspServerManager.getInstance(project).unmapUri(sanitizeURI(uri));
 
         Set<EditorEventManager> managers = uriToEditorManagers.get(uri);
         if (managers == null) {
@@ -837,7 +834,7 @@ public class LanguageServerWrapper {
                 }
             }
             urisUnderLspControl.remove(uri);
-            uriToLanguageServerWrapper.remove(new ImmutablePair<>(sanitizeURI(uri), sanitizeURI(projectUri)));
+            LspServerManager.getInstance(project).unmapUri(sanitizeURI(uri));
         }
         if (connectedEditors.isEmpty()) {
             // Deferred to the pool so that the didClose notification queued by documentClosed()
