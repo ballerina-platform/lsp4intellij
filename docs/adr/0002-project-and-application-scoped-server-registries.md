@@ -65,8 +65,13 @@ differently by accident.
 `getAllServerWrappersFor`, `isExtensionSupported`, `editorOpened`, `editorClosed`, `removeWrapper`,
 `getProjectToLanguageWrappers`, `didChangeConfiguration`, `getExtensionManagerForDefinition`,
 `initProjectConnections`) and `LanguageServerWrapper`'s static finders (`forUri`, `forVirtualFile`,
-`forEditor`, `forProject`) are unchanged in signature and behavior; each now delegates to one or
-both services internally. Consuming plugins compile and run unchanged.
+`forEditor`, `forProject`) keep their exact signatures; each now delegates to one or both services
+internally. Consuming plugins compile unchanged.
+
+Signature-compatible is not the same claim as behavior-identical in every respect:
+`getProjectToLanguageWrappers()`'s return-value *contract* narrows, deliberately — see the first
+Consequences bullet below for exactly what changed and why it was judged safe to ship as-is rather
+than preserve byte-for-byte.
 
 `LspServerManager` and `LspApplicationServerRegistry` are `public` (required for cross-package
 calls from `IntellijLanguageClient` and `LanguageServerWrapper`) but are not part of the supported
@@ -129,11 +134,18 @@ done once, atomically, inside `LspServerManager.getOrCreateWrapper`.
   is preserved exactly as it was. This ADR relocates existing state; it does not redesign
   `forProject()`'s contract. Fixing it (e.g., by having callers pass an extension or definition to
   disambiguate) is left to a later phase.
-- `getProjectToLanguageWrappers()` now reconstructs its result by scanning
-  `ProjectManager.getOpenProjects()` and querying each project's service, rather than returning a
-  single live map. Callers only ever read a snapshot from it today, so this is behavior-compatible;
-  it is also a safer contract (external code can no longer accidentally mutate library-internal
-  state through the returned map).
+- **`getProjectToLanguageWrappers()` is a documented, deliberate behavioral/API compatibility
+  change, not a like-for-like relocation.** Before this ADR, it returned the actual live
+  `ConcurrentHashMap` field: a caller could mutate it (corrupting the library's own registry, since
+  it was the same object) or retain the reference and observe later updates through it. After this
+  ADR, it returns a freshly built `HashMap` snapshot on every call: mutating the returned map has no
+  effect on library state, and retaining it does not track subsequent changes. This was judged safe
+  to ship without a compatibility shim because every known caller (in this codebase and in the
+  consuming plugins this library is aware of) only ever enumerates the returned map once and
+  discards it, never mutates it, and never retains it expecting live updates — but a consumer doing
+  either of those things will observe a behavior change on upgrade. If that surfaces in practice,
+  the fix is to return an explicitly immutable, still-live view rather than to revert to exposing
+  the mutable internal map directly.
 - `isExtensionSupported(VirtualFile)` keeps its existing signature, which takes no `Project`
   parameter and therefore keeps checking *every* open project's definitions plus the application
   registry — exactly the scope the original single global map covered. This is a pre-existing
