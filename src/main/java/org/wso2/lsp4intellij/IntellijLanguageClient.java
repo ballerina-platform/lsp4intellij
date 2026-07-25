@@ -47,6 +47,7 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -85,8 +86,12 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
         // Only project-scoped definitions are started here, matching the previous behavior:
         // application-level definitions (registered without a project) are started lazily instead,
         // when an editor for a matching file is opened.
-        LspServerManager.getInstance(project).allDefinitions()
-                .forEach((ext, definition) -> getOrCreateWrapper(project, ext, definition).start());
+        LspServerManager.getInstance(project).allDefinitions().forEach((ext, definition) -> {
+            LanguageServerWrapper wrapper = getOrCreateWrapper(project, ext, definition);
+            if (wrapper != null) {
+                wrapper.start();
+            }
+        });
     }
 
     /**
@@ -234,6 +239,10 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
             }
             // Update project mapping for language servers.
             LanguageServerWrapper wrapper = getOrCreateWrapper(project, ext, serverDefinition);
+            if (wrapper == null) {
+                LOG.debug("Could not create a wrapper for " + fileName + "; project may be closing");
+                return;
+            }
 
             LOG.info("Adding file " + fileName);
             // Connecting (which may start the server) runs on the wrapper's own dispatcher so that a slow
@@ -242,6 +251,7 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
         });
     }
 
+    @Nullable
     private static LanguageServerWrapper getOrCreateWrapper(
             Project project, String ext, LanguageServerDefinition serverDefinition) {
         LSPExtensionManager extManager = LspApplicationServerRegistry.getInstance().extensionManagerFor(ext);
@@ -361,9 +371,9 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     }
 
     @Nullable
-    private static Project projectForUri(String projectUri) {
+    private static Project projectForUri(@Nullable String projectUri) {
         for (Project project : ProjectManager.getInstance().getOpenProjects()) {
-            if (projectUri.equals(FileUtils.projectToUri(project))) {
+            if (Objects.equals(projectUri, FileUtils.projectToUri(project))) {
                 return project;
             }
         }
