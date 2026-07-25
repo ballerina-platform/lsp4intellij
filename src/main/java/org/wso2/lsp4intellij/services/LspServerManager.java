@@ -54,6 +54,7 @@ public final class LspServerManager implements Disposable {
     private final Map<String, LanguageServerWrapper> uriToWrapper = new ConcurrentHashMap<>();
     private final Set<LanguageServerWrapper> wrappers = ConcurrentHashMap.newKeySet();
     private volatile LanguageServerWrapper lastWrapper;
+    private boolean disposed = false;
 
     public LspServerManager(Project project) {
         this.project = project;
@@ -90,10 +91,18 @@ public final class LspServerManager implements Disposable {
      * Returns the wrapper serving the given extension for this project, creating and registering
      * one first if none exists yet. Synchronized per project instance (not globally, unlike the
      * static method this replaces), so concurrent wrapper creation in unrelated projects is never
-     * blocked by this lock.
+     * blocked by this lock. Returns null once this project has started disposing (see
+     * {@link #dispose()}), so that a wrapper can never be created after the point past which
+     * nothing will dispose it.
      */
+    @Nullable
     public synchronized LanguageServerWrapper getOrCreateWrapper(
             String ext, LanguageServerDefinition serverDefinition, @Nullable LSPExtensionManager extManager) {
+        if (disposed) {
+            LOG.debug("Ignoring wrapper creation for " + ext + " after project "
+                    + FileUtils.projectToUri(project) + " started disposing");
+            return null;
+        }
         LanguageServerWrapper wrapper = extToWrapper.get(ext);
         if (wrapper != null) {
             LOG.info("Wrapper already existing for " + ext + " , " + FileUtils.projectToUri(project));
@@ -161,9 +170,14 @@ public final class LspServerManager implements Disposable {
      * {@link Disposable#dispose()}, so the platform's project-close sequence disposes any wrapper
      * the explicit trigger missed. Safe to call twice: {@link LanguageServerWrapper#dispose()} is
      * idempotent, and a second call here iterates an already-empty set.
+     *
+     * <p>Synchronized with {@link #getOrCreateWrapper}, and sets the terminal {@code disposed} flag
+     * before taking the snapshot below, so a wrapper cannot be created concurrently with (or after)
+     * disposal and then be left running with nothing left to dispose it.
      */
     @Override
-    public void dispose() {
+    public synchronized void dispose() {
+        disposed = true;
         for (LanguageServerWrapper wrapper : new HashSet<>(wrappers)) {
             wrapper.dispose();
         }
