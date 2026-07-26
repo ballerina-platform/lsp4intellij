@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Project-scoped registry backing the parts of {@code IntellijLanguageClient}'s and
@@ -37,10 +38,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * definitions, and the wrappers running for this project (indexed by extension and by connected
  * file URI).
  *
- * <p>This is a light IntelliJ Platform service, obtained via {@link #getInstance(Project)}; it
- * requires no plugin.xml registration. It is internal to the library — plugin developers should
- * keep using the existing static methods on {@code IntellijLanguageClient} and
- * {@code LanguageServerWrapper}.
+ * <p>This is a light IntelliJ Platform service; it requires no plugin.xml registration. Registration
+ * paths obtain it via {@link #getInstance(Project)}; read and cleanup paths must use
+ * {@link #getInstanceIfCreated(Project)}, which returns null instead of throwing on a project that
+ * is closing. It is internal to the library — plugin developers should keep using the existing
+ * static methods on {@code IntellijLanguageClient} and {@code LanguageServerWrapper}.
  */
 @Service(Service.Level.PROJECT)
 public final class LspServerManager implements Disposable {
@@ -52,15 +54,46 @@ public final class LspServerManager implements Disposable {
     private final Map<String, LanguageServerWrapper> extToWrapper = new ConcurrentHashMap<>();
     private final Map<String, LanguageServerWrapper> uriToWrapper = new ConcurrentHashMap<>();
     private final Set<LanguageServerWrapper> wrappers = ConcurrentHashMap.newKeySet();
-    private volatile LanguageServerWrapper lastWrapper;
+    private final AtomicReference<LanguageServerWrapper> lastWrapper = new AtomicReference<>();
     private boolean disposed = false;
 
     public LspServerManager(Project project) {
         this.project = project;
     }
 
+    /**
+     * Returns this project's manager, creating it if it does not exist yet. Only for call sites that
+     * are registering state (definitions, wrappers) and are known to run while the project is alive.
+     * Throws if the project is already disposed; read-only lookups must use
+     * {@link #getInstanceIfCreated(Project)} instead.
+     */
     public static LspServerManager getInstance(@NotNull Project project) {
         return project.getService(LspServerManager.class);
+    }
+
+    /**
+     * Returns this project's manager, or null if the project is disposed (or disposing) or no
+     * manager has been created for it yet.
+     *
+     * <p>Read paths must use this rather than {@link #getInstance(Project)}. The static facades on
+     * {@code IntellijLanguageClient} and {@code LanguageServerWrapper} that these back were plain
+     * map lookups before the registries became services: they returned null or an empty set for an
+     * unknown project and never threw. {@code Project.getService} throws
+     * {@code AlreadyDisposedException} on a disposed project, and several of those facades run on
+     * EDT contributor paths (annotator, rename, reformat, status-bar widget) or asynchronously from
+     * a pool thread, where a project can close between the caller's check and the lookup. Returning
+     * null there preserves the original never-throws contract.
+     *
+     * <p>Not creating the service when absent is also correct for read paths: nothing can be
+     * registered for a project without going through {@link #getInstance(Project)} first, so a
+     * project with no manager has no definitions and no wrappers by construction.
+     */
+    @Nullable
+    public static LspServerManager getInstanceIfCreated(@NotNull Project project) {
+        if (project.isDisposed()) {
+            return null;
+        }
+        return project.getServiceIfCreated(LspServerManager.class);
     }
 
     @NotNull
@@ -97,7 +130,7 @@ public final class LspServerManager implements Disposable {
             extToWrapper.put(ex, wrapper);
         }
         wrappers.add(wrapper);
-        lastWrapper = wrapper;
+        lastWrapper.set(wrapper);
         return wrapper;
     }
 
@@ -116,7 +149,7 @@ public final class LspServerManager implements Disposable {
 
     @Nullable
     public LanguageServerWrapper lastWrapper() {
-        return lastWrapper;
+        return lastWrapper.get();
     }
 
     @NotNull
@@ -129,16 +162,22 @@ public final class LspServerManager implements Disposable {
      * {@code IntellijLanguageClient.removeWrapper} did: the server definition for each of the
      * wrapper's extensions is forgotten along with the wrapper itself, not just the ext-to-wrapper
      * mapping.
+     *
+     * <p>Deliberately not {@code synchronized}. This runs inside
+     * {@link LanguageServerWrapper#dispose()}, which holds the wrapper's own monitor, while
+     * {@link #dispose()} takes this service's monitor and then each wrapper's — so locking here
+     * would establish the reverse acquisition order and make the two paths deadlockable. Every
+     * field it touches is already thread-safe on its own (both maps are concurrent, {@code wrappers}
+     * is a concurrent set, and {@code lastWrapper} is cleared with a compare-and-set), so the
+     * monitor bought no atomicity worth that risk.
      */
-    public synchronized void unregister(LanguageServerWrapper wrapper, String[] extensions) {
+    public void unregister(LanguageServerWrapper wrapper, String[] extensions) {
         for (String ext : extensions) {
             extToWrapper.remove(ext);
             definitions.remove(ext);
         }
         wrappers.remove(wrapper);
-        if (lastWrapper == wrapper) {
-            lastWrapper = null;
-        }
+        lastWrapper.compareAndSet(wrapper, null);
     }
 
     /**
@@ -155,12 +194,28 @@ public final class LspServerManager implements Disposable {
      * <p>Synchronized with {@link #getOrCreateWrapper}, and sets the terminal {@code disposed} flag
      * before taking the snapshot below, so a wrapper cannot be created concurrently with (or after)
      * disposal and then be left running with nothing left to dispose it.
+     *
+     * <p>Each wrapper is disposed inside its own try/catch so that one failure cannot abort disposal
+     * of the rest — this method is the platform's last-resort cleanup for this project, so a partial
+     * run leaks a running language server process. The registry is then cleared directly rather than
+     * relying on each wrapper's {@link #unregister} callback, which is skipped on the platform's
+     * disposal path (by then {@link #getInstanceIfCreated} returns null, since the project is
+     * already disposing).
      */
     @Override
     public synchronized void dispose() {
         disposed = true;
         for (LanguageServerWrapper wrapper : new HashSet<>(wrappers)) {
-            wrapper.dispose();
+            try {
+                wrapper.dispose();
+            } catch (Exception e) {
+                LOG.warn("Failed to dispose the language server wrapper for "
+                        + wrapper.getServerDefinition().ext, e);
+            }
         }
+        wrappers.clear();
+        extToWrapper.clear();
+        uriToWrapper.clear();
+        lastWrapper.set(null);
     }
 }

@@ -211,11 +211,13 @@ public class LanguageServerWrapper {
      * @return The wrapper for the given uri, or None
      */
     public static LanguageServerWrapper forUri(String uri, Project project) {
-        return LspServerManager.getInstance(project).wrapperForUri(uri);
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        return manager != null ? manager.wrapperForUri(uri) : null;
     }
 
     public static LanguageServerWrapper forVirtualFile(VirtualFile file, Project project) {
-        return LspServerManager.getInstance(project).wrapperForUri(FileUtils.vfsToUri(file));
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        return manager != null ? manager.wrapperForUri(FileUtils.vfsToUri(file)) : null;
     }
 
     /**
@@ -227,7 +229,10 @@ public class LanguageServerWrapper {
         if (project == null) {
             return null;
         }
-        LspServerManager manager = LspServerManager.getInstance(project);
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        if (manager == null) {
+            return null;
+        }
         LanguageServerWrapper wrapper = manager.wrapperForUri(editorToURIString(editor));
         if (wrapper != null) {
             return wrapper;
@@ -242,7 +247,8 @@ public class LanguageServerWrapper {
     }
 
     public static LanguageServerWrapper forProject(Project project) {
-        return LspServerManager.getInstance(project).lastWrapper();
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        return manager != null ? manager.lastWrapper() : null;
     }
 
     public LanguageServerDefinition getServerDefinition() {
@@ -385,7 +391,14 @@ public class LanguageServerWrapper {
             return;
         }
 
-        LspServerManager.getInstance(project).mapUri(uri, this);
+        // Runs on this wrapper's dispatcher, so the project can have closed since the editor open
+        // event was queued. Bail out rather than starting a server nothing will shut down.
+        LspServerManager serverManager = LspServerManager.getInstanceIfCreated(project);
+        if (serverManager == null) {
+            LOG.debug("Skipping connect for " + uri + "; the project is no longer available");
+            return;
+        }
+        serverManager.mapUri(uri, this);
 
         start();
         if (initializeFuture != null) {
@@ -771,6 +784,18 @@ public class LanguageServerWrapper {
     }
 
     /**
+     * Drops the uri-to-wrapper mapping for this project, if the project still has a manager.
+     * Tolerates its absence because the callers below are reached from {@link #stop(boolean)} and
+     * {@link #dispose()}, which the platform can also drive while the project is already disposing.
+     */
+    private void unmapUri(String uri) {
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        if (manager != null) {
+            manager.unmapUri(uri);
+        }
+    }
+
+    /**
      * Disconnects an editor from the LanguageServer.
      *
      * @param editor The editor
@@ -791,7 +816,7 @@ public class LanguageServerWrapper {
 
                     uriToEditorManagers.remove(uri);
                     urisUnderLspControl.remove(uri);
-                    LspServerManager.getInstance(project).unmapUri(uri);
+                    unmapUri(uri);
                 }
             }
         }
@@ -815,7 +840,7 @@ public class LanguageServerWrapper {
      *                    so {@code this.project} is used instead; kept for signature compatibility)
      */
     public void disconnect(String uri, String projectUri) {
-        LspServerManager.getInstance(project).unmapUri(sanitizeURI(uri));
+        unmapUri(sanitizeURI(uri));
 
         Set<EditorEventManager> managers = uriToEditorManagers.get(uri);
         if (managers == null) {
@@ -834,7 +859,7 @@ public class LanguageServerWrapper {
                 }
             }
             urisUnderLspControl.remove(uri);
-            LspServerManager.getInstance(project).unmapUri(sanitizeURI(uri));
+            unmapUri(sanitizeURI(uri));
         }
         if (connectedEditors.isEmpty()) {
             // Deferred to the pool so that the didClose notification queued by documentClosed()

@@ -41,6 +41,9 @@ public class LSPProjectManagerListener implements ProjectManagerListener {
         // where touching the project is known to be safe. LspServerManager.dispose() also runs automatically as
         // part of the project's own Disposer chain; calling it here explicitly first is redundant with that but
         // not harmful, since dispose() is idempotent.
-        LspServerManager.getInstance(project).dispose();
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        if (manager != null) {
+            manager.dispose();
+        }
     }
 }

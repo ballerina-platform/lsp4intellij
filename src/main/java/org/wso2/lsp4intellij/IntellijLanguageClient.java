@@ -45,6 +45,7 @@ import org.wso2.lsp4intellij.services.LspApplicationServerRegistry;
 import org.wso2.lsp4intellij.services.LspServerManager;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -145,7 +146,8 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
      */
     public static @NotNull Set<LanguageServerWrapper> getAllServerWrappersFor(String projectUri) {
         Project project = projectForUri(projectUri);
-        return project != null ? LspServerManager.getInstance(project).allWrappers() : new HashSet<>();
+        LspServerManager manager = project != null ? LspServerManager.getInstanceIfCreated(project) : null;
+        return manager != null ? manager.allWrappers() : new HashSet<>();
     }
 
     /**
@@ -166,7 +168,8 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
             return true;
         }
         for (Project project : ProjectManager.getInstance().getOpenProjects()) {
-            if (LspServerManager.getInstance(project).definitions().hasDefinitionMatching(ext, fileName)) {
+            LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+            if (manager != null && manager.definitions().hasDefinitionMatching(ext, fileName)) {
                 return true;
             }
         }
@@ -325,14 +328,24 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
             LOG.error("No attached projects found for wrapper");
             return;
         }
+        // Reached from LanguageServerWrapper.dispose(), which the platform can also drive during the
+        // project's own disposal; the manager clears its own registry in that case.
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        if (manager == null) {
+            return;
+        }
         String[] extensions = wrapper.getServerDefinition().ext.split(LanguageServerDefinition.SPLIT_CHAR);
-        LspServerManager.getInstance(project).unregister(wrapper, extensions);
+        manager.unregister(wrapper, extensions);
     }
 
     public static Map<String, Set<LanguageServerWrapper>> getProjectToLanguageWrappers() {
         Map<String, Set<LanguageServerWrapper>> result = new HashMap<>();
         for (Project project : ProjectManager.getInstance().getOpenProjects()) {
-            Set<LanguageServerWrapper> wrappers = LspServerManager.getInstance(project).allWrappers();
+            LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+            if (manager == null) {
+                continue;
+            }
+            Set<LanguageServerWrapper> wrappers = manager.allWrappers();
             if (!wrappers.isEmpty()) {
                 result.put(FileUtils.projectToUri(project), wrappers);
             }
@@ -342,7 +355,9 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
 
     @SuppressWarnings("unused")
     public static void didChangeConfiguration(@NotNull DidChangeConfigurationParams params, @NotNull Project project) {
-        Set<LanguageServerWrapper> serverWrappers = LspServerManager.getInstance(project).allWrappers();
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        Set<LanguageServerWrapper> serverWrappers =
+                manager != null ? manager.allWrappers() : Collections.emptySet();
         if (serverWrappers.isEmpty()) {
             LOG.warn("No language servers registered for project " + project.getName());
             return;
