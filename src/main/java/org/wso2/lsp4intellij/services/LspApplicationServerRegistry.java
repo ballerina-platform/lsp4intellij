@@ -19,7 +19,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 
 import java.util.Map;
@@ -38,29 +37,16 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service(Service.Level.APP)
 public final class LspApplicationServerRegistry {
 
-    private final Map<String, LanguageServerDefinition> extToDefinition = new ConcurrentHashMap<>();
+    private final DefinitionRegistry definitions = new DefinitionRegistry();
     private final Map<String, LSPExtensionManager> extToExtManager = new ConcurrentHashMap<>();
 
     public static LspApplicationServerRegistry getInstance() {
         return ApplicationManager.getApplication().getService(LspApplicationServerRegistry.class);
     }
 
-    public void registerDefinition(String ext, LanguageServerDefinition definition) {
-        extToDefinition.put(ext, definition);
-    }
-
-    @Nullable
-    public LanguageServerDefinition definitionForExt(String ext) {
-        return DefinitionMatcher.byExt(extToDefinition, ext);
-    }
-
-    @Nullable
-    public Map.Entry<String, LanguageServerDefinition> matchByFileName(String fileName) {
-        return DefinitionMatcher.byFileName(extToDefinition, fileName);
-    }
-
-    public boolean hasDefinitionMatching(String ext, String fileName) {
-        return DefinitionMatcher.matches(extToDefinition, ext, fileName);
+    @NotNull
+    public DefinitionRegistry definitions() {
+        return definitions;
     }
 
     @Nullable

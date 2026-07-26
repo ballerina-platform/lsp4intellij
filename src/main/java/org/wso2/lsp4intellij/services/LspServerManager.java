@@ -26,7 +26,6 @@ import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper
 import org.wso2.lsp4intellij.extensions.LSPExtensionManager;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -49,7 +48,7 @@ public final class LspServerManager implements Disposable {
     private static final Logger LOG = Logger.getInstance(LspServerManager.class);
 
     private final Project project;
-    private final Map<String, LanguageServerDefinition> extToDefinition = new ConcurrentHashMap<>();
+    private final DefinitionRegistry definitions = new DefinitionRegistry();
     private final Map<String, LanguageServerWrapper> extToWrapper = new ConcurrentHashMap<>();
     private final Map<String, LanguageServerWrapper> uriToWrapper = new ConcurrentHashMap<>();
     private final Set<LanguageServerWrapper> wrappers = ConcurrentHashMap.newKeySet();
@@ -64,27 +63,9 @@ public final class LspServerManager implements Disposable {
         return project.getService(LspServerManager.class);
     }
 
-    public void registerDefinition(String ext, LanguageServerDefinition definition) {
-        extToDefinition.put(ext, definition);
-    }
-
-    @Nullable
-    public LanguageServerDefinition definitionForExt(String ext) {
-        return DefinitionMatcher.byExt(extToDefinition, ext);
-    }
-
-    @Nullable
-    public Map.Entry<String, LanguageServerDefinition> matchByFileName(String fileName) {
-        return DefinitionMatcher.byFileName(extToDefinition, fileName);
-    }
-
-    public boolean hasDefinitionMatching(String ext, String fileName) {
-        return DefinitionMatcher.matches(extToDefinition, ext, fileName);
-    }
-
     @NotNull
-    public Map<String, LanguageServerDefinition> allDefinitions() {
-        return Collections.unmodifiableMap(extToDefinition);
+    public DefinitionRegistry definitions() {
+        return definitions;
     }
 
     /**
@@ -152,7 +133,7 @@ public final class LspServerManager implements Disposable {
     public synchronized void unregister(LanguageServerWrapper wrapper, String[] extensions) {
         for (String ext : extensions) {
             extToWrapper.remove(ext);
-            extToDefinition.remove(ext);
+            definitions.remove(ext);
         }
         wrappers.remove(wrapper);
         if (lastWrapper == wrapper) {

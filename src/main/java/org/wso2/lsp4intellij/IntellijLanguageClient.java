@@ -40,6 +40,7 @@ import org.wso2.lsp4intellij.listeners.LSPProjectManagerListener;
 import org.wso2.lsp4intellij.listeners.VFSListener;
 import org.wso2.lsp4intellij.requests.Timeout;
 import org.wso2.lsp4intellij.requests.Timeouts;
+import org.wso2.lsp4intellij.services.DefinitionRegistry;
 import org.wso2.lsp4intellij.services.LspApplicationServerRegistry;
 import org.wso2.lsp4intellij.services.LspServerManager;
 import org.wso2.lsp4intellij.utils.FileUtils;
@@ -86,7 +87,7 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
         // Only project-scoped definitions are started here, matching the previous behavior:
         // application-level definitions (registered without a project) are started lazily instead,
         // when an editor for a matching file is opened.
-        LspServerManager.getInstance(project).allDefinitions().forEach((ext, definition) -> {
+        LspServerManager.getInstance(project).definitions().asMap().forEach((ext, definition) -> {
             LanguageServerWrapper wrapper = getOrCreateWrapper(project, ext, definition);
             if (wrapper != null) {
                 wrapper.start();
@@ -161,11 +162,11 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     public static boolean isExtensionSupported(VirtualFile virtualFile) {
         String ext = virtualFile.getExtension();
         String fileName = virtualFile.getName();
-        if (LspApplicationServerRegistry.getInstance().hasDefinitionMatching(ext, fileName)) {
+        if (LspApplicationServerRegistry.getInstance().definitions().hasDefinitionMatching(ext, fileName)) {
             return true;
         }
         for (Project project : ProjectManager.getInstance().getOpenProjects()) {
-            if (LspServerManager.getInstance(project).hasDefinitionMatching(ext, fileName)) {
+            if (LspServerManager.getInstance(project).definitions().hasDefinitionMatching(ext, fileName)) {
                 return true;
             }
         }
@@ -204,13 +205,13 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
             // The ext can either be a file extension or a file pattern(regex expression).
             // First try for the extension since it is the most comment usage, if not try to
             // match file name.
-            LspServerManager projectRegistry = LspServerManager.getInstance(project);
-            LspApplicationServerRegistry appRegistry = LspApplicationServerRegistry.getInstance();
+            DefinitionRegistry projectDefs = LspServerManager.getInstance(project).definitions();
+            DefinitionRegistry appDefs = LspApplicationServerRegistry.getInstance().definitions();
 
-            LanguageServerDefinition serverDefinition = projectRegistry.definitionForExt(ext);
+            LanguageServerDefinition serverDefinition = projectDefs.definitionForExt(ext);
             if (serverDefinition == null) {
                 // Fallback to file name pattern matching, where the map key is a regex.
-                Map.Entry<String, LanguageServerDefinition> matched = projectRegistry.matchByFileName(fileName);
+                Map.Entry<String, LanguageServerDefinition> matched = projectDefs.matchByFileName(fileName);
                 if (matched != null) {
                     serverDefinition = matched.getValue();
                     // ext must be the key since we are in file name mode.
@@ -221,11 +222,11 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
             // If cannot find a project-specific server definition for the given file and project, repeat the
             // above process to find an application level server definition for the given file extension/regex.
             if (serverDefinition == null) {
-                serverDefinition = appRegistry.definitionForExt(ext);
+                serverDefinition = appDefs.definitionForExt(ext);
             }
             if (serverDefinition == null) {
                 // Fallback to file name pattern matching, where the map key is a regex.
-                Map.Entry<String, LanguageServerDefinition> matched = appRegistry.matchByFileName(fileName);
+                Map.Entry<String, LanguageServerDefinition> matched = appDefs.matchByFileName(fileName);
                 if (matched != null) {
                     serverDefinition = matched.getValue();
                     // ext must be the key since we are in file name mode.
@@ -383,16 +384,11 @@ public class IntellijLanguageClient implements ApplicationComponent, Disposable 
     private static void processDefinition(LanguageServerDefinition definition, @Nullable Project project) {
         String[] extensions = definition.ext.split(LanguageServerDefinition.SPLIT_CHAR);
         for (String ext : extensions) {
-            boolean existed;
-            if (project != null) {
-                LspServerManager manager = LspServerManager.getInstance(project);
-                existed = manager.definitionForExt(ext) != null;
-                manager.registerDefinition(ext, definition);
-            } else {
-                LspApplicationServerRegistry registry = LspApplicationServerRegistry.getInstance();
-                existed = registry.definitionForExt(ext) != null;
-                registry.registerDefinition(ext, definition);
-            }
+            DefinitionRegistry definitions = project != null
+                    ? LspServerManager.getInstance(project).definitions()
+                    : LspApplicationServerRegistry.getInstance().definitions();
+            boolean existed = definitions.definitionForExt(ext) != null;
+            definitions.register(ext, definition);
             LOG.info((existed ? "Updated" : "Added") + " server definition for " + ext);
         }
     }
