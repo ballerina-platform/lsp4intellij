@@ -45,9 +45,18 @@ public final class DefinitionRegistry {
         extToDefinition.remove(ext);
     }
 
+    /**
+     * Returns the definition registered for exactly this extension, or null if there is none.
+     *
+     * <p>A null {@code ext} matches nothing rather than throwing: {@code VirtualFile.getExtension()}
+     * returns null for an extensionless file (a {@code Makefile}, a {@code Dockerfile}), and
+     * {@code IntellijLanguageClient.editorOpened} passes that straight through before falling back
+     * to {@link #matchByFileName}, which is the lookup that can actually match such a file. The
+     * backing map is a {@code ConcurrentHashMap}, whose {@code get} would throw on a null key.
+     */
     @Nullable
-    public LanguageServerDefinition definitionForExt(String ext) {
-        return extToDefinition.get(ext);
+    public LanguageServerDefinition definitionForExt(@Nullable String ext) {
+        return ext != null ? extToDefinition.get(ext) : null;
     }
 
     @Nullable
