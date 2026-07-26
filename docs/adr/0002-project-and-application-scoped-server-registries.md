@@ -55,9 +55,11 @@ Both are *light services*: annotated with `@Service`, requiring no `plugin.xml` 
 consistent with this library shipping no descriptor of its own. `LspServerManager` takes a
 `Project` constructor parameter, which the platform supplies automatically.
 
-A small package-private `DefinitionMatcher` holds the extension-or-filename-regex matching logic
-shared by both registries' definition maps, so the two classes cannot implement that lookup
-differently by accident.
+Both registries hold their extension-or-filename-regex-keyed definitions in a shared
+`org.wso2.lsp4intellij.services.DefinitionRegistry` (a small class each service composes an
+instance of, exposed via `definitions()`) rather than each keeping its own map and re-implementing
+the same lookup logic. The two services differ only in scope; the storage and lookup behavior is
+identical by construction, not by convention.
 
 ### 2. Every existing public method keeps its exact signature
 
