@@ -75,7 +75,7 @@ java {
 license {
     header = rootProject.file('resources/license/HEADER.txt')
     ext.year = Calendar.getInstance().get(Calendar.YEAR)
-    ext.author = 'WSO2 Inc. (http://www.wso2.org)'
+    ext.author = 'WSO2 LLC. (http://www.wso2.org)'
     strictCheck = true
     skipExistingHeaders = true
     mapping('java', 'SLASHSTAR_STYLE')
