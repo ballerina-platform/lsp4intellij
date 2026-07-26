@@ -87,12 +87,35 @@ migrate to until a later phase introduces composable per-feature overrides (see
 documented entry point — ahead of a real alternative would only produce a warning with no
 actionable next step. Deprecation is deferred to whichever phase actually ships a replacement.
 
-### 4. Disposal: keep the proven-safe explicit trigger, add the platform's chain as a backstop
+### 4. Two service accessors: `getInstance` creates, `getInstanceIfCreated` never throws
 
-`LanguageServerWrapper.dispose()` has exactly one call site: `LSPProjectManagerListener
-.projectClosing`, which the platform invokes synchronously *before* the project's own disposal
-sequence begins. That ordering is what makes it safe for the disposal path to call
-`project.getService(...)` — a project mid/post-disposal will throw on that call.
+`Project.getService(...)` throws `AlreadyDisposedException` on a disposed project, and it creates
+the service when it does not exist yet. The six maps this ADR replaces were plain
+`ConcurrentHashMap`s: every lookup returned `null` or an empty set for an unknown project and none
+of them ever threw. Preserving that required splitting the accessor in two:
+
+- **`getInstance(Project)`** — `project.getService(...)`. Used only by call sites that *register*
+  state (`processDefinition`, `initProjectConnections`, `getOrCreateWrapper`) and run while the
+  project is known to be alive.
+- **`getInstanceIfCreated(Project)`** — returns `null` if `project.isDisposed()`, otherwise
+  `project.getServiceIfCreated(...)`. Used by every read path and every removal path.
+
+The read paths need it because they run where a project can close underneath them:
+`isExtensionSupported` is called from `LSPAnnotator`, `LSPRenameHandler`, `LSPReformatAction` and
+`LSPShowReformatDialogAction` on the EDT; `forProject` is called from
+`LSPServerStatusWidget.IconPresentation` on every status-bar repaint; `getAllServerWrappersFor` is
+reached from `LSPFileEventManager` inside `ApplicationUtils.pool(...)`, so it runs after the event
+that triggered it. Throwing there surfaces to the user as an IDE internal error.
+
+Not creating the service when it is absent is correct for those paths as well: nothing can be
+registered for a project without going through `getInstance` first, so a project with no service has
+no definitions and no wrappers by construction.
+
+### 5. Disposal: keep the proven-safe explicit trigger, add the platform's chain as a backstop
+
+`LanguageServerWrapper.dispose()` has exactly one call site: `LspServerManager.dispose()`, which is
+reached from `LSPProjectManagerListener.projectClosing` — invoked synchronously *before* the
+project's own disposal sequence begins.
 
 `LspServerManager` implements `Disposable`, and its `dispose()` method (disposing every wrapper
 registered for that project) is invoked from two places:
@@ -109,20 +132,42 @@ the explicit trigger's timing is already proven correct in this codebase, and th
 is added as a backstop rather than a replacement, without having a live IDE to empirically verify
 the platform's disposal ordering in every edge case.
 
-The JVM shutdown hook in `IntellijLanguageClient.initComponent()` (which stopped every running
-wrapper across every project on JVM exit) is deleted. Under a normal IDE shutdown, every open
-project's `projectClosing` fires before JVM exit, which already disposes their wrappers through
-the path above. The gap this leaves is a genuinely abrupt JVM termination that bypasses normal
-project close — accepted, consistent with most IntelliJ plugins not maintaining their own JVM
-shutdown hook for process cleanup.
+Two properties make the backstop actually work when it is the path that runs. First, each
+`wrapper.dispose()` is wrapped in its own `try`/`catch`: one failure cannot abort disposal of the
+remaining wrappers, since a partial run leaves a language server process alive. Second, `dispose()`
+clears `wrappers`, `extToWrapper` and `uriToWrapper` itself instead of relying on each wrapper's
+`unregister`/`unmapUri` callback — on the platform path those callbacks resolve the service through
+`getInstanceIfCreated`, which by then returns `null` because the project is already disposing, so
+they are skipped.
 
-### 5. Per-project locking replaces the global lock
+### 6. Per-project locking replaces the global lock, and only the creation path locks
 
 `IntellijLanguageClient.updateLanguageWrapperContainers` was `static synchronized` — a single
 JVM-wide lock. Its replacement, `LspServerManager.getOrCreateWrapper`, is `synchronized` on the
 service *instance*, i.e., one lock per project. This is a direct consequence of moving the state
 into a project-scoped service, not a separate change: wrapper creation in one project no longer
 blocks wrapper creation in another.
+
+`dispose()` is `synchronized` on the same monitor, so it cannot interleave with wrapper creation:
+it sets the terminal `disposed` flag before iterating, and `getOrCreateWrapper` returns `null`
+once that flag is set, so a wrapper can never be created after the point past which nothing would
+dispose it.
+
+`unregister` is deliberately **not** `synchronized`. It runs inside `LanguageServerWrapper.dispose()`,
+which holds the wrapper's own monitor, while `dispose()` above takes the service monitor and *then*
+each wrapper's — so locking `unregister` would establish the reverse acquisition order and make the
+two paths deadlockable as soon as anything calls `wrapper.dispose()` off the service's own path.
+Every field it touches is independently thread-safe (both maps are concurrent, `wrappers` is a
+concurrent set, and `lastWrapper` is an `AtomicReference` cleared with a compare-and-set), so the
+monitor bought no atomicity worth that risk. For the same reason `mapUri`/`unmapUri`/`wrapperForUri`
+are lock-free.
+
+The JVM shutdown hook in `IntellijLanguageClient.initComponent()` (which stopped every running
+wrapper across every project on JVM exit) is deleted. Under a normal IDE shutdown, every open
+project's `projectClosing` fires before JVM exit, which already disposes their wrappers through
+the path above. The gap this leaves is a genuinely abrupt JVM termination that bypasses normal
+project close — accepted, consistent with most IntelliJ plugins not maintaining their own JVM
+shutdown hook for process cleanup.
 
 `LanguageServerWrapper`'s constructor no longer touches any static or service state — registering
 the new wrapper (ext-to-wrapper map, wrapper set, "last wrapper") is the caller's responsibility,
@@ -148,11 +193,18 @@ done once, atomically, inside `LspServerManager.getOrCreateWrapper`.
   either of those things will observe a behavior change on upgrade. If that surfaces in practice,
   the fix is to return an explicitly immutable, still-live view rather than to revert to exposing
   the mutable internal map directly.
+- `DefinitionRegistry.asMap()` returns an unmodifiable *live view* of the backing map, not a
+  snapshot — the opposite of `getProjectToLanguageWrappers()` above. Mutating it throws;
+  registrations made after the call are visible through it. Its only caller
+  (`initProjectConnections`) iterates it once, and `ConcurrentHashMap` iteration is weakly
+  consistent, so concurrent registration during that iteration is safe.
 - `isExtensionSupported(VirtualFile)` keeps its existing signature, which takes no `Project`
   parameter and therefore keeps checking *every* open project's definitions plus the application
   registry — exactly the scope the original single global map covered. This is a pre-existing
   design quirk (the check isn't actually project-scoped despite most of its callers having a
-  specific file in a specific project in hand) that this ADR preserves rather than fixes.
+  specific file in a specific project in hand) that this ADR preserves rather than fixes. It now
+  does one `getServiceIfCreated` lookup per open project per call, on EDT annotator paths; projects
+  that have never registered a definition have no service and are skipped without allocating one.
 - The session/feature-layer redesign described in `ARCHITECTURE.md` section 2.3 (an `LspSession`
   state machine, `RequestExecutor`-driven capability gating at the session level, per-URI
   `DocumentSynchronizer`) is not part of this decision. `LspServerManager` is a registry, not the
@@ -164,9 +216,17 @@ done once, atomically, inside `LspServerManager.getOrCreateWrapper`.
 1. Project-scoped server/wrapper state is added to `LspServerManager`, not to a new static field.
 2. State that is not project-scoped (has no natural relationship to a specific `Project`) is added
    to `LspApplicationServerRegistry`, not to a new static field.
-3. Code that needs "the wrapper(s) for this project" calls
-   `LspServerManager.getInstance(project)`, never re-derives it from a URI string comparison.
-4. Any new disposal path added to `LspServerManager` must remain idempotent, since it is invoked
+3. Code that needs "the wrapper(s) for this project" goes through `LspServerManager`, never
+   re-derives it from a URI string comparison.
+4. Use `getInstanceIfCreated` unless the call site is registering state and the project is known to
+   be alive. Anything reachable from a contributor, a status-bar widget, a pooled task, or a
+   disposal path uses `getInstanceIfCreated` and handles `null`, so that it cannot throw
+   `AlreadyDisposedException` where the pre-service map lookup returned `null`.
+5. Any new disposal path added to `LspServerManager` must remain idempotent, since it is invoked
    from both the explicit `projectClosing` trigger and the platform's automatic service disposal.
-5. Do not add `@Deprecated` to `IntellijLanguageClient`'s or `LanguageServerWrapper`'s static
+6. Do not take the `LspServerManager` monitor from code that already holds a
+   `LanguageServerWrapper` monitor. `dispose()` acquires them in the order service-then-wrapper;
+   acquiring them in the other order deadlocks. In practice: new removal/cleanup methods called
+   from inside the wrapper stay lock-free, as `unregister` and `unmapUri` are.
+7. Do not add `@Deprecated` to `IntellijLanguageClient`'s or `LanguageServerWrapper`'s static
    methods until a replacement public API actually exists for consumers to migrate to.
