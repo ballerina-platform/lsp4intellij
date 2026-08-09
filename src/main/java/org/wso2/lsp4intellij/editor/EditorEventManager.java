@@ -63,13 +63,11 @@ import org.eclipse.lsp4j.InsertReplaceEdit;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentSaveReason;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WillSaveTextDocumentParams;
-import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.actions.LSPReferencesAction;
@@ -77,22 +75,20 @@ import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
-import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
 import org.wso2.lsp4intellij.features.CodeActionFeature;
 import org.wso2.lsp4intellij.features.CompletionFeature;
 import org.wso2.lsp4intellij.features.DiagnosticsFeature;
 import org.wso2.lsp4intellij.features.HoverFeature;
 import org.wso2.lsp4intellij.features.NavigationFeature;
+import org.wso2.lsp4intellij.features.RenameFeature;
 import org.wso2.lsp4intellij.features.SignatureHelpFeature;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
-import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.awt.Cursor;
 import java.awt.Point;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -149,6 +145,7 @@ public class EditorEventManager {
     private final SignatureHelpFeature signatureHelpFeature;
     private final NavigationFeature navigationFeature;
     private final CodeActionFeature codeActionFeature;
+    private final RenameFeature renameFeature;
 
     private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getTooltipsDelay() * 1000000;
 
@@ -184,6 +181,7 @@ public class EditorEventManager {
                 hint -> this.currentHint = hint);
         this.navigationFeature = new NavigationFeature(editor, project, wrapper, identifier);
         this.codeActionFeature = new CodeActionFeature(editor, wrapper, identifier, diagnosticsFeature);
+        this.renameFeature = new RenameFeature(editor, project, wrapper, identifier, navigationFeature);
 
         EditorEventManagerBase.registerManager(this);
 
@@ -484,7 +482,7 @@ public class EditorEventManager {
     }
 
     public void rename(String renameTo) {
-        rename(renameTo, editor.getCaretModel().getCurrentCaret().getOffset());
+        renameFeature.rename(renameTo);
     }
 
     /**
@@ -493,36 +491,7 @@ public class EditorEventManager {
      * @param renameTo The new name
      */
     public void rename(String renameTo, int offset) {
-        wrapper.pool(() -> {
-            if (editor.isDisposed()) {
-                return;
-            }
-            VirtualFile[] openedFiles = FileEditorManager.getInstance(project).getOpenFiles();
-            Pair<List<PsiElement>, List<VirtualFile>> references = references(offset, true, false);
-            List<VirtualFile> toClose = new ArrayList<>();
-            if (references.getSecond() != null) {
-                for (VirtualFile file : references.getSecond()) {
-                    if (!Arrays.asList(openedFiles).contains(file)) {
-                        toClose.add(file);
-                    }
-                }
-            }
-            Position servPos = DocumentUtils.offsetToLSPPos(editor, offset);
-            RenameParams params = new RenameParams(identifier, servPos, renameTo);
-            CompletableFuture<WorkspaceEdit> request = wrapper.getRequestManager().rename(params);
-            if (request != null) {
-                request.thenAccept(res -> {
-                    boolean isApplied = WorkspaceEditHandler.applyEdit(res, "Rename to " + renameTo, toClose);
-                    LSPRenameProcessor.clearEditors();
-                    if (!isApplied) {
-                        for (VirtualFile file : toClose) {
-                            invokeLater(() -> writeAction(
-                                    () -> FileEditorManager.getInstance(project).closeFile(file)));
-                        }
-                    }
-                });
-            }
-        });
+        renameFeature.rename(renameTo, offset);
     }
 
     /**
