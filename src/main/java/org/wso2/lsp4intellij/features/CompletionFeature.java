@@ -70,23 +70,13 @@ import static org.wso2.lsp4intellij.utils.DocumentUtils.toEither;
  * and behavior they had before.
  *
  * <p>Three capabilities this feature needs are still owned by {@code EditorEventManager} — text
- * edit application (the future {@code WorkspaceEditApplier}), LSP command execution (shared with
- * code actions), and triggering signature help (a separate not-yet-extracted feature) — and are
- * injected as narrow callbacks rather than duplicated here.
+ * edit application (the future {@code WorkspaceEditApplier}; see {@link EditApplier}), LSP command
+ * execution (shared with code actions), and triggering signature help (a separate feature) — and
+ * are injected as narrow callbacks rather than duplicated here.
  */
 public final class CompletionFeature {
 
     public static final String SNIPPET_PLACEHOLDER_REGEX = "(\\$\\{\\d+:?(\\{)?[^{}]*(\\})?\\}|\\$\\d+)";
-
-    /**
-     * Matches {@code EditorEventManager.applyEdit(int, List, String, boolean, boolean)}, which
-     * this feature calls back into to apply insert-time text edits.
-     */
-    @FunctionalInterface
-    public interface EditApplier {
-        boolean apply(int version, List<Either<TextEdit, InsertReplaceEdit>> edits,
-                String name, boolean closeAfter, boolean setCaret);
-    }
 
     private final Editor editor;
     private final Project project;

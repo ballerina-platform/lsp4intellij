@@ -28,7 +28,6 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
-import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.editor.colors.EditorColors;
 import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
@@ -56,9 +55,6 @@ import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
-import org.eclipse.lsp4j.DocumentFormattingParams;
-import org.eclipse.lsp4j.DocumentRangeFormattingParams;
-import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.InsertReplaceEdit;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
@@ -78,6 +74,7 @@ import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 import org.wso2.lsp4intellij.features.CodeActionFeature;
 import org.wso2.lsp4intellij.features.CompletionFeature;
 import org.wso2.lsp4intellij.features.DiagnosticsFeature;
+import org.wso2.lsp4intellij.features.FormattingFeature;
 import org.wso2.lsp4intellij.features.HoverFeature;
 import org.wso2.lsp4intellij.features.NavigationFeature;
 import org.wso2.lsp4intellij.features.RenameFeature;
@@ -98,7 +95,6 @@ import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
 import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
 import static org.wso2.lsp4intellij.utils.DocumentUtils.toEither;
@@ -146,6 +142,7 @@ public class EditorEventManager {
     private final NavigationFeature navigationFeature;
     private final CodeActionFeature codeActionFeature;
     private final RenameFeature renameFeature;
+    private final FormattingFeature formattingFeature;
 
     private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getTooltipsDelay() * 1000000;
 
@@ -182,6 +179,7 @@ public class EditorEventManager {
         this.navigationFeature = new NavigationFeature(editor, project, wrapper, identifier);
         this.codeActionFeature = new CodeActionFeature(editor, wrapper, identifier, diagnosticsFeature);
         this.renameFeature = new RenameFeature(editor, project, wrapper, identifier, navigationFeature);
+        this.formattingFeature = new FormattingFeature(editor, wrapper, identifier, this::applyEdit);
 
         EditorEventManagerBase.registerManager(this);
 
@@ -419,66 +417,14 @@ public class EditorEventManager {
      * Reformat the whole document.
      */
     public void reformat() {
-        wrapper.pool(() -> {
-            if (editor.isDisposed()) {
-                return;
-            }
-            DocumentFormattingParams params = new DocumentFormattingParams();
-            params.setTextDocument(identifier);
-            FormattingOptions options = new FormattingOptions();
-            options.setTabSize(DocumentUtils.getTabSize(editor));
-            options.setInsertSpaces(DocumentUtils.shouldUseSpaces(editor));
-            params.setOptions(options);
-
-            CompletableFuture<List<? extends TextEdit>> request = wrapper.getRequestManager().formatting(params);
-            if (request == null) {
-                return;
-            }
-            request.thenAccept(formatting -> {
-                if (formatting != null) {
-                    invokeLater(() -> applyEdit(toEither((List<TextEdit>) formatting), "Reformat document", false));
-                }
-            });
-        });
+        formattingFeature.reformat();
     }
 
     /**
      * Reformat the text currently selected in the editor.
      */
     public void reformatSelection() {
-        wrapper.pool(() -> {
-            if (editor.isDisposed()) {
-                return;
-            }
-            DocumentRangeFormattingParams params = new DocumentRangeFormattingParams();
-            params.setTextDocument(identifier);
-            SelectionModel selectionModel = editor.getSelectionModel();
-            int start = computableReadAction(selectionModel::getSelectionStart);
-            int end = computableReadAction(selectionModel::getSelectionEnd);
-            Position startingPos = DocumentUtils.offsetToLSPPos(editor, start);
-            Position endPos = DocumentUtils.offsetToLSPPos(editor, end);
-            params.setRange(new Range(startingPos, endPos));
-            // Todo - Make Formatting Options configurable
-            FormattingOptions options = new FormattingOptions();
-            options.setTabSize(DocumentUtils.getTabSize(editor));
-            options.setInsertSpaces(DocumentUtils.shouldUseSpaces(editor));
-            params.setOptions(options);
-
-            CompletableFuture<List<? extends TextEdit>> request = wrapper.getRequestManager().rangeFormatting(params);
-            if (request == null) {
-                return;
-            }
-            request.thenAccept(formatting -> {
-                if (formatting == null) {
-                    return;
-                }
-                invokeLater(() -> {
-                    if (!editor.isDisposed()) {
-                        applyEdit(toEither((List<TextEdit>) formatting), "Reformat selection", false);
-                    }
-                });
-            });
-        });
+        formattingFeature.reformatSelection();
     }
 
     public void rename(String renameTo) {
