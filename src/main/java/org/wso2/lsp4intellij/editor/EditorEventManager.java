@@ -23,13 +23,11 @@ import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.actionSystem.ActionManager;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
-import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.editor.colors.EditorColors;
 import com.intellij.openapi.editor.event.DocumentEvent;
@@ -42,12 +40,10 @@ import com.intellij.openapi.editor.markup.HighlighterLayer;
 import com.intellij.openapi.editor.markup.HighlighterTargetArea;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.PlainTextLanguage;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
@@ -60,7 +56,6 @@ import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
-import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentFormattingParams;
@@ -69,11 +64,8 @@ import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.InsertReplaceEdit;
 import org.eclipse.lsp4j.Location;
-import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.ReferenceContext;
-import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentSaveReason;
@@ -89,11 +81,11 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
-import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
 import org.wso2.lsp4intellij.features.CompletionFeature;
 import org.wso2.lsp4intellij.features.DiagnosticsFeature;
 import org.wso2.lsp4intellij.features.HoverFeature;
+import org.wso2.lsp4intellij.features.NavigationFeature;
 import org.wso2.lsp4intellij.features.SignatureHelpFeature;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
@@ -102,8 +94,6 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.awt.Cursor;
 import java.awt.Point;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -116,13 +106,9 @@ import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
 import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
-import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
 import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
-import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
 import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
-import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeAndWait;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
 import static org.wso2.lsp4intellij.utils.DocumentUtils.toEither;
@@ -167,6 +153,7 @@ public class EditorEventManager {
     private final CompletionFeature completionFeature;
     private final HoverFeature hoverFeature;
     private final SignatureHelpFeature signatureHelpFeature;
+    private final NavigationFeature navigationFeature;
     private AnnotationHolder anonHolder;
     private List<Annotation> annotations = new ArrayList<>();
     private volatile boolean codeActionSyncRequired = false;
@@ -207,6 +194,7 @@ public class EditorEventManager {
         this.hoverFeature = new HoverFeature(editor, wrapper, identifier, hint -> this.currentHint = hint);
         this.signatureHelpFeature = new SignatureHelpFeature(editor, wrapper, identifier, signatureTriggers,
                 hint -> this.currentHint = hint);
+        this.navigationFeature = new NavigationFeature(editor, project, wrapper, identifier);
 
         EditorEventManagerBase.registerManager(this);
 
@@ -362,33 +350,8 @@ public class EditorEventManager {
         }
     }
 
-    /**
-     * Returns the position of the definition given a position in the editor.
-     *
-     * @param position The position
-     * @return The location of the definition
-     */
-    private Location requestDefinition(Position position) {
-        DefinitionParams params = new DefinitionParams(identifier, position);
-        CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> request =
-                wrapper.getRequestManager().definition(params);
-
-        Either<List<? extends Location>, List<? extends LocationLink>> definition =
-                wrapper.getRequestExecutor().waitFor(request, DEFINITION);
-        if (definition == null) {
-            return null;
-        }
-        if (definition.isLeft() && !definition.getLeft().isEmpty()) {
-            return definition.getLeft().get(0);
-        } else if (definition.isRight() && !definition.getRight().isEmpty()) {
-            var def = definition.getRight().get(0);
-            return new Location(def.getTargetUri(), def.getTargetRange());
-        }
-        return null;
-    }
-
     public Pair<List<PsiElement>, List<VirtualFile>> references(int offset) {
-        return references(offset, false, false);
+        return navigationFeature.references(offset, false, false);
     }
 
     /**
@@ -400,72 +363,7 @@ public class EditorEventManager {
      * @return An array of PsiElement
      */
     public Pair<List<PsiElement>, List<VirtualFile>> references(int offset, boolean getOriginalElement, boolean close) {
-        Position lspPos = DocumentUtils.offsetToLSPPos(editor, offset);
-        TextDocumentIdentifier textDocumentIdentifier = new TextDocumentIdentifier(FileUtils.editorToURIString(editor));
-        ReferenceParams params = new ReferenceParams(
-                textDocumentIdentifier, lspPos, new ReferenceContext(getOriginalElement));
-        params.setPosition(lspPos);
-        params.setTextDocument(identifier);
-        CompletableFuture<List<? extends Location>> request = wrapper.getRequestManager().references(params);
-        List<? extends Location> res = wrapper.getRequestExecutor().waitFor(request, REFERENCES);
-        if (res == null || res.isEmpty()) {
-            return new Pair<>(null, null);
-        }
-        List<VirtualFile> openedEditors = new ArrayList<>();
-        List<PsiElement> elements = new ArrayList<>();
-        res.forEach(l -> {
-            Position start = l.getRange().getStart();
-            Position end = l.getRange().getEnd();
-            String uri = FileUtils.sanitizeURI(l.getUri());
-            VirtualFile file = FileUtils.virtualFileFromURI(uri);
-            Editor curEditor = FileUtils.editorFromUri(uri, project);
-            if (curEditor == null && file != null) {
-                OpenFileDescriptor descriptor = new OpenFileDescriptor(
-                        project, file, start.getLine(), start.getCharacter());
-                curEditor = openEditor(descriptor);
-                if (curEditor != null) {
-                    openedEditors.add(file);
-                }
-            }
-            if (curEditor == null) {
-                LOG.warn("Error occurred in LSP references.");
-                return;
-            }
-            Editor refEditor = curEditor;
-            elements.add(computableReadAction(() -> {
-                int logicalStart = DocumentUtils.lspPosToOffset(refEditor, start);
-                int logicalEnd = DocumentUtils.lspPosToOffset(refEditor, end);
-                String name = refEditor.getDocument().getText(new TextRange(logicalStart, logicalEnd));
-                return new LSPPsiElement(name, project, logicalStart, logicalEnd,
-                        PsiDocumentManager.getInstance(project).getPsiFile(refEditor.getDocument()));
-            }));
-        });
-        if (close && !openedEditors.isEmpty()) {
-            invokeAndWait(() -> writeAction(
-                    () -> openedEditors.forEach(f -> FileEditorManager.getInstance(project).closeFile(f))));
-            openedEditors.clear();
-        }
-        return new Pair<>(elements, openedEditors);
-    }
-
-    /**
-     * Opens an editor for the given descriptor. Runs directly when called on the event dispatch thread;
-     * otherwise the opening is marshaled to the event dispatch thread and this method blocks until done.
-     */
-    private Editor openEditor(OpenFileDescriptor descriptor) {
-        if (ApplicationManager.getApplication().isDispatchThread()) {
-            return computableWriteAction(
-                    () -> FileEditorManager.getInstance(project).openTextEditor(descriptor, false));
-        }
-        if (ApplicationManager.getApplication().isReadAccessAllowed()) {
-            // Blocking on the event dispatch thread while holding the read lock would deadlock.
-            LOG.warn("Cannot open an editor for " + descriptor.getFile() + " from inside a read action");
-            return null;
-        }
-        Editor[] result = new Editor[1];
-        invokeAndWait(() -> result[0] = computableWriteAction(
-                () -> FileEditorManager.getInstance(project).openTextEditor(descriptor, false)));
-        return result[0];
+        return navigationFeature.references(offset, getOriginalElement, close);
     }
 
     /**
@@ -1024,7 +922,7 @@ public class EditorEventManager {
                 editor.xyToLogicalPosition(e.getMouseEvent().getPoint()), editor);
         wrapper.pool(() -> {
             // Resolves the definition off the EDT; range markup and navigation run on the EDT afterwards.
-            Location definitionLocation = requestDefinition(position);
+            Location definitionLocation = navigationFeature.definition(position);
             invokeLater(() -> {
                 if (editor.isDisposed()) {
                     return;
@@ -1057,7 +955,7 @@ public class EditorEventManager {
                         referencesAction.forManagerAndOffset(this, offset);
                     }
                 } else {
-                    gotoLocation(loc);
+                    navigationFeature.gotoLocation(loc);
                 }
 
                 ctrlRange.dispose();
@@ -1067,30 +965,7 @@ public class EditorEventManager {
     }
 
     public void gotoLocation(Location loc) {
-        VirtualFile file = null;
-        try {
-            file = VfsUtil.findFileByURL(new URL(loc.getUri()));
-        } catch (MalformedURLException e1) {
-            LOG.warn("Syntax Exception occurred for uri: " + loc.getUri());
-        }
-        if (file != null) {
-            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, file);
-            VirtualFile finalFile = file;
-            writeAction(() -> {
-                FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
-                Editor srcEditor = FileUtils.editorFromVirtualFile(finalFile, project);
-                if (srcEditor != null) {
-                    Position start = loc.getRange().getStart();
-                    LogicalPosition logicalPos = DocumentUtils.getTabsAwarePosition(srcEditor, start);
-                    if (logicalPos != null) {
-                        srcEditor.getCaretModel().moveToLogicalPosition(logicalPos);
-                        srcEditor.getScrollingModel().scrollTo(logicalPos, ScrollType.CENTER);
-                    }
-                }
-            });
-        } else {
-            LOG.warn("Empty file for " + loc.getUri());
-        }
+        navigationFeature.gotoLocation(loc);
     }
 
     public void requestAndShowCodeActions() {
