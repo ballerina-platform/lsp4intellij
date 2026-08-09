@@ -15,14 +15,9 @@
  */
 package org.wso2.lsp4intellij.editor;
 
-import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.hint.HintManager;
-import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInsight.template.TemplateManager;
-import com.intellij.codeInsight.template.impl.TemplateImpl;
-import com.intellij.codeInsight.template.impl.TextExpression;
 import com.intellij.lang.Language;
 import com.intellij.lang.LanguageDocumentation;
 import com.intellij.lang.annotation.Annotation;
@@ -34,7 +29,6 @@ import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.EditorModificationUtil;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.editor.SelectionModel;
@@ -71,9 +65,6 @@ import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
-import org.eclipse.lsp4j.CompletionItemKind;
-import org.eclipse.lsp4j.CompletionList;
-import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
@@ -84,7 +75,6 @@ import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.InsertReplaceEdit;
-import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
@@ -112,16 +102,15 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
-import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
+import org.wso2.lsp4intellij.features.CompletionFeature;
 import org.wso2.lsp4intellij.features.DiagnosticsFeature;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.HoverHandler;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
-import org.wso2.lsp4intellij.utils.GUIUtils;
 
 import java.awt.Cursor;
 import java.awt.Font;
@@ -131,21 +120,15 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.swing.Icon;
 
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
 import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
-import static org.wso2.lsp4intellij.requests.Timeouts.COMPLETION;
 import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
 import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
 import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
@@ -197,13 +180,12 @@ public class EditorEventManager {
     private Hint currentHint;
 
     private final DiagnosticsFeature diagnosticsFeature;
+    private final CompletionFeature completionFeature;
     private AnnotationHolder anonHolder;
     private List<Annotation> annotations = new ArrayList<>();
     private volatile boolean codeActionSyncRequired = false;
 
     private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getTooltipsDelay() * 1000000;
-
-    public static final String SNIPPET_PLACEHOLDER_REGEX = "(\\$\\{\\d+:?(\\{)?[^{}]*(\\})?\\}|\\$\\d+)";
 
     private final List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> silentAnnotations = new ArrayList<>();
 
@@ -234,6 +216,8 @@ public class EditorEventManager {
 
         this.project = editor.getProject();
         this.diagnosticsFeature = new DiagnosticsFeature(editor, project);
+        this.completionFeature = new CompletionFeature(editor, project, wrapper, identifier, completionTriggers,
+                this::applyEdit, this::executeCommands, this::signatureHelp);
 
         EditorEventManagerBase.registerManager(this);
 
@@ -834,31 +818,7 @@ public class EditorEventManager {
      * @return The suggestions
      */
     public Iterable<? extends LookupElement> completion(Position pos) {
-
-        List<LookupElement> lookupItems = new ArrayList<>();
-        CompletableFuture<Either<List<CompletionItem>, CompletionList>> request = wrapper.getRequestManager()
-                .completion(new CompletionParams(identifier, pos));
-        Either<List<CompletionItem>, CompletionList> res =
-                wrapper.getRequestExecutor().waitFor(request, COMPLETION);
-        if (res == null) {
-            return lookupItems;
-        }
-        if (res.getLeft() != null) {
-            for (CompletionItem item : res.getLeft()) {
-                LookupElement lookupElement = createLookupItem(item);
-                if (lookupElement != null) {
-                    lookupItems.add(lookupElement);
-                }
-            }
-        } else if (res.getRight() != null) {
-            for (CompletionItem item : res.getRight().getItems()) {
-                LookupElement lookupElement = createLookupItem(item);
-                if (lookupElement != null) {
-                    lookupItems.add(lookupElement);
-                }
-            }
-        }
-        return lookupItems;
+        return completionFeature.completion(pos);
     }
 
     /**
@@ -869,210 +829,24 @@ public class EditorEventManager {
      */
     @SuppressWarnings("WeakerAccess")
     public LookupElement createLookupItem(CompletionItem item) {
-        Command command = item.getCommand();
-        String detail = item.getDetail();
-        String insertText = item.getInsertText();
-        CompletionItemKind kind = item.getKind();
-        String label = item.getLabel();
-        Either<TextEdit, InsertReplaceEdit> textEditEither = item.getTextEdit();
-        TextEdit textEdit = (textEditEither != null) ? textEditEither.getLeft() : null;
-        InsertReplaceEdit insertReplaceEdit = (textEditEither != null) ? textEditEither.getRight() : null;
-        List<TextEdit> addTextEdits = item.getAdditionalTextEdits();
-        String presentableText = StringUtils.isNotEmpty(label) ? label : (insertText != null) ? insertText : "";
-        String tailText = (detail != null) ? detail : "";
-        LSPIconProvider iconProvider = GUIUtils.getIconProviderFor(wrapper.getServerDefinition());
-        Icon icon = iconProvider.getCompletionIcon(kind);
-        LookupElementBuilder lookupElementBuilder;
-
-        String lookupString = null;
-        if (textEdit != null) {
-            lookupString = textEdit.getNewText();
-        } else if (insertReplaceEdit != null) {
-            lookupString = insertReplaceEdit.getNewText();
-        } else if (StringUtils.isNotEmpty(insertText)) {
-            lookupString = insertText;
-        } else if (StringUtils.isNotEmpty(label)) {
-            lookupString = label;
-        }
-        if (StringUtils.isEmpty(lookupString)) {
-            return null;
-        }
-        // Fixes IDEA internal assertion failure in windows.
-        lookupString = lookupString.replace(DocumentUtils.WIN_SEPARATOR, DocumentUtils.LINUX_SEPARATOR);
-
-        lookupElementBuilder = LookupElementBuilder.create(getLookupStringWithoutPlaceholders(item, lookupString));
-
-        lookupElementBuilder = addCompletionInsertHandlers(item, lookupElementBuilder, lookupString);
-
-        if (kind == CompletionItemKind.Keyword) {
-            lookupElementBuilder = lookupElementBuilder.withBoldness(true);
-        }
-
-        return lookupElementBuilder.withPresentableText(presentableText).withTypeText(tailText, true).withIcon(icon)
-                .withAutoCompletionPolicy(AutoCompletionPolicy.SETTINGS_DEPENDENT);
-    }
-
-    private String getLookupStringWithoutPlaceholders(CompletionItem item, String lookupString) {
-        if (item.getInsertTextFormat() == InsertTextFormat.Snippet) {
-            return convertPlaceHolders(lookupString);
-        } else {
-            return lookupString;
-        }
+        return completionFeature.createLookupItem(item);
     }
 
     @SuppressWarnings("WeakerAccess")
     public LookupElementBuilder addCompletionInsertHandlers(
             CompletionItem item, LookupElementBuilder builder,
             String lookupString) {
-
-        String label = item.getLabel();
-        Command command = item.getCommand();
-        List<TextEdit> addTextEdits = item.getAdditionalTextEdits();
-        InsertTextFormat format = item.getInsertTextFormat();
-
-        if (addTextEdits != null) {
-            builder = builder.withInsertHandler(
-                    (InsertionContext context, LookupElement lookupElement) -> invokeLater(() -> {
-                applyInitialTextEdit(item, context, lookupString);
-
-                if (format == InsertTextFormat.Snippet) {
-                    context.commitDocument();
-                    prepareAndRunSnippet(lookupString);
-                }
-
-                context.commitDocument();
-                applyEdit(Integer.MAX_VALUE, toEither(addTextEdits), "Completion : " + label, false, false);
-                if (command != null) {
-                    executeCommands(Collections.singletonList(command));
-                }
-            }));
-        } else if (command != null) {
-            builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                applyInitialTextEdit(item, context, lookupString);
-
-                if (format == InsertTextFormat.Snippet) {
-                    context.commitDocument();
-                    prepareAndRunSnippet(lookupString);
-                }
-                context.commitDocument();
-                executeCommands(Collections.singletonList(command));
-            });
-        } else {
-            builder = builder.withInsertHandler((InsertionContext context, LookupElement lookupElement) -> {
-                applyInitialTextEdit(item, context, lookupString);
-
-                if (format == InsertTextFormat.Snippet) {
-                    context.commitDocument();
-                    prepareAndRunSnippet(lookupString);
-                }
-            });
-        }
-        return builder;
-    }
-
-    private void applyInitialTextEdit(CompletionItem item, InsertionContext context, String lookupString) {
-        if (item.getTextEdit() != null) {
-            // remove intellij edit, server is controlling insertion
-            writeAction(() -> {
-                Runnable runnable = () -> this.editor.getDocument()
-                        .deleteString(context.getStartOffset(), context.getTailOffset());
-
-                CommandProcessor.getInstance()
-                        .executeCommand(project, runnable,
-                                "Removing Intellij Completion", "LSPPlugin",
-                                editor.getDocument());
-            });
-            context.commitDocument();
-
-            if (item.getTextEdit().isLeft()) {
-                item.getTextEdit().getLeft().setNewText(getLookupStringWithoutPlaceholders(item, lookupString));
-            }
-
-            applyEdit(Integer.MAX_VALUE, Collections.singletonList(item.getTextEdit()), "text edit", false, true);
-        } else {
-            // client handles insertion, determine a prefix (to allow completions of partially matching items)
-            int prefixLength = getCompletionPrefixLength(context.getStartOffset());
-
-            writeAction(() -> {
-                Runnable runnable = () -> this.editor.getDocument()
-                        .deleteString(context.getStartOffset() - prefixLength,
-                                context.getStartOffset());
-
-                CommandProcessor.getInstance()
-                        .executeCommand(project, runnable, "Removing Prefix", "LSPPlugin", editor.getDocument());
-            });
-            context.commitDocument();
-
-        }
-    }
-
-    private int getCompletionPrefixLength(int offset) {
-        return getCompletionPrefix(this.editor, offset).length();
+        return completionFeature.addCompletionInsertHandlers(item, builder, lookupString);
     }
 
     @NotNull
     public String getCompletionPrefix(Editor editor, int offset) {
-        String delimiterString = String.join("", this.completionTriggers) + " \t\n\r";
-        String documentText = editor.getDocument().getText();
-        int lastIndex = -1;
-        for (char delimiter : delimiterString.toCharArray()) {
-            int index = documentText.substring(0, offset).lastIndexOf(delimiter);
-            if (index > lastIndex) {
-                lastIndex = index;
-            }
-        }
-        return lastIndex >= 0 ? documentText.substring(lastIndex + 1, offset) : documentText.substring(0, offset);
+        return completionFeature.getCompletionPrefix(editor, offset);
     }
 
     @SuppressWarnings("WeakerAccess")
     public void prepareAndRunSnippet(String insertText) {
-
-        List<SnippetVariable> variables = new ArrayList<>();
-        // Extracts variables using placeholder REGEX pattern.
-        Matcher varMatcher = Pattern.compile(SNIPPET_PLACEHOLDER_REGEX).matcher(insertText);
-        while (varMatcher.find()) {
-            variables.add(new SnippetVariable(varMatcher.group(), varMatcher.start(), varMatcher.end()));
-        }
-        if (variables.isEmpty()) {
-            return;
-        }
-        variables.sort(Comparator.comparingInt(o -> o.startIndex));
-        final String[] finalInsertText = {insertText};
-        variables.forEach(var -> finalInsertText[0] = finalInsertText[0].replace(var.lspSnippetText, "$"));
-
-        String[] splitInsertText = finalInsertText[0].split("\\$");
-        finalInsertText[0] = String.join("", splitInsertText);
-
-        TemplateImpl template = (TemplateImpl) TemplateManager
-                .getInstance(getProject()).createTemplate(finalInsertText[0],
-                "lsp4intellij");
-        template.parseSegments();
-
-        // prevent "smart" indent of next line...
-        template.setToIndent(false);
-
-        final int[] varIndex = {0};
-        variables.forEach(var -> {
-            template.addTextSegment(splitInsertText[varIndex[0]]);
-            template.addVariable(varIndex[0] + "_" + var.variableValue, new TextExpression(var.variableValue),
-                    new TextExpression(var.variableValue), true, false);
-            varIndex[0]++;
-        });
-        // If the snippet text ends with a placeholder, there will be no string segment left to append after the last
-        // variable.
-        if (splitInsertText.length != variables.size()) {
-            template.addTextSegment(splitInsertText[splitInsertText.length - 1]);
-        }
-        template.setInline(true);
-        if (variables.size() > 0) {
-            EditorModificationUtil.moveCaretRelatively(editor, -template.getTemplateText().length());
-        }
-        TemplateManager.getInstance(getProject()).startTemplate(editor, template);
-        signatureHelp();
-    }
-
-    private String convertPlaceHolders(String insertText) {
-        return insertText.replaceAll(SNIPPET_PLACEHOLDER_REGEX, "");
+        completionFeature.prepareAndRunSnippet(insertText);
     }
 
     /**
@@ -1615,26 +1389,4 @@ public class EditorEventManager {
         }
     }
 
-    static class SnippetVariable {
-        String lspSnippetText;
-        int startIndex;
-        int endIndex;
-        String variableValue;
-        String intellijSnippetText;
-
-        SnippetVariable(String text, int start, int end) {
-            this.lspSnippetText = text;
-            this.startIndex = start;
-            this.endIndex = end;
-            this.variableValue = getVariableValue(text);
-        }
-
-        private String getVariableValue(String lspVarSnippet) {
-            if (lspVarSnippet.contains(":")) {
-                lspVarSnippet = lspVarSnippet.replace("\\", "");
-                return lspVarSnippet.substring(lspVarSnippet.indexOf(':') + 1, lspVarSnippet.lastIndexOf('}'));
-            }
-            return " ";
-        }
-    }
 }
