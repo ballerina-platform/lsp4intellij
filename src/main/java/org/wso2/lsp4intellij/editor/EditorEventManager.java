@@ -16,7 +16,6 @@
 package org.wso2.lsp4intellij.editor;
 
 import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.AutoCompletionPolicy;
 import com.intellij.codeInsight.lookup.LookupElement;
@@ -116,6 +115,7 @@ import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
 import org.wso2.lsp4intellij.contributors.icon.LSPIconProvider;
 import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
+import org.wso2.lsp4intellij.features.DiagnosticsFeature;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.requests.HoverHandler;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
@@ -196,10 +196,9 @@ public class EditorEventManager {
     private boolean mouseInEditor = true;
     private Hint currentHint;
 
-    private final List<Diagnostic> diagnostics = new ArrayList<>();
+    private final DiagnosticsFeature diagnosticsFeature;
     private AnnotationHolder anonHolder;
     private List<Annotation> annotations = new ArrayList<>();
-    private volatile boolean diagnosticSyncRequired = true;
     private volatile boolean codeActionSyncRequired = false;
 
     private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getTooltipsDelay() * 1000000;
@@ -234,6 +233,7 @@ public class EditorEventManager {
                 new ArrayList<>();
 
         this.project = editor.getProject();
+        this.diagnosticsFeature = new DiagnosticsFeature(editor, project);
 
         EditorEventManagerBase.registerManager(this);
 
@@ -500,9 +500,8 @@ public class EditorEventManager {
     /**
      * @return The current diagnostics highlights
      */
-    public synchronized List<Diagnostic> getDiagnostics() {
-        this.diagnosticSyncRequired = false;
-        return this.diagnostics;
+    public List<Diagnostic> getDiagnostics() {
+        return diagnosticsFeature.diagnostics();
     }
 
     /**
@@ -521,8 +520,8 @@ public class EditorEventManager {
         this.anonHolder = holder;
     }
 
-    public synchronized boolean isDiagnosticSyncRequired() {
-        return this.diagnosticSyncRequired;
+    public boolean isDiagnosticSyncRequired() {
+        return diagnosticsFeature.isSyncRequired();
     }
 
     public synchronized boolean isCodeActionSyncRequired() {
@@ -535,20 +534,7 @@ public class EditorEventManager {
      * @param diagnostics The diagnostics to apply from the server
      */
     public void diagnostics(List<Diagnostic> diagnostics) {
-
-        // If both of the old diagnostics and the received diagnostics are empty, we can simply return without
-        // re-triggering the annotator.
-        if (editor.isDisposed() || (this.diagnostics.isEmpty() && diagnostics.isEmpty())) {
-            return;
-        }
-
-        synchronized (this.diagnostics) {
-            this.diagnostics.clear();
-            this.diagnostics.addAll(diagnostics);
-            diagnosticSyncRequired = true;
-            // Triggers force full DaemonCodeAnalyzer execution.
-            updateErrorAnnotations();
-        }
+        diagnosticsFeature.publish(diagnostics);
     }
 
     /**
@@ -567,15 +553,13 @@ public class EditorEventManager {
 
         // Calculates the diagnostic context.
         List<Diagnostic> diagnosticContext = new ArrayList<>();
-        synchronized (this.diagnostics) {
-            diagnostics.forEach(diagnostic -> {
-                int startOffset = DocumentUtils.lspPosToOffset(editor, diagnostic.getRange().getStart());
-                int endOffset = DocumentUtils.lspPosToOffset(editor, diagnostic.getRange().getEnd());
-                if (offset >= startOffset && offset <= endOffset) {
-                    diagnosticContext.add(diagnostic);
-                }
-            });
-        }
+        diagnosticsFeature.withDiagnostics(diags -> diags.forEach(diagnostic -> {
+            int startOffset = DocumentUtils.lspPosToOffset(editor, diagnostic.getRange().getStart());
+            int endOffset = DocumentUtils.lspPosToOffset(editor, diagnostic.getRange().getEnd());
+            if (offset >= startOffset && offset <= endOffset) {
+                diagnosticContext.add(diagnostic);
+            }
+        }));
 
         CodeActionContext context = new CodeActionContext(diagnosticContext);
         params.setContext(context);
@@ -1587,24 +1571,8 @@ public class EditorEventManager {
         // If code actions are updated, forcefully triggers the inspection tool.
         if (codeActionSyncRequired) {
             // double-delay the update to ensure that the code analyzer finishes.
-            invokeLater(this::updateErrorAnnotations);
+            invokeLater(diagnosticsFeature::restartDaemonCodeAnalyzer);
         }
-    }
-
-    /**
-     * Triggers force full DaemonCodeAnalyzer execution.
-     */
-    private void updateErrorAnnotations() {
-        computableReadAction(() -> {
-            final PsiFile file = PsiDocumentManager.getInstance(project)
-                    .getCachedPsiFile(editor.getDocument());
-            if (file == null) {
-                return null;
-            }
-            LOG.debug("Triggering force full DaemonCodeAnalyzer execution.");
-            DaemonCodeAnalyzer.getInstance(project).restart(file);
-            return null;
-        });
     }
 
     public List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> getSilentAnnotations() {
@@ -1614,7 +1582,7 @@ public class EditorEventManager {
     public void triggerIntentionActions() {
         if (isTriggerIntentionActions) {
             isTriggerIntentionActions = false;
-            updateErrorAnnotations();
+            diagnosticsFeature.restartDaemonCodeAnalyzer();
         }
     }
 
