@@ -52,15 +52,12 @@ import com.intellij.ui.Hint;
 import groovy.lang.Tuple3;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lsp4j.CodeAction;
-import org.eclipse.lsp4j.CodeActionContext;
-import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentRangeFormattingParams;
-import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.InsertReplaceEdit;
 import org.eclipse.lsp4j.Location;
@@ -80,8 +77,8 @@ import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
 import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
-import org.wso2.lsp4intellij.contributors.fixes.LSPCommandFix;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
+import org.wso2.lsp4intellij.features.CodeActionFeature;
 import org.wso2.lsp4intellij.features.CompletionFeature;
 import org.wso2.lsp4intellij.features.DiagnosticsFeature;
 import org.wso2.lsp4intellij.features.HoverFeature;
@@ -98,15 +95,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getCtrlRange;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsCtrlDown;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.getIsKeyPressed;
 import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
-import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
-import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
 import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.invokeLater;
@@ -154,15 +148,9 @@ public class EditorEventManager {
     private final HoverFeature hoverFeature;
     private final SignatureHelpFeature signatureHelpFeature;
     private final NavigationFeature navigationFeature;
-    private AnnotationHolder anonHolder;
-    private List<Annotation> annotations = new ArrayList<>();
-    private volatile boolean codeActionSyncRequired = false;
+    private final CodeActionFeature codeActionFeature;
 
     private static final long CTRL_THRESH = EditorSettingsExternalizable.getInstance().getTooltipsDelay() * 1000000;
-
-    private final List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> silentAnnotations = new ArrayList<>();
-
-    private boolean isTriggerIntentionActions = false;
 
     //Todo - Revisit arguments order and add remaining listeners
     public EditorEventManager(Editor editor, DocumentListener documentListener, EditorMouseListener mouseListener,
@@ -195,6 +183,7 @@ public class EditorEventManager {
         this.signatureHelpFeature = new SignatureHelpFeature(editor, wrapper, identifier, signatureTriggers,
                 hint -> this.currentHint = hint);
         this.navigationFeature = new NavigationFeature(editor, project, wrapper, identifier);
+        this.codeActionFeature = new CodeActionFeature(editor, wrapper, identifier, diagnosticsFeature);
 
         EditorEventManagerBase.registerManager(this);
 
@@ -376,25 +365,24 @@ public class EditorEventManager {
     /**
      * @return The current diagnostic annotations
      */
-    public synchronized List<Annotation> getAnnotations() {
-        this.codeActionSyncRequired = false;
-        return this.annotations;
+    public List<Annotation> getAnnotations() {
+        return codeActionFeature.getAnnotations();
     }
 
-    public synchronized void setAnnotations(List<Annotation> annotations) {
-        this.annotations = annotations;
+    public void setAnnotations(List<Annotation> annotations) {
+        codeActionFeature.setAnnotations(annotations);
     }
 
-    public synchronized void setAnonHolder(AnnotationHolder holder) {
-        this.anonHolder = holder;
+    public void setAnonHolder(AnnotationHolder holder) {
+        codeActionFeature.setAnonHolder(holder);
     }
 
     public boolean isDiagnosticSyncRequired() {
         return diagnosticsFeature.isSyncRequired();
     }
 
-    public synchronized boolean isCodeActionSyncRequired() {
-        return this.codeActionSyncRequired;
+    public boolean isCodeActionSyncRequired() {
+        return codeActionFeature.isCodeActionSyncRequired();
     }
 
     /**
@@ -414,31 +402,11 @@ public class EditorEventManager {
      */
     @SuppressWarnings("WeakerAccess")
     public List<Either<Command, CodeAction>> codeAction(int offset) {
-        CodeActionParams params = new CodeActionParams();
-        params.setTextDocument(identifier);
-        Range range = new Range(DocumentUtils.offsetToLSPPos(editor, offset),
-                DocumentUtils.offsetToLSPPos(editor, offset));
-        params.setRange(range);
-
-        // Calculates the diagnostic context.
-        List<Diagnostic> diagnosticContext = new ArrayList<>();
-        diagnosticsFeature.withDiagnostics(diags -> diags.forEach(diagnostic -> {
-            int startOffset = DocumentUtils.lspPosToOffset(editor, diagnostic.getRange().getStart());
-            int endOffset = DocumentUtils.lspPosToOffset(editor, diagnostic.getRange().getEnd());
-            if (offset >= startOffset && offset <= endOffset) {
-                diagnosticContext.add(diagnostic);
-            }
-        }));
-
-        CodeActionContext context = new CodeActionContext(diagnosticContext);
-        params.setContext(context);
-        CompletableFuture<List<Either<Command, CodeAction>>> future = wrapper.getRequestManager().codeAction(params);
-        return wrapper.getRequestExecutor().waitFor(future, CODEACTION);
+        return codeActionFeature.codeAction(offset);
     }
 
     public CodeAction resolvedCodeAction(CodeAction codeAction) {
-        CompletableFuture<CodeAction> future = wrapper.getRequestManager().resolveCodeAction(codeAction);
-        return wrapper.getRequestExecutor().waitFor(future, CODEACTION);
+        return codeActionFeature.resolvedCodeAction(codeAction);
     }
 
     /**
@@ -767,18 +735,7 @@ public class EditorEventManager {
      * @param commands The commands to execute
      */
     public void executeCommands(List<Command> commands) {
-        wrapper.pool(() -> {
-            if (editor.isDisposed()) {
-                return;
-            }
-            commands.stream().map(c -> {
-                ExecuteCommandParams params = new ExecuteCommandParams();
-                params.setArguments(c.getArguments());
-                params.setCommand(c.getCommand());
-                return wrapper.getRequestManager().executeCommand(params);
-            }).filter(Objects::nonNull).forEach(f ->
-                    wrapper.getRequestExecutor().waitFor(f, EXECUTE_COMMAND));
-        });
+        codeActionFeature.executeCommands(commands);
     }
 
     private void saveDocument() {
@@ -843,7 +800,7 @@ public class EditorEventManager {
             return;
         }
         if (event.getDocument() == editor.getDocument()) {
-            silentAnnotations.clear();
+            codeActionFeature.getSilentAnnotations().clear();
             documentEventManager.documentChanged(event);
         } else {
             LOG.error("Wrong document for the EditorEventManager");
@@ -969,135 +926,15 @@ public class EditorEventManager {
     }
 
     public void requestAndShowCodeActions() {
-        wrapper.pool(() -> {
-            if (editor.isDisposed()) {
-                return;
-            }
-
-            // Sends the code action request and resolves incomplete code actions while off the EDT;
-            // only the annotation bookkeeping runs on the EDT.
-            int caretPos = computableReadAction(() -> editor.getCaretModel().getCurrentCaret().getOffset());
-            List<Either<Command, CodeAction>> codeActionResp = codeAction(caretPos);
-            if (codeActionResp == null || codeActionResp.isEmpty()) {
-                return;
-            }
-            List<Either<Command, CodeAction>> codeActions = new ArrayList<>();
-            for (Either<Command, CodeAction> element : codeActionResp) {
-                if (element == null) {
-                    continue;
-                }
-                if (element.isRight() && element.getRight().getEdit() == null) {
-                    CodeAction resolved = resolvedCodeAction(element.getRight());
-                    if (resolved != null && resolved.getEdit() != null) {
-                        codeActions.add(Either.forRight(resolved));
-                        continue;
-                    }
-                }
-                codeActions.add(element);
-            }
-            invokeLater(() -> showCodeActions(caretPos, codeActions));
-        });
-    }
-
-    private void showCodeActions(int caretPos, List<Either<Command, CodeAction>> codeActions) {
-        if (editor.isDisposed()) {
-            return;
-        }
-        if (annotations == null) {
-            annotations = new ArrayList<>();
-        }
-
-        codeActions.forEach(element -> {
-                if (element.isLeft()) {
-                    Command command = element.getLeft();
-                    Annotation annotWithCodeAction = null;
-                    for (Annotation annotation : annotations) {
-                        int start = annotation.getStartOffset();
-                        int end = annotation.getEndOffset();
-                        if (start <= caretPos && end >= caretPos) {
-                            if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
-                                isTriggerIntentionActions = true;
-                            }
-                            annotation.registerFix(new LSPCommandFix(FileUtils.editorToURIString(editor), command),
-                                    new TextRange(start, end));
-                            codeActionSyncRequired = true;
-                            annotWithCodeAction = annotation;
-                            break;
-                        }
-                    }
-                    if (annotWithCodeAction != null) {
-                        annotations.remove(annotWithCodeAction);
-                        annotations.add(0, annotWithCodeAction);
-                    }
-                } else if (element.isRight()) {
-                    CodeAction codeAction = element.getRight();
-                    List<Diagnostic> diagnosticContext = codeAction.getDiagnostics();
-                    Annotation annotWithCodeAction = null;
-                    for (Annotation annotation : annotations) {
-                        int start = annotation.getStartOffset();
-                        int end = annotation.getEndOffset();
-                        if (start <= caretPos && end >= caretPos) {
-                            if (annotation.getQuickFixes() == null || annotation.getQuickFixes().isEmpty()) {
-                                isTriggerIntentionActions = true;
-                            }
-                            annotation.registerFix(new LSPCodeActionFix(FileUtils.editorToURIString(editor),
-                                    codeAction), new TextRange(start, end));
-                            codeActionSyncRequired = true;
-                            annotWithCodeAction = annotation;
-                            break;
-                        }
-                    }
-                    if (annotWithCodeAction != null) {
-                        annotations.remove(annotWithCodeAction);
-                        annotations.add(0, annotWithCodeAction);
-                    }
-
-                    // If the code actions does not have a diagnostics context, creates an intention action for
-                    // the current line.
-                    if ((diagnosticContext == null || diagnosticContext.isEmpty())
-                            && anonHolder != null && !codeActionSyncRequired) {
-                        // Calculates text range of the current line.
-                        int line = editor.getCaretModel().getCurrentCaret().getLogicalPosition().line;
-                        int startOffset = editor.getDocument().getLineStartOffset(line);
-                        int endOffset = editor.getDocument().getLineEndOffset(line);
-                        TextRange range = new TextRange(startOffset, endOffset);
-                        CodeAction finalCodeAction = codeAction;
-                        boolean found = silentAnnotations.stream()
-                                .anyMatch(silentAnnotation ->
-                                        silentAnnotation.getSecond().getStartOffset() == startOffset &&
-                                        silentAnnotation.getSecond().getEndOffset() == endOffset &&
-                                        silentAnnotation.getThird().getText().equals(finalCodeAction.getTitle())
-                                 );
-                        if (!found) {
-                            Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> sAnnotation =
-                                    new Tuple3<>(
-                                            HighlightSeverity.INFORMATION,
-                                            range,
-                                            new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
-                                    );
-                            silentAnnotations.add(sAnnotation);
-                            isTriggerIntentionActions = true;
-                        }
-                        codeActionSyncRequired = true;
-                    }
-                }
-        });
-        // If code actions are updated, forcefully triggers the inspection tool.
-        if (codeActionSyncRequired) {
-            // double-delay the update to ensure that the code analyzer finishes.
-            invokeLater(diagnosticsFeature::restartDaemonCodeAnalyzer);
-        }
+        codeActionFeature.requestAndShowCodeActions();
     }
 
     public List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> getSilentAnnotations() {
-        return silentAnnotations;
+        return codeActionFeature.getSilentAnnotations();
     }
 
     public void triggerIntentionActions() {
-        if (isTriggerIntentionActions) {
-            isTriggerIntentionActions = false;
-            diagnosticsFeature.restartDaemonCodeAnalyzer();
-        }
+        codeActionFeature.triggerIntentionActions();
     }
 
     public static class LSPTextEdit implements Comparable<LSPTextEdit> {
