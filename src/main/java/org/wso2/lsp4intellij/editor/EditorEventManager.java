@@ -15,7 +15,6 @@
  */
 package org.wso2.lsp4intellij.editor;
 
-import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.lang.Language;
@@ -54,10 +53,6 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
-import com.intellij.util.ui.UIUtil;
-import com.vladsch.flexmark.html.HtmlRenderer;
-import com.vladsch.flexmark.parser.Parser;
-import com.vladsch.flexmark.util.data.MutableDataSet;
 import groovy.lang.Tuple3;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lsp4j.CodeAction;
@@ -72,21 +67,14 @@ import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FormattingOptions;
-import org.eclipse.lsp4j.Hover;
-import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.InsertReplaceEdit;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
-import org.eclipse.lsp4j.MarkupContent;
-import org.eclipse.lsp4j.ParameterInformation;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceContext;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
-import org.eclipse.lsp4j.SignatureHelp;
-import org.eclipse.lsp4j.SignatureHelpParams;
-import org.eclipse.lsp4j.SignatureInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentSaveReason;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
@@ -94,7 +82,6 @@ import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WillSaveTextDocumentParams;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.eclipse.lsp4j.jsonrpc.messages.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.actions.LSPReferencesAction;
 import org.wso2.lsp4intellij.client.languageserver.ServerOptions;
@@ -106,14 +93,14 @@ import org.wso2.lsp4intellij.contributors.psi.LSPPsiElement;
 import org.wso2.lsp4intellij.contributors.rename.LSPRenameProcessor;
 import org.wso2.lsp4intellij.features.CompletionFeature;
 import org.wso2.lsp4intellij.features.DiagnosticsFeature;
+import org.wso2.lsp4intellij.features.HoverFeature;
+import org.wso2.lsp4intellij.features.SignatureHelpFeature;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
-import org.wso2.lsp4intellij.requests.HoverHandler;
 import org.wso2.lsp4intellij.requests.WorkspaceEditHandler;
 import org.wso2.lsp4intellij.utils.DocumentUtils;
 import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.awt.Cursor;
-import java.awt.Font;
 import java.awt.Point;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -131,9 +118,7 @@ import static org.wso2.lsp4intellij.editor.EditorEventManagerBase.setCtrlRange;
 import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
 import static org.wso2.lsp4intellij.requests.Timeouts.DEFINITION;
 import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
-import static org.wso2.lsp4intellij.requests.Timeouts.HOVER;
 import static org.wso2.lsp4intellij.requests.Timeouts.REFERENCES;
-import static org.wso2.lsp4intellij.requests.Timeouts.SIGNATURE;
 import static org.wso2.lsp4intellij.requests.Timeouts.WILLSAVE;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableReadAction;
 import static org.wso2.lsp4intellij.utils.ApplicationUtils.computableWriteAction;
@@ -169,7 +154,6 @@ public class EditorEventManager {
     private LSPCaretListenerImpl caretListener;
 
     public List<String> completionTriggers;
-    private List<String> signatureTriggers;
     private TextDocumentSyncKind syncKind;
     private volatile boolean needSave = false;
     private long predTime = -1L;
@@ -181,6 +165,8 @@ public class EditorEventManager {
 
     private final DiagnosticsFeature diagnosticsFeature;
     private final CompletionFeature completionFeature;
+    private final HoverFeature hoverFeature;
+    private final SignatureHelpFeature signatureHelpFeature;
     private AnnotationHolder anonHolder;
     private List<Annotation> annotations = new ArrayList<>();
     private volatile boolean codeActionSyncRequired = false;
@@ -209,7 +195,7 @@ public class EditorEventManager {
                 serverOptions.completionOptions.getTriggerCharacters() :
                 new ArrayList<>();
 
-        this.signatureTriggers = (serverOptions.signatureHelpOptions != null
+        List<String> signatureTriggers = (serverOptions.signatureHelpOptions != null
                 && serverOptions.signatureHelpOptions.getTriggerCharacters() != null) ?
                 serverOptions.signatureHelpOptions.getTriggerCharacters() :
                 new ArrayList<>();
@@ -218,6 +204,9 @@ public class EditorEventManager {
         this.diagnosticsFeature = new DiagnosticsFeature(editor, project);
         this.completionFeature = new CompletionFeature(editor, project, wrapper, identifier, completionTriggers,
                 this::applyEdit, this::executeCommands, this::signatureHelp);
+        this.hoverFeature = new HoverFeature(editor, wrapper, identifier, hint -> this.currentHint = hint);
+        this.signatureHelpFeature = new SignatureHelpFeature(editor, wrapper, identifier, signatureTriggers,
+                hint -> this.currentHint = hint);
 
         EditorEventManagerBase.registerManager(this);
 
@@ -247,9 +236,7 @@ public class EditorEventManager {
      * @param c The character just typed
      */
     public void characterTyped(char c) {
-        if (signatureTriggers.contains(Character.toString(c))) {
-            signatureHelp();
-        }
+        signatureHelpFeature.characterTyped(c);
     }
 
     /**
@@ -311,7 +298,7 @@ public class EditorEventManager {
                         getCtrlRange().dispose();
                     }
                     setCtrlRange(null);
-                    wrapper.pool(() -> requestAndShowDoc(lPos, e.getMouseEvent().getPoint()));
+                    wrapper.pool(() -> hoverFeature.showHoverAt(lPos, e.getMouseEvent().getPoint()));
                 } else if (getCtrlRange().definitionContainsOffset(offset)) {
                     createAndShowEditorHint(editor, "Click to show usages", editor.offsetToXY(offset));
                 } else {
@@ -561,88 +548,7 @@ public class EditorEventManager {
      */
     @SuppressWarnings("WeakerAccess")
     public void signatureHelp() {
-        if (editor.isDisposed()) {
-            return;
-        }
-        LogicalPosition lPos = editor.getCaretModel().getCurrentCaret().getLogicalPosition();
-        Point point = editor.logicalPositionToXY(lPos);
-        SignatureHelpParams params = new SignatureHelpParams(identifier, DocumentUtils.logicalToLSPPos(lPos, editor));
-        wrapper.pool(() -> {
-            CompletableFuture<SignatureHelp> future = wrapper.getRequestManager().signatureHelp(params);
-            SignatureHelp signatureResp = wrapper.getRequestExecutor().waitFor(future, SIGNATURE);
-            if (signatureResp == null) {
-                return;
-            }
-            try {
-                List<SignatureInformation> signatures = signatureResp.getSignatures();
-                if (signatures == null || signatures.isEmpty()) {
-                    return;
-                }
-                int activeSignatureIndex = signatureResp.getActiveSignature();
-                int activeParameterIndex = signatureResp.getActiveParameter();
-
-                SignatureInformation activeSignature = signatures.get(activeSignatureIndex);
-                String activeParameter =
-                        activeSignature.getParameters().size() > activeParameterIndex
-                        ? extractLabel(activeSignature,
-                                activeSignature.getParameters()
-                                        .get(activeParameterIndex).getLabel())
-                        : "";
-                Either<String, MarkupContent> signatureDescription =
-                        activeSignature.getDocumentation();
-                StringBuilder builder = new StringBuilder();
-                Font font = UIUtil.getLabelFont();
-                MutableDataSet options = new MutableDataSet();
-                Parser parser = Parser.builder(options).build();
-                HtmlRenderer renderer = HtmlRenderer.builder(options).build();
-                builder.append("<html>");
-                builder.append(UIUtil.getCssFontDeclaration(font));
-                List<String> result = new ArrayList<>();
-                if (!signatures.isEmpty() && signatures.get(activeSignatureIndex).getParameters() != null) {
-                    for (ParameterInformation param : signatures.get(activeSignatureIndex).getParameters()) {
-                        Either<String, MarkupContent> doc = param.getDocumentation();
-                        if (doc.isRight()) {
-                            result.add(renderer.render(parser.parse(doc.getRight().getValue())));
-                        }
-                    }
-                }
-                if (signatureDescription == null) {
-                    builder.append("<code>").append(signatures.get(activeSignatureIndex).getLabel().
-                            replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
-                                    activeParameter))).append("</code>");
-                } else if (signatureDescription.isLeft()) {
-                    String description = signatureDescription.getLeft().replace(System.lineSeparator(), "<br />");
-                    builder.append("<code>").append(signatures.get(activeSignatureIndex).getLabel()
-                            .replace(" " + activeParameter, String.format("<font color=\"orange\"> %s</font>",
-                                    activeParameter))).append("</code>");
-                    builder.append("<p>").append(description).append("</p>");
-                } else if (signatureDescription.isRight()) {
-                    String string = renderer.render(parser.parse(signatures.get(activeSignatureIndex).getLabel()));
-                    builder.append("<code>").append(string).append("</code>");
-                }
-                if (!result.isEmpty()) {
-                    builder.append("<div>").append(String.join("\n", result)).append("</div>");
-                }
-                builder.append("</html>");
-                invokeLater(() -> currentHint = createAndShowEditorHint(
-                        editor, builder.toString(), point,
-                        HintManager.UNDER, HintManager.HIDE_BY_OTHER_HINT));
-
-            } catch (Exception e) {
-                LOG.warn("Internal error occurred when processing signature help");
-            }
-        });
-    }
-
-    private String extractLabel(SignatureInformation signatureInformation,
-            Either<String, Tuple.Two<Integer, Integer>> label) {
-        if (label.isLeft()) {
-            return label.getLeft();
-        } else if (label.isRight()) {
-            return signatureInformation.getLabel().substring(label.getRight().getFirst(), label.getRight().getSecond());
-        } else {
-            return "";
-        }
+        signatureHelpFeature.signatureHelp();
     }
 
     /**
@@ -763,51 +669,10 @@ public class EditorEventManager {
             LogicalPosition caretPos = editor.getCaretModel().getLogicalPosition();
             Point pointPos = editor.logicalPositionToXY(caretPos);
             long currentTime = System.nanoTime();
-            wrapper.pool(() -> requestAndShowDoc(caretPos, pointPos));
+            wrapper.pool(() -> hoverFeature.showHoverAt(caretPos, pointPos));
             predTime = currentTime;
         } else {
             LOG.warn("Not same editor!");
-        }
-    }
-
-    /**
-     * Gets the hover request and shows it.
-     *
-     * @param editorPos The editor position
-     * @param point     The point at which to show the hint
-     */
-    private void requestAndShowDoc(LogicalPosition editorPos, Point point) {
-        Position serverPos = computableReadAction(() -> DocumentUtils.logicalToLSPPos(editorPos, editor));
-        CompletableFuture<Hover> request = wrapper.getRequestManager().hover(new HoverParams(identifier, serverPos));
-        if (request == null) {
-            return;
-        }
-        Hover hover = wrapper.getRequestExecutor().waitFor(request, HOVER);
-        if (hover == null) {
-            LOG.debug(String.format("Hover is null for file %s and pos (%d;%d)", identifier.getUri(),
-                    serverPos.getLine(), serverPos.getCharacter()));
-            return;
-        }
-
-        String string = HoverHandler.getHoverString(hover);
-        if (StringUtils.isEmpty(string)) {
-            LOG.warn(String.format("Hover string returned is empty for file %s and pos (%d;%d)",
-                    identifier.getUri(), serverPos.getLine(), serverPos.getCharacter()));
-            return;
-        }
-
-        if (getIsCtrlDown()) {
-            invokeLater(() -> {
-                if (!editor.isDisposed()) {
-                    currentHint = createAndShowEditorHint(editor, string, point, HintManager.HIDE_BY_OTHER_HINT);
-                }
-            });
-        } else {
-            invokeLater(() -> {
-                if (!editor.isDisposed()) {
-                    currentHint = createAndShowEditorHint(editor, string, point);
-                }
-            });
         }
     }
 
