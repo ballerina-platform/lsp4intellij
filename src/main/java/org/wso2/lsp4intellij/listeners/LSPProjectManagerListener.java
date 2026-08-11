@@ -20,11 +20,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManagerListener;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.wso2.lsp4intellij.IntellijLanguageClient;
-import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
-import org.wso2.lsp4intellij.utils.FileUtils;
-
-import java.util.Set;
+import org.wso2.lsp4intellij.services.LspServerManager;
 
 public class LSPProjectManagerListener implements ProjectManagerListener {
 
@@ -37,15 +33,17 @@ public class LSPProjectManagerListener implements ProjectManagerListener {
 
     @Override
     public void projectClosing(@NotNull Project project) {
-        // Removes all the attached LSP status widgets before closing a project. Otherwise the old status widget will
-        // not be removed when opening a new project in the same project window.
-        Set<LanguageServerWrapper> languageServerWrappers =
-                IntellijLanguageClient.getProjectToLanguageWrappers()
-                        .get(FileUtils.projectToUri(project));
-        if (languageServerWrappers == null) {
-            // nothing to do
-            return;
+        // Disposes all the language server wrappers (and their attached LSP status widgets) before closing a
+        // project. Otherwise the old status widget will not be removed when opening a new project in the same
+        // project window.
+        //
+        // This runs before the project itself starts disposing, which is the one point in the wrapper lifecycle
+        // where touching the project is known to be safe. LspServerManager.dispose() also runs automatically as
+        // part of the project's own Disposer chain; calling it here explicitly first is redundant with that but
+        // not harmful, since dispose() is idempotent.
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        if (manager != null) {
+            manager.dispose();
         }
-        languageServerWrappers.forEach(LanguageServerWrapper::dispose);
     }
 }

@@ -70,9 +70,6 @@ public class DefaultLanguageClient implements LanguageClient {
     @NotNull
     private static final Logger LOG = Logger.getInstance(DefaultLanguageClient.class);
     @NotNull
-    private static final NotificationGroup STICKY_NOTIFICATION_GROUP =
-            NotificationGroupManager.getInstance().getNotificationGroup("lsp");
-    @NotNull
     private final Map<String, DynamicRegistrationMethods> registrations = new ConcurrentHashMap<>();
     @NotNull
     private final ClientContext context;
@@ -81,6 +78,17 @@ public class DefaultLanguageClient implements LanguageClient {
 
     public DefaultLanguageClient(@NotNull ClientContext context) {
         this.context = context;
+    }
+
+    /**
+     * Resolves the "lsp" notification group on demand rather than holding it in a static field.
+     * {@code NotificationGroupManager} is an application service, and the platform logs
+     * "Class initialization must not depend on services" when a service is requested from a class
+     * initializer. Resolving it per call matches how the "LSPProgressNotification" group is already
+     * looked up in this class, and it costs a map lookup: the manager owns the group instances.
+     */
+    private static NotificationGroup stickyNotificationGroup() {
+        return NotificationGroupManager.getInstance().getNotificationGroup("lsp");
     }
 
     @Override
@@ -218,7 +226,7 @@ public class DefaultLanguageClient implements LanguageClient {
 
         } else {
 
-            final Notification notification = STICKY_NOTIFICATION_GROUP
+            final Notification notification = stickyNotificationGroup()
                     .createNotification(title, null, message, getNotificationType(msgType));
             final CompletableFuture<Integer> integerCompletableFuture = new CompletableFuture<>();
             for (int i = 0, optionsSize = options.length; i < optionsSize; i++) {
