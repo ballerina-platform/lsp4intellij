@@ -111,15 +111,22 @@ public final class SignatureHelpFeature {
                 if (signatures == null || signatures.isEmpty()) {
                     return;
                 }
-                int activeSignatureIndex = signatureResp.getActiveSignature();
-                int activeParameterIndex = signatureResp.getActiveParameter();
+                // getActiveSignature()/getActiveParameter() are nullable Integers per the LSP spec
+                // ("if omitted... defaults to zero"), and a server may also send an out-of-range value;
+                // unboxing a null or indexing out of range would otherwise throw here.
+                Integer activeSignatureBoxed = signatureResp.getActiveSignature();
+                int activeSignatureIndex = activeSignatureBoxed == null
+                        || activeSignatureBoxed < 0 || activeSignatureBoxed >= signatures.size()
+                        ? 0 : activeSignatureBoxed;
+                Integer activeParameterBoxed = signatureResp.getActiveParameter();
+                int activeParameterIndex = activeParameterBoxed == null || activeParameterBoxed < 0
+                        ? 0 : activeParameterBoxed;
 
                 SignatureInformation activeSignature = signatures.get(activeSignatureIndex);
+                List<ParameterInformation> parameters = activeSignature.getParameters();
                 String activeParameter =
-                        activeSignature.getParameters().size() > activeParameterIndex
-                        ? extractLabel(activeSignature,
-                                activeSignature.getParameters()
-                                        .get(activeParameterIndex).getLabel())
+                        parameters != null && parameters.size() > activeParameterIndex
+                        ? extractLabel(activeSignature, parameters.get(activeParameterIndex).getLabel())
                         : "";
                 Either<String, MarkupContent> signatureDescription =
                         activeSignature.getDocumentation();
