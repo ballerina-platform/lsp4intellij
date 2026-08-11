@@ -110,7 +110,7 @@ separately, not something this decomposition redesigns).
 
 `ARCHITECTURE.md` section 2.4's target class list also names `FoldingFeature`, `SymbolFeature`, and
 `CommandFeature`. Section 3's actual Phase 3 migration-order bullet does not include them — it
-lists exactly the seven extractions above. Checked against the current code before treating that as
+lists exactly the eight extractions above. Checked against the current code before treating that as
 settled: folding (`LSPFoldingRangeProvider`) and symbols (`LSPSymbolContributor`/
 `WorkspaceSymbolProvider`) already live in their own independent contributor classes and were never
 part of `EditorEventManager`, so there is no god-class coupling for an extraction to fix there;
