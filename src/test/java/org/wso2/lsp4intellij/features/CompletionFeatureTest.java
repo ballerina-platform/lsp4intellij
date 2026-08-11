@@ -25,8 +25,9 @@ import java.util.List;
  * Tests for {@link CompletionFeature#getCompletionPrefix(Editor, int)} — the one piece of this
  * feature that is pure document/string logic and needs neither a language server nor the wrapper
  * it would otherwise call into. The other methods (completion request, lookup item conversion,
- * snippet expansion) need a running server or IntelliJ's completion machinery and are exercised by
- * {@code LspServerIntegrationTest} instead.
+ * snippet expansion) need a running server or IntelliJ's completion machinery and have no test
+ * coverage — {@code LspServerIntegrationTest} does not reach them; it covers only open/didOpen,
+ * edit/didChange, and close/didClose/shutdown.
  */
 public class CompletionFeatureTest extends BasePlatformTestCase {
 

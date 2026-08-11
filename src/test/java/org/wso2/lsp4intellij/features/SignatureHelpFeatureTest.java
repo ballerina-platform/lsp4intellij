@@ -23,8 +23,9 @@ import java.util.Collections;
  * Tests for {@link SignatureHelpFeature#characterTyped}'s trigger-character gate — the one piece
  * of this feature that is pure logic. A non-trigger character must be a no-op without touching the
  * editor or wrapper at all (both are null here); the triggering path itself
- * ({@code signatureHelp()}, which needs a real editor, wrapper, and running server) is exercised by
- * {@code LspServerIntegrationTest} instead.
+ * ({@code signatureHelp()}, which needs a real editor, wrapper, and running server) has no test
+ * coverage — {@code LspServerIntegrationTest} does not reach it; it covers only open/didOpen,
+ * edit/didChange, and close/didClose/shutdown.
  */
 public class SignatureHelpFeatureTest extends TestCase {
 
