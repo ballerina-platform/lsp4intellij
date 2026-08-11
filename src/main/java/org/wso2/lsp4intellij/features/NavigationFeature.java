@@ -133,7 +133,10 @@ public final class NavigationFeature {
         CompletableFuture<List<? extends Location>> request = wrapper.getRequestManager().references(params);
         List<? extends Location> res = wrapper.getRequestExecutor().waitFor(request, REFERENCES);
         if (res == null || res.isEmpty()) {
-            return new Pair<>(null, null);
+            // Empty, not null: LSPInplaceRenamer.collectRefs() streams the first list and passes the
+            // second to LSPRenameProcessor.addEditors(), which calls List.addAll(...) on it — both
+            // would NPE on a null list where callers that do check for null are unaffected.
+            return new Pair<>(new ArrayList<>(), new ArrayList<>());
         }
         List<VirtualFile> openedEditors = new ArrayList<>();
         List<PsiElement> elements = new ArrayList<>();
