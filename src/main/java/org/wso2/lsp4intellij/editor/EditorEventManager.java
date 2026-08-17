@@ -72,11 +72,14 @@ import org.wso2.lsp4intellij.client.languageserver.requestmanager.RequestManager
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 import org.wso2.lsp4intellij.features.CodeActionFeature;
+import org.wso2.lsp4intellij.features.CodeActionOverrides;
 import org.wso2.lsp4intellij.features.CompletionFeature;
+import org.wso2.lsp4intellij.features.CompletionOverrides;
 import org.wso2.lsp4intellij.features.DiagnosticsFeature;
 import org.wso2.lsp4intellij.features.FormattingFeature;
 import org.wso2.lsp4intellij.features.HoverFeature;
 import org.wso2.lsp4intellij.features.NavigationFeature;
+import org.wso2.lsp4intellij.features.ReferenceLookup;
 import org.wso2.lsp4intellij.features.RenameFeature;
 import org.wso2.lsp4intellij.features.SignatureHelpFeature;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
@@ -112,7 +115,14 @@ import static org.wso2.lsp4intellij.utils.GUIUtils.createAndShowEditorHint;
  * serverOptions       The options of the server regarding completion, signatureHelp, syncKind, etc
  * wrapper             The corresponding LanguageServerWrapper
  */
-public class EditorEventManager {
+public class EditorEventManager implements CompletionOverrides, CodeActionOverrides, ReferenceLookup {
+
+    /**
+     * @deprecated moved to {@link CompletionFeature#SNIPPET_PLACEHOLDER_REGEX}. Kept here so plugins
+     *         recompiling against this class continue to resolve it.
+     */
+    @Deprecated
+    public static final String SNIPPET_PLACEHOLDER_REGEX = CompletionFeature.SNIPPET_PLACEHOLDER_REGEX;
 
     public final DocumentEventManager documentEventManager;
     protected static final Logger LOG = Logger.getInstance(EditorEventManager.class);
@@ -172,13 +182,13 @@ public class EditorEventManager {
         this.project = editor.getProject();
         this.diagnosticsFeature = new DiagnosticsFeature(editor, project);
         this.completionFeature = new CompletionFeature(editor, project, wrapper, identifier, completionTriggers,
-                this::applyEdit, this::executeCommands, this::signatureHelp);
+                this::applyEdit, this::executeCommands, this::signatureHelp, this);
         this.hoverFeature = new HoverFeature(editor, wrapper, identifier, hint -> this.currentHint = hint);
         this.signatureHelpFeature = new SignatureHelpFeature(editor, wrapper, identifier, signatureTriggers,
                 hint -> this.currentHint = hint);
         this.navigationFeature = new NavigationFeature(editor, project, wrapper, identifier);
-        this.codeActionFeature = new CodeActionFeature(editor, wrapper, identifier, diagnosticsFeature);
-        this.renameFeature = new RenameFeature(editor, project, wrapper, identifier, navigationFeature);
+        this.codeActionFeature = new CodeActionFeature(editor, wrapper, identifier, diagnosticsFeature, this);
+        this.renameFeature = new RenameFeature(editor, project, wrapper, identifier, this);
         this.formattingFeature = new FormattingFeature(editor, wrapper, identifier, this::applyEdit);
 
         EditorEventManagerBase.registerManager(this);

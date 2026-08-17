@@ -86,10 +86,12 @@ public final class CompletionFeature {
     private final EditApplier editApplier;
     private final Consumer<List<Command>> commandExecutor;
     private final Runnable signatureHelpTrigger;
+    private final CompletionOverrides overrides;
 
     public CompletionFeature(Editor editor, Project project, LanguageServerWrapper wrapper,
             TextDocumentIdentifier identifier, List<String> completionTriggers, EditApplier editApplier,
-            Consumer<List<Command>> commandExecutor, Runnable signatureHelpTrigger) {
+            Consumer<List<Command>> commandExecutor, Runnable signatureHelpTrigger,
+            CompletionOverrides overrides) {
         this.editor = editor;
         this.project = project;
         this.wrapper = wrapper;
@@ -98,6 +100,7 @@ public final class CompletionFeature {
         this.editApplier = editApplier;
         this.commandExecutor = commandExecutor;
         this.signatureHelpTrigger = signatureHelpTrigger;
+        this.overrides = overrides;
     }
 
     /**
@@ -118,14 +121,14 @@ public final class CompletionFeature {
         }
         if (res.getLeft() != null) {
             for (CompletionItem item : res.getLeft()) {
-                LookupElement lookupElement = createLookupItem(item);
+                LookupElement lookupElement = overrides.createLookupItem(item);
                 if (lookupElement != null) {
                     lookupItems.add(lookupElement);
                 }
             }
         } else if (res.getRight() != null) {
             for (CompletionItem item : res.getRight().getItems()) {
-                LookupElement lookupElement = createLookupItem(item);
+                LookupElement lookupElement = overrides.createLookupItem(item);
                 if (lookupElement != null) {
                     lookupItems.add(lookupElement);
                 }
@@ -175,7 +178,7 @@ public final class CompletionFeature {
 
         lookupElementBuilder = LookupElementBuilder.create(getLookupStringWithoutPlaceholders(item, lookupString));
 
-        lookupElementBuilder = addCompletionInsertHandlers(item, lookupElementBuilder, lookupString);
+        lookupElementBuilder = overrides.addCompletionInsertHandlers(item, lookupElementBuilder, lookupString);
 
         if (kind == CompletionItemKind.Keyword) {
             lookupElementBuilder = lookupElementBuilder.withBoldness(true);
@@ -210,7 +213,7 @@ public final class CompletionFeature {
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
-                    prepareAndRunSnippet(lookupString);
+                    overrides.prepareAndRunSnippet(lookupString);
                 }
 
                 context.commitDocument();
@@ -225,7 +228,7 @@ public final class CompletionFeature {
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
-                    prepareAndRunSnippet(lookupString);
+                    overrides.prepareAndRunSnippet(lookupString);
                 }
                 context.commitDocument();
                 commandExecutor.accept(Collections.singletonList(command));
@@ -236,7 +239,7 @@ public final class CompletionFeature {
 
                 if (format == InsertTextFormat.Snippet) {
                     context.commitDocument();
-                    prepareAndRunSnippet(lookupString);
+                    overrides.prepareAndRunSnippet(lookupString);
                 }
             });
         }

@@ -34,7 +34,9 @@ public class CodeActionFeatureTest extends TestCase {
 
     @Override
     protected void setUp() {
-        feature = new CodeActionFeature(null, null, null, null);
+        // The override hooks are never invoked: these tests only exercise the annotation and
+        // sync-flag bookkeeping, not requestAndShowCodeActions.
+        feature = new CodeActionFeature(null, null, null, null, null);
     }
 
     public void testAnnotationsStartEmpty() {

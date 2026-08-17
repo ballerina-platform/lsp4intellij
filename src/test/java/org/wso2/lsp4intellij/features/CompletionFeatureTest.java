@@ -54,10 +54,12 @@ public class CompletionFeatureTest extends BasePlatformTestCase {
 
     private CompletionFeature newFeature(List<String> completionTriggers) {
         // editor/wrapper/identifier are null: getCompletionPrefix takes its own editor parameter
-        // and never touches them, and the edit/command/signature-help callbacks are never invoked.
+        // and never touches them, and the edit/command/signature-help callbacks and the override
+        // hooks are never invoked.
         return new CompletionFeature(null, getProject(), null, null, completionTriggers,
                 (version, edits, name, closeAfter, setCaret) -> false,
                 commands -> { },
-                () -> { });
+                () -> { },
+                null);
     }
 }

@@ -89,8 +89,35 @@ composition, not a stand-in for anything:
 
 - `CodeActionFeature` takes a `DiagnosticsFeature` (to read the diagnostic context for a code-action
   request, and to force re-annotation after attaching a fix).
-- `RenameFeature` takes a `NavigationFeature` (to find references, so files opened only to compute
-  the rename can be closed again afterward).
+
+`RenameFeature` is the exception: it needs reference lookup, but reaches it through the
+`ReferenceLookup` interface rather than a direct `NavigationFeature`, for the dispatch reason in
+point 4b.
+
+### 4b. Self-calls that used to be virtual are re-dispatched through the facade
+
+Inside the old single class, some public methods were called unqualified from other methods of the
+same class, so they dispatched virtually. `LSPExtensionManager.getExtendedEditorEventManagerFor`
+lets an extension supply an `EditorEventManager` subclass, and `LanguageServerWrapper` installs it
+for every editor, so an override of one of those methods took effect on the internal path that
+called it. The feature classes are `final`, so an ordinary self-call inside one can never reach such
+an override — the call would silently run the base implementation while the facade method stayed
+overridable, so a signature-level API check would not catch the change.
+
+Six calls were affected. They now go back through the composing `EditorEventManager`, via three
+interfaces it implements using the method signatures it already exposed:
+
+- `CompletionOverrides` — `createLookupItem` (called from `completion`),
+  `addCompletionInsertHandlers` (from `createLookupItem`), `prepareAndRunSnippet` (from the three
+  insert handlers).
+- `CodeActionOverrides` — `codeAction` and `resolvedCodeAction` (both from
+  `requestAndShowCodeActions`). Neither has any other caller in this codebase; being overridden was
+  their only purpose.
+- `ReferenceLookup` — `references(int, boolean, boolean)` (from `rename`).
+
+These are interfaces, not an `EditorEventManager` reference, so point 1's rule that a feature holds
+no reference back to the class composing it still holds. No recursion results: the facade method
+forwards to the feature method that does the work, and that method does not re-enter the same hook.
 
 ### 5. Mouse/ctrl-range navigation glue stays in `EditorEventManager`
 

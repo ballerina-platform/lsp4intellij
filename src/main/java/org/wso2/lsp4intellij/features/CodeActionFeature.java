@@ -68,6 +68,7 @@ public final class CodeActionFeature {
     private final LanguageServerWrapper wrapper;
     private final TextDocumentIdentifier identifier;
     private final DiagnosticsFeature diagnosticsFeature;
+    private final CodeActionOverrides overrides;
 
     private List<Annotation> annotations = new ArrayList<>();
     private AnnotationHolder anonHolder;
@@ -76,11 +77,12 @@ public final class CodeActionFeature {
     private final List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> silentAnnotations = new ArrayList<>();
 
     public CodeActionFeature(Editor editor, LanguageServerWrapper wrapper, TextDocumentIdentifier identifier,
-            DiagnosticsFeature diagnosticsFeature) {
+            DiagnosticsFeature diagnosticsFeature, CodeActionOverrides overrides) {
         this.editor = editor;
         this.wrapper = wrapper;
         this.identifier = identifier;
         this.diagnosticsFeature = diagnosticsFeature;
+        this.overrides = overrides;
     }
 
     /**
@@ -167,7 +169,7 @@ public final class CodeActionFeature {
             // Sends the code action request and resolves incomplete code actions while off the EDT;
             // only the annotation bookkeeping runs on the EDT.
             int caretPos = computableReadAction(() -> editor.getCaretModel().getCurrentCaret().getOffset());
-            List<Either<Command, CodeAction>> codeActionResp = codeAction(caretPos);
+            List<Either<Command, CodeAction>> codeActionResp = overrides.codeAction(caretPos);
             if (codeActionResp == null || codeActionResp.isEmpty()) {
                 return;
             }
@@ -177,7 +179,7 @@ public final class CodeActionFeature {
                     continue;
                 }
                 if (element.isRight() && element.getRight().getEdit() == null) {
-                    CodeAction resolved = resolvedCodeAction(element.getRight());
+                    CodeAction resolved = overrides.resolvedCodeAction(element.getRight());
                     if (resolved != null && resolved.getEdit() != null) {
                         codeActions.add(Either.forRight(resolved));
                         continue;

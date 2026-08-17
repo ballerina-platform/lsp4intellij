@@ -47,9 +47,11 @@ import static org.wso2.lsp4intellij.utils.ApplicationUtils.writeAction;
  * keeps {@code rename(String)} as a public delegating facade with an unchanged signature, since
  * {@code LSPRenameHandler} calls it directly.
  *
- * <p>Depends directly on this editor's {@link NavigationFeature} for the reference lookup — the
- * same peer-feature composition {@link CodeActionFeature} uses for {@link DiagnosticsFeature},
- * not a stand-in for the not-yet-built {@code EditorContext}.
+ * <p>Takes reference lookup as a {@link ReferenceLookup} rather than composing
+ * {@link NavigationFeature} directly. {@code EditorEventManager.references(int, boolean, boolean)}
+ * is public and was called unqualified — so virtually — from the {@code rename} this was extracted
+ * from, and calling {@link NavigationFeature} here would skip an override of it supplied by an
+ * extension's {@code EditorEventManager} subclass.
  */
 public final class RenameFeature {
 
@@ -57,15 +59,15 @@ public final class RenameFeature {
     private final Project project;
     private final LanguageServerWrapper wrapper;
     private final TextDocumentIdentifier identifier;
-    private final NavigationFeature navigationFeature;
+    private final ReferenceLookup referenceLookup;
 
     public RenameFeature(Editor editor, Project project, LanguageServerWrapper wrapper,
-            TextDocumentIdentifier identifier, NavigationFeature navigationFeature) {
+            TextDocumentIdentifier identifier, ReferenceLookup referenceLookup) {
         this.editor = editor;
         this.project = project;
         this.wrapper = wrapper;
         this.identifier = identifier;
-        this.navigationFeature = navigationFeature;
+        this.referenceLookup = referenceLookup;
     }
 
     public void rename(String renameTo) {
@@ -83,7 +85,7 @@ public final class RenameFeature {
                 return;
             }
             VirtualFile[] openedFiles = FileEditorManager.getInstance(project).getOpenFiles();
-            Pair<List<PsiElement>, List<VirtualFile>> references = navigationFeature.references(offset, true, false);
+            Pair<List<PsiElement>, List<VirtualFile>> references = referenceLookup.references(offset, true, false);
             List<VirtualFile> toClose = new ArrayList<>();
             if (references.getSecond() != null) {
                 for (VirtualFile file : references.getSecond()) {
