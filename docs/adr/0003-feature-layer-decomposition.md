@@ -156,6 +156,37 @@ methods for reads vs. `synchronized (this.diagnostics)` blocks for the mutation 
 code-action-context read) — a real pre-existing inconsistency, left as found rather than fixed as
 an unannounced side effect of the move.
 
+### 7b. One deviation from that: the six accessors' monitor was split in two
+
+`getDiagnostics`, `getAnnotations`, `setAnnotations`, `setAnonHolder`, `isDiagnosticSyncRequired`,
+and `isCodeActionSyncRequired` were all `public synchronized` on `EditorEventManager`, so all six
+locked the same object: the manager instance. They are now unsynchronized delegating methods, and
+the `synchronized` sits on the two feature classes that hold the state — `DiagnosticsFeature`
+(`diagnostics`, `syncRequired`) and `CodeActionFeature` (`annotations`, `anonHolder`,
+`codeActionSyncRequired`). One monitor became two, so a call in the first group and a call in the
+second group can now run at the same time.
+
+That does not break an invariant. The two state groups are disjoint — no field is read or written by
+both — so every pair of calls that stopped excluding each other operates on different fields. The
+exclusion between the groups came from both groups happening to use `this` as their monitor, not
+from anything either group needed from the other. The modifier also only ever made a single call
+atomic, never a sequence of them: `LSPAnnotator` reads the diagnostics, builds annotations from
+them, then calls `setAnnotations` and `setAnonHolder`, and the lock was released between each of
+those calls before this change too.
+
+What the split does remove is the ability of code outside this class to write
+`synchronized (manager) { ... }` and block these accessors, and a subclass's `super.getAnnotations()`
+no longer acquires the manager's monitor. Nothing in this repository does either; a downstream
+plugin could. The modifier was not restored on the delegating methods, because it guards no
+invariant and would add a second lock acquisition to a path `LSPAnnotator` runs on every
+`DaemonCodeAnalyzer` pass. Callers should treat each accessor as individually safe to call from any
+thread and not assume a sequence of them is atomic — which was already true before this change.
+
+For the same reason, note that `CodeActionFeature.showCodeActions` reads and assigns `annotations`
+with no lock at all (`if (annotations == null) { annotations = new ArrayList<>(); }`) while the
+accessors beside it are `synchronized`. That is pre-existing and was moved verbatim under point 7,
+and it means the annotation state was never fully protected by the manager's monitor either.
+
 ### 8. Tests were added only where a feature has an isolable, pure part
 
 A unit test was added per feature only where genuine pure logic existed that needed neither a
@@ -176,8 +207,11 @@ a pre-existing coverage gap this phase did not introduce and was not scoped to c
   and document-lifecycle delegation to `DocumentEventManager` (`documentOpened`/`Closed`/`Changed`/
   `Saved`, `willSave`/`willSaveWaitUntil` — the future `DocumentSynchronizer` from section 2.3,
   never in this phase's scope).
-- No public API changed. Every downstream plugin calling `EditorEventManager`,
-  `IntellijLanguageClient`, or `LanguageServerWrapper` compiles and behaves identically.
+- No public method signature changed, so every downstream plugin calling `EditorEventManager`,
+  `IntellijLanguageClient`, or `LanguageServerWrapper` still compiles. Two behavioral details do
+  differ: the six accessors in point 7b no longer lock the manager instance, and a subclass override
+  of a method listed in point 4b now takes effect only because the call was routed back through the
+  facade — an ordinary self-call inside a `final` feature class would have skipped it.
 - The `EditApplier`/command/signature-help/hint callbacks introduced in point 3 are scaffolding,
   not a final design — expected to be replaced by a real `EditorContext` reference once a later
   phase builds one, per Rule 3 below.
