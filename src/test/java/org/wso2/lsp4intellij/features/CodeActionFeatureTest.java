@@ -16,10 +16,13 @@
 package org.wso2.lsp4intellij.features;
 
 import com.intellij.lang.annotation.Annotation;
+import com.intellij.lang.annotation.HighlightSeverity;
+import com.intellij.openapi.util.TextRange;
+import groovy.lang.Tuple3;
 import junit.framework.TestCase;
+import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -55,19 +58,25 @@ public class CodeActionFeatureTest extends TestCase {
     }
 
     public void testGetAnnotationsClearsTheSyncFlag() {
-        // There is no public way to set codeActionSyncRequired directly; this only confirms
-        // getAnnotations() doesn't leave a stale "required" flag from its initial false state.
+        feature.markCodeActionSyncRequiredForTest();
+        assertTrue(feature.isCodeActionSyncRequired());
+
         feature.getAnnotations();
 
         assertFalse(feature.isCodeActionSyncRequired());
     }
 
-    public void testSilentAnnotationsStartsEmptyAndIsMutable() {
+    public void testSilentAnnotationsIsTheLiveMutableList() {
         assertTrue(feature.getSilentAnnotations().isEmpty());
 
-        // documentChanged() clears this list through the same live reference.
-        feature.getSilentAnnotations().addAll(Collections.emptyList());
-        assertTrue(feature.getSilentAnnotations().isEmpty());
+        Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> annotation =
+                new Tuple3<>(HighlightSeverity.ERROR, new TextRange(0, 1), null);
+        feature.getSilentAnnotations().add(annotation);
+
+        // The same live list, not a defensive copy: documentChanged() clears the feature's
+        // silent annotations through exactly this reference.
+        assertEquals(1, feature.getSilentAnnotations().size());
+        assertSame(annotation, feature.getSilentAnnotations().get(0));
     }
 
     public void testTriggerIntentionActionsIsANoOpUntilRequested() {

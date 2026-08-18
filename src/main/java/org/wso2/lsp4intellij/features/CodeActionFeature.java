@@ -106,6 +106,16 @@ public final class CodeActionFeature {
     }
 
     /**
+     * Sets the sync-required flag {@link #getAnnotations()} clears. Package-private and used only by
+     * the test for that clearing: the production paths that raise this flag all live inside
+     * {@code showCodeActions}, which needs a real editor and a server response, so there is
+     * otherwise no way to observe the flag in anything other than its initial {@code false} state.
+     */
+    synchronized void markCodeActionSyncRequiredForTest() {
+        this.codeActionSyncRequired = true;
+    }
+
+    /**
      * Retrieves the commands needed to apply a CodeAction.
      *
      * @param offset The cursor position(offset) which should be evaluated for code action request.
