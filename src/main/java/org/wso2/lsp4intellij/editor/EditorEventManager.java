@@ -119,9 +119,12 @@ public class EditorEventManager implements CompletionOverrides, CodeActionOverri
 
     /**
      * @deprecated moved to {@link CompletionFeature#SNIPPET_PLACEHOLDER_REGEX}. Kept here so plugins
-     *         recompiling against this class continue to resolve it.
+     *         recompiling against this class continue to resolve it; read it from
+     *         {@code CompletionFeature} instead. No {@code since} is declared because the project
+     *         version is derived from the git tag at build time, so the release this lands in is not
+     *         known here.
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public static final String SNIPPET_PLACEHOLDER_REGEX = CompletionFeature.SNIPPET_PLACEHOLDER_REGEX;
 
     public final DocumentEventManager documentEventManager;
