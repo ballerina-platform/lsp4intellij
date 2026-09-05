@@ -57,6 +57,7 @@ import org.eclipse.lsp4j.RangeFormattingCapabilities;
 import org.eclipse.lsp4j.ReferencesCapabilities;
 import org.eclipse.lsp4j.RenameCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.SetTraceParams;
 import org.eclipse.lsp4j.SignatureHelpCapabilities;
 import org.eclipse.lsp4j.SymbolCapabilities;
 import org.eclipse.lsp4j.SynchronizationCapabilities;
@@ -91,6 +92,9 @@ import org.wso2.lsp4intellij.listeners.DocumentListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseListenerImpl;
 import org.wso2.lsp4intellij.listeners.EditorMouseMotionListenerImpl;
 import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
+import org.wso2.lsp4intellij.logging.LspLogSource;
+import org.wso2.lsp4intellij.logging.LspLogStore;
+import org.wso2.lsp4intellij.logging.LspTraceLevel;
 import org.wso2.lsp4intellij.requests.RequestExecutor;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.services.LspServerManager;
@@ -162,6 +166,7 @@ public class LanguageServerWrapper {
     private volatile boolean alreadyShownTimeout = false;
     private volatile boolean alreadyShownCrash = false;
     private volatile ServerStatus status = STOPPED;
+    private volatile LspTraceLevel traceLevel = LspTraceLevel.OFF;
     private static final Logger LOG = Logger.getInstance(LanguageServerWrapper.class);
     private static final CloudNotifier notifier = new CloudNotifier("Language Server Protocol client");
 
@@ -584,7 +589,8 @@ public class LanguageServerWrapper {
                 ExecutorService executorService = Executors.newCachedThreadPool();
                 launcherExecutor = executorService;
                 MessageHandler messageHandler = new MessageHandler(
-                        serverDefinition.getServerListener(), () -> getStatus() != STOPPED);
+                        serverDefinition.getServerListener(), () -> getStatus() != STOPPED,
+                        this, this::getTraceLevel);
                 if (extManager != null && extManager.getExtendedServerInterface() != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
                     client = extManager.getExtendedClientFor(new ServerWrapperBaseClientContext(this));
@@ -622,6 +628,7 @@ public class LanguageServerWrapper {
                     // send the initialized message since some language servers depends on this message
                     requestManager.initialized(new InitializedParams());
                     setStatus(INITIALIZED);
+                    sendSetTrace(traceLevel);
                     return res;
                 });
             } catch (LSPException | IOException | URISyntaxException e) {
@@ -712,9 +719,60 @@ public class LanguageServerWrapper {
     private void setStatus(ServerStatus status) {
         this.status = status;
         getWidget().ifPresent(widget -> widget.setStatus(status));
+        recordLifecycle(status);
+    }
+
+    /**
+     * Appends a {@code LIFECYCLE} entry for one status transition. {@code STARTING} is the first
+     * transition a wrapper ever makes, so it is the one call site allowed to create this project's
+     * {@link LspLogStore}; every later transition only records into a store that must already exist,
+     * tolerating its absence the same way {@link #unmapUri(String)} tolerates a disposed project.
+     */
+    private void recordLifecycle(ServerStatus status) {
+        LspLogStore store = status == STARTING
+                ? LspLogStore.getInstance(project)
+                : LspLogStore.getInstanceIfCreated(project);
+        if (store != null) {
+            store.append(this, LspLogSource.LIFECYCLE, org.eclipse.lsp4j.MessageType.Info, status.toString(), null);
+        }
+    }
+
+    /**
+     * Returns the current JSON-RPC trace level for this server. {@code OFF} until changed with
+     * {@link #setTraceLevel(LspTraceLevel)}.
+     */
+    public LspTraceLevel getTraceLevel() {
+        return traceLevel;
+    }
+
+    /**
+     * Changes the JSON-RPC trace level {@link org.wso2.lsp4intellij.logging.TracingMessageConsumer}
+     * reads for this server, and asks the server to match via {@code $/setTrace} if it is connected.
+     */
+    public void setTraceLevel(LspTraceLevel traceLevel) {
+        this.traceLevel = traceLevel;
+        sendSetTrace(traceLevel);
+    }
+
+    /**
+     * Sends {@code $/setTrace} for the given level. A notification, so a server that does not
+     * implement it has nothing to reply with; any failure sending it (including one thrown
+     * synchronously by the proxy) is logged rather than allowed to break the caller.
+     */
+    private void sendSetTrace(LspTraceLevel traceLevel) {
+        LanguageServer server = languageServer;
+        if (server == null) {
+            return;
+        }
+        try {
+            server.setTrace(new SetTraceParams(traceLevel.traceValue()));
+        } catch (Exception e) {
+            LOG.debug("Server for " + serverDefinition + " did not accept $/setTrace", e);
+        }
     }
 
     public void crashed(Exception e) {
+        recordCrash(e);
         if (crashCount.incrementAndGet() <= 3) {
             reconnect();
         } else {
@@ -744,6 +802,18 @@ public class LanguageServerWrapper {
                 alreadyShownCrash = true;
                 crashCount.set(0);
             });
+        }
+    }
+
+    /**
+     * Appends a {@code LIFECYCLE} entry for a crash. Unlike {@link #recordLifecycle(ServerStatus)},
+     * this never creates the store: a crash can only happen after {@code STARTING} already did.
+     */
+    private void recordCrash(Exception e) {
+        LspLogStore store = LspLogStore.getInstanceIfCreated(project);
+        if (store != null) {
+            store.append(this, LspLogSource.LIFECYCLE, org.eclipse.lsp4j.MessageType.Error,
+                    "Crashed: " + e.getMessage(), null);
         }
     }
 
@@ -781,6 +851,10 @@ public class LanguageServerWrapper {
         removeWidget();
         dispatcher.shutdownNow();
         IntellijLanguageClient.removeWrapper(this);
+        LspLogStore store = LspLogStore.getInstanceIfCreated(project);
+        if (store != null) {
+            store.removeBuffer(this);
+        }
     }
 
     /**
