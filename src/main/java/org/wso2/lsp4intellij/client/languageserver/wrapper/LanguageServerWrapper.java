@@ -628,7 +628,12 @@ public class LanguageServerWrapper {
                     // send the initialized message since some language servers depends on this message
                     requestManager.initialized(new InitializedParams());
                     setStatus(INITIALIZED);
-                    sendSetTrace(traceLevel);
+                    // Only announce a level that differs from the protocol default. Sending
+                    // $/setTrace unconditionally would put a notification on the wire for every
+                    // server at startup that it did not receive before this feature existed.
+                    if (traceLevel != LspTraceLevel.OFF) {
+                        sendSetTrace(traceLevel);
+                    }
                     return res;
                 });
             } catch (LSPException | IOException | URISyntaxException e) {
@@ -851,10 +856,9 @@ public class LanguageServerWrapper {
         removeWidget();
         dispatcher.shutdownNow();
         IntellijLanguageClient.removeWrapper(this);
-        LspLogStore store = LspLogStore.getInstanceIfCreated(project);
-        if (store != null) {
-            store.removeBuffer(this);
-        }
+        // This server's log buffer is deliberately left in place: a server that has just died is
+        // exactly the one whose log someone wants to read. LspLogStore drops every buffer when the
+        // project itself is disposed.
     }
 
     /**

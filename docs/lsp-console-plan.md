@@ -76,8 +76,10 @@ window is registered.
 `LspServerManager` documents: a project can close between a caller's check and the lookup,
 and `Project.getService` throws on a disposed project.
 
-Buffers are removed when a wrapper stops, and all buffers are dropped when the project is
-disposed.
+A buffer outlives the server that filled it: stopping or disposing a wrapper leaves its
+entries in place, since a server that has just died is the one whose log someone wants to
+read. All buffers are dropped when the project is disposed. The cost is that a buffer keeps
+its drained wrapper reachable until the project closes — one object per server per session.
 
 ### `org.wso2.lsp4intellij.console` — UI, opt-in
 
@@ -121,8 +123,11 @@ re-prints the selected server's buffer, which is affordable because the buffer i
    The existing guard that drops messages once the wrapper is no longer running stays as it
    is; trace entries are only produced for messages that are actually passed on.
 
-5. **`$/setTrace`** — sent to the server when the level changes, and at the current level
-   after initialize, so servers that implement it contribute their own trace output.
+5. **`$/setTrace`** — sent to the server when the level changes, so servers that implement
+   it contribute their own trace output. It is sent after initialize only when the level is
+   not `OFF`: sending it unconditionally would put a notification on the wire for every
+   server at startup that it did not receive before this feature existed, which would break
+   the "no behavior change when the console is unused" criterion below.
 
 ### Cost when tracing is off
 

@@ -41,10 +41,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * site only records for a server that is already running, so it uses {@link #getInstanceIfCreated(Project)}
  * and silently does nothing if the project has started disposing in the meantime.
  *
- * <p>A wrapper's buffer is removed by {@link #removeBuffer(LanguageServerWrapper)} once that wrapper
- * stops for good. Every remaining buffer is dropped by {@link #dispose()} when the project itself is
- * disposed, without publishing one {@link LspLogListener#serverCleared(String)} per server: by then the
- * project's message bus is on its way out as well, so state is cleared directly instead.
+ * <p>A buffer outlives the server that filled it. Stopping or disposing a wrapper does not clear its
+ * entries, because a server that has just died is the one whose log someone is most likely to want to
+ * read; {@link #removeBuffer(LanguageServerWrapper)} exists for an explicit clear instead. The cost is
+ * that a buffer keeps its (already drained) wrapper reachable until the project closes, which is one
+ * object per server per session.
+ *
+ * <p>Every buffer is dropped by {@link #dispose()} when the project itself is disposed, without
+ * publishing one {@link LspLogListener#serverCleared(String)} per server: by then the project's message
+ * bus is on its way out as well, so state is cleared directly instead.
  */
 @Service(Service.Level.PROJECT)
 public final class LspLogStore implements Disposable {
