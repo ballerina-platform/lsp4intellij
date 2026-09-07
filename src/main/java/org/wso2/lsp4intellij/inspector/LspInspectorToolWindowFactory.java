@@ -39,6 +39,15 @@ import javax.swing.Icon;
  */
 public final class LspInspectorToolWindowFactory implements ToolWindowFactory, DumbAware {
 
+    /**
+     * The tool window id a consumer plugin's {@code plugin.xml} must register this factory under for
+     * {@link org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget}'s "Open LSP Inspector" action to
+     * find it via {@link com.intellij.openapi.wm.ToolWindowManager#getToolWindow(String)}. That
+     * lookup returns null for a consumer that used a different id (or never registered one), and the
+     * widget treats null as "do not show the action" rather than throwing.
+     */
+    public static final String TOOL_WINDOW_ID = "LSP Inspector";
+
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
         LspInspectorPanel panel = new LspInspectorPanel(project, toolWindow);

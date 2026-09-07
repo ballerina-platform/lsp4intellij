@@ -33,9 +33,15 @@ import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
+import com.intellij.ui.ColoredListCellRenderer;
+import com.intellij.ui.JBColor;
 import com.intellij.ui.JBSplitter;
+import com.intellij.ui.ListSpeedSearch;
+import com.intellij.ui.SimpleTextAttributes;
 import com.intellij.ui.components.JBLabel;
+import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.ui.table.JBTable;
 import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.Alarm;
 import com.intellij.util.messages.MessageBusConnection;
@@ -48,6 +54,8 @@ import org.wso2.lsp4intellij.logging.LspLogListener;
 import org.wso2.lsp4intellij.logging.LspLogSource;
 import org.wso2.lsp4intellij.logging.LspLogStore;
 import org.wso2.lsp4intellij.logging.LspTraceLevel;
+import org.wso2.lsp4intellij.requests.TimeoutStats;
+import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.services.LspServerManager;
 
 import java.awt.BorderLayout;
@@ -63,9 +71,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
+import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
 import javax.swing.SwingConstants;
+import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
@@ -106,6 +120,9 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
     private final DefaultMutableTreeNode root = new DefaultMutableTreeNode();
     private final DefaultTreeModel treeModel = new DefaultTreeModel(root);
     private final JPanel rightPanel = new JPanel(new BorderLayout());
+    private final JPanel logPanel = new JPanel(new BorderLayout());
+    private final ConnectedFilesPanel connectedFilesPanel = new ConnectedFilesPanel();
+    private final TimeoutsPanel timeoutsPanel = new TimeoutsPanel();
     private final Map<LanguageServerWrapper, ConsoleView> consoles = new HashMap<>();
     private final Map<String, LanguageServerWrapper> serverIdToWrapper = new HashMap<>();
     private final Set<LanguageServerWrapper> knownWrappers = new LinkedHashSet<>();
@@ -129,9 +146,20 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         tree.setShowsRootHandles(true);
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.getEmptyText().setText(NO_SERVERS_TEXT);
-        tree.addTreeSelectionListener(e -> showConsoleFor(getSelectedWrapper()));
+        tree.addTreeSelectionListener(e -> {
+            LanguageServerWrapper selected = getSelectedWrapper();
+            showConsoleFor(selected);
+            connectedFilesPanel.refresh(selected);
+            timeoutsPanel.refresh(selected);
+        });
+
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("Log", logPanel);
+        tabs.addTab("Timeouts", timeoutsPanel);
+        tabs.addTab("Connected Files", connectedFilesPanel);
 
         rightPanel.add(buildToolbar().getComponent(), BorderLayout.NORTH);
+        rightPanel.add(tabs, BorderLayout.CENTER);
         showEmptyState(SELECT_A_SERVER_TEXT);
 
         setFirstComponent(new JBScrollPane(tree));
@@ -190,6 +218,8 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
             refreshKnownWrappers();
             rebuildTree();
             reprintAllConsoles();
+            connectedFilesPanel.refresh(getSelectedWrapper());
+            timeoutsPanel.refresh(getSelectedWrapper());
             scheduleFlush();
         } else {
             flushScheduled = false;
@@ -212,6 +242,8 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         if (refreshKnownWrappers()) {
             rebuildTree();
         }
+        connectedFilesPanel.refresh(getSelectedWrapper());
+        timeoutsPanel.refresh(getSelectedWrapper());
         scheduleFlush();
     }
 
@@ -291,6 +323,22 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
                 }
             }
         }
+    }
+
+    /**
+     * Selects {@code wrapper}'s node in the tree, which in turn shows its console, connected files and
+     * timeouts via the tree selection listener installed in the constructor. Adds {@code wrapper} to
+     * {@link #knownWrappers} first in case this panel has not ticked since the server started, so the
+     * node exists to select.
+     *
+     * <p>The one entry point {@link org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget} uses to
+     * jump here for a specific server, so it never has to reach into this panel's tree or model.
+     * Must be called on the EDT, like every other method on this Swing component.
+     */
+    public void selectServer(@NotNull LanguageServerWrapper wrapper) {
+        knownWrappers.add(wrapper);
+        rebuildTree();
+        selectWrapper(wrapper);
     }
 
     @Nullable
@@ -391,14 +439,14 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
     }
 
     private void showComponent(@NotNull JComponent component) {
-        BorderLayout layout = (BorderLayout) rightPanel.getLayout();
+        BorderLayout layout = (BorderLayout) logPanel.getLayout();
         Component current = layout.getLayoutComponent(BorderLayout.CENTER);
         if (current != null) {
-            rightPanel.remove(current);
+            logPanel.remove(current);
         }
-        rightPanel.add(component, BorderLayout.CENTER);
-        rightPanel.revalidate();
-        rightPanel.repaint();
+        logPanel.add(component, BorderLayout.CENTER);
+        logPanel.revalidate();
+        logPanel.repaint();
     }
 
     @NotNull
@@ -427,6 +475,168 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         public String toString() {
             String rootPath = wrapper.getProjectRootPath();
             return rootPath != null ? rootPath : wrapper.getServerDefinition().toString();
+        }
+    }
+
+    /**
+     * "Connected Files" tab content: the files connected to whichever server is selected in the tree,
+     * replacing what used to be the {@code ShowConnectedFiles} modal dialog on the status bar widget.
+     * Refreshed via {@link #refresh(LanguageServerWrapper)}, called from the tree selection listener
+     * and from every {@link #flush()} tick so the list does not go stale while the selection has not
+     * changed.
+     *
+     * <p>Each entry is rendered as its file name (the part someone actually scans for) with the
+     * containing directory as dimmed secondary text, rather than the full URI
+     * {@link LanguageServerWrapper#getConnectedFiles()} returns - the same primary/secondary split the
+     * IDE's own file lists use. Entries are sorted so the list does not reorder itself on every
+     * refresh, and a {@link ListSpeedSearch} lets someone jump to a file by typing part of its name.
+     */
+    private static final class ConnectedFilesPanel extends JPanel {
+
+        private final DefaultListModel<String> model = new DefaultListModel<>();
+
+        ConnectedFilesPanel() {
+            super(new BorderLayout());
+            JBList<String> list = new JBList<>(model);
+            list.setCellRenderer(new ConnectedFileRenderer());
+            list.getEmptyText().setText("No files connected");
+            ListSpeedSearch.installOn(list);
+            add(new JBScrollPane(list), BorderLayout.CENTER);
+        }
+
+        void refresh(@Nullable LanguageServerWrapper wrapper) {
+            model.clear();
+            if (wrapper != null) {
+                wrapper.getConnectedFiles().stream().sorted().forEach(model::addElement);
+            }
+        }
+
+        private static final class ConnectedFileRenderer extends ColoredListCellRenderer<String> {
+
+            @Override
+            protected void customizeCellRenderer(@NotNull JList<? extends String> list, String value, int index,
+                    boolean selected, boolean hasFocus) {
+                int slash = value.lastIndexOf('/');
+                String name = slash < 0 ? value : value.substring(slash + 1);
+                String directory = slash < 0 ? null : value.substring(0, slash);
+                append(name);
+                if (directory != null && !directory.isEmpty()) {
+                    append("  " + directory, SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                }
+            }
+        }
+    }
+
+    /**
+     * "Timeouts" tab content: the {@link TimeoutStats} counters for whichever server is selected in
+     * the tree, replacing what used to be the {@code ShowTimeouts} modal dialog on the status bar
+     * widget. A table rather than formatted text so the failure rate can be colored per row - gray
+     * for a request kind nothing has exercised yet, green once every call has succeeded, red once any
+     * has failed - the same at-a-glance signal the old dialog gave with inline HTML, without building
+     * HTML by hand.
+     *
+     * <p>Refreshed via {@link #refresh(LanguageServerWrapper)}, called from the tree selection
+     * listener and from every {@link #flush()} tick so the counters do not go stale while the
+     * selection has not changed.
+     */
+    private static final class TimeoutsPanel extends JPanel {
+
+        private static final String[] COLUMNS = {"Request", "Success", "Failures", "Total", "Failure Rate"};
+
+        private final List<Timeouts> rows = List.of(Timeouts.values());
+        private final Object[][] data = new Object[rows.size()][COLUMNS.length];
+        private final AbstractTableModel model = new AbstractTableModel() {
+            @Override
+            public int getRowCount() {
+                return rows.size();
+            }
+
+            @Override
+            public int getColumnCount() {
+                return COLUMNS.length;
+            }
+
+            @Override
+            public String getColumnName(int column) {
+                return COLUMNS[column];
+            }
+
+            @Override
+            public Object getValueAt(int row, int column) {
+                return data[row][column];
+            }
+
+            @Override
+            public Class<?> getColumnClass(int column) {
+                return column == 0 ? String.class : Integer.class;
+            }
+        };
+
+        TimeoutsPanel() {
+            super(new BorderLayout());
+            for (int row = 0; row < rows.size(); row++) {
+                data[row][0] = displayName(rows.get(row));
+                data[row][1] = 0;
+                data[row][2] = 0;
+                data[row][3] = 0;
+            }
+            JBTable table = new JBTable(model);
+            table.setStriped(true);
+            table.setShowGrid(false);
+            table.getColumnModel().getColumn(0).setPreferredWidth(140);
+            DefaultTableCellRenderer centered = new DefaultTableCellRenderer();
+            centered.setHorizontalAlignment(SwingConstants.CENTER);
+            table.getColumnModel().getColumn(1).setCellRenderer(centered);
+            table.getColumnModel().getColumn(2).setCellRenderer(centered);
+            table.getColumnModel().getColumn(3).setCellRenderer(centered);
+            table.getColumnModel().getColumn(4).setCellRenderer(new FailureRateRenderer());
+            add(new JBScrollPane(table), BorderLayout.CENTER);
+        }
+
+        void refresh(@Nullable LanguageServerWrapper wrapper) {
+            TimeoutStats stats = wrapper == null ? null : wrapper.getTimeoutStats();
+            for (int row = 0; row < rows.size(); row++) {
+                Timeouts timeout = rows.get(row);
+                int success = stats == null ? 0 : stats.getSuccessCount(timeout);
+                int failures = stats == null ? 0 : stats.getFailureCount(timeout);
+                data[row][1] = success;
+                data[row][2] = failures;
+                data[row][3] = success + failures;
+            }
+            model.fireTableDataChanged();
+        }
+
+        @NotNull
+        private static String displayName(@NotNull Timeouts timeout) {
+            String name = timeout.name();
+            return name.charAt(0) + name.substring(1).toLowerCase();
+        }
+
+        /**
+         * The "Failure Rate" column has no backing data of its own - it is computed from the
+         * "Success"/"Failures" columns of the same row at paint time - so it is rendered rather than
+         * modeled, coloring the text to draw the eye to whichever request kind is actually failing.
+         */
+        private static final class FailureRateRenderer extends DefaultTableCellRenderer {
+
+            FailureRateRenderer() {
+                setHorizontalAlignment(SwingConstants.CENTER);
+            }
+
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                    boolean hasFocus, int row, int column) {
+                int success = (Integer) table.getModel().getValueAt(row, 1);
+                int failures = (Integer) table.getModel().getValueAt(row, 2);
+                int total = success + failures;
+                String text = total == 0 ? "—" : String.format("%.0f%%", 100.0 * failures / total);
+                Component component = super.getTableCellRendererComponent(table, text, isSelected, hasFocus, row,
+                        column);
+                if (!isSelected) {
+                    component.setForeground(total == 0 ? JBColor.GRAY : failures == 0 ? JBColor.GREEN : JBColor.RED);
+                }
+                return component;
+            }
         }
     }
 

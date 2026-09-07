@@ -96,6 +96,7 @@ import org.wso2.lsp4intellij.logging.LspLogSource;
 import org.wso2.lsp4intellij.logging.LspLogStore;
 import org.wso2.lsp4intellij.logging.LspTraceLevel;
 import org.wso2.lsp4intellij.requests.RequestExecutor;
+import org.wso2.lsp4intellij.requests.TimeoutStats;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.services.LspServerManager;
 import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
@@ -167,6 +168,7 @@ public class LanguageServerWrapper {
     private volatile boolean alreadyShownCrash = false;
     private volatile ServerStatus status = STOPPED;
     private volatile LspTraceLevel traceLevel = LspTraceLevel.OFF;
+    private final TimeoutStats timeoutStats = new TimeoutStats();
     private static final Logger LOG = Logger.getInstance(LanguageServerWrapper.class);
     private static final CloudNotifier notifier = new CloudNotifier("Language Server Protocol client");
 
@@ -314,7 +316,15 @@ public class LanguageServerWrapper {
     }
 
     public void notifyResult(Timeouts timeouts, boolean success) {
-        getWidget().ifPresent(widget -> widget.notifyResult(timeouts, success));
+        timeoutStats.record(timeouts, success);
+    }
+
+    /**
+     * Returns this wrapper's timeout success/failure counters, read by the LSP Inspector's Details
+     * tab. See {@link #notifyResult(Timeouts, boolean)} for how they are updated.
+     */
+    public TimeoutStats getTimeoutStats() {
+        return timeoutStats;
     }
 
     public void notifySuccess(Timeouts timeouts) {
