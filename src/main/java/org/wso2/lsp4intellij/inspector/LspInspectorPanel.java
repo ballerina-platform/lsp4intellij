@@ -34,6 +34,7 @@ import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
 import com.intellij.ui.ColoredListCellRenderer;
+import com.intellij.ui.ColoredTreeCellRenderer;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.JBSplitter;
 import com.intellij.ui.ListSpeedSearch;
@@ -48,6 +49,7 @@ import com.intellij.util.messages.MessageBusConnection;
 import org.eclipse.lsp4j.MessageType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.logging.LspLogEntry;
 import org.wso2.lsp4intellij.logging.LspLogListener;
@@ -73,13 +75,17 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
+import javax.swing.JTree;
 import javax.swing.SwingConstants;
+import javax.swing.ToolTipManager;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellRenderer;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
@@ -146,6 +152,9 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         tree.setShowsRootHandles(true);
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.getEmptyText().setText(NO_SERVERS_TEXT);
+        // The node labels are deliberately short; the full command line and project path live here.
+        tree.setCellRenderer(new ServerTreeRenderer());
+        ToolTipManager.sharedInstance().registerComponent(tree);
         tree.addTreeSelectionListener(e -> {
             LanguageServerWrapper selected = getSelectedWrapper();
             showConsoleFor(selected);
@@ -297,7 +306,7 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
             serverIdToWrapper.put(serverId, wrapper);
             DefaultMutableTreeNode group = groups.get(serverId);
             if (group == null) {
-                group = new DefaultMutableTreeNode(wrapper.getServerDefinition().toString());
+                group = new DefaultMutableTreeNode(new DefinitionGroup(wrapper.getServerDefinition()));
                 groups.put(serverId, group);
                 root.add(group);
             }
@@ -309,6 +318,25 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         }
         if (previouslySelected != null) {
             selectWrapper(previouslySelected);
+        } else if (tree.getSelectionPath() == null) {
+            // Nothing has ever been selected: select the first server so the Log, Timeouts and
+            // Connected Files tabs have a subject as soon as the tool window opens. Without this
+            // every tab renders its empty state even though a server is running.
+            selectFirstServer();
+        }
+    }
+
+    /**
+     * Selects the first server leaf in the tree, if there is one.
+     */
+    private void selectFirstServer() {
+        for (int row = 0; row < tree.getRowCount(); row++) {
+            TreePath path = tree.getPathForRow(row);
+            Object userObject = ((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject();
+            if (userObject instanceof ServerLeaf) {
+                tree.setSelectionPath(path);
+                return;
+            }
         }
     }
 
@@ -469,12 +497,74 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
      *
      * @param wrapper the server this leaf represents
      */
-    private record ServerLeaf(@NotNull LanguageServerWrapper wrapper) {
+    /**
+     * Renders tree nodes with their short label and carries the long form as the node's tooltip, so
+     * the full command line and project path stay reachable without widening the tree.
+     */
+    private static final class ServerTreeRenderer extends ColoredTreeCellRenderer {
+
+        @Override
+        public void customizeCellRenderer(@NotNull JTree tree, Object value, boolean selected,
+                boolean expanded, boolean leaf, int row, boolean hasFocus) {
+            Object userObject = value instanceof DefaultMutableTreeNode node ? node.getUserObject() : null;
+            if (userObject instanceof DefinitionGroup group) {
+                append(group.toString());
+                setToolTipText(group.tooltip());
+            } else if (userObject instanceof ServerLeaf serverLeaf) {
+                append(serverLeaf.toString());
+                setToolTipText(serverLeaf.tooltip());
+            } else if (userObject != null) {
+                append(userObject.toString());
+                setToolTipText(null);
+            }
+        }
+    }
+
+    /**
+     * A tree group node for one server definition. Renders as the definition's short display name;
+     * its {@link #toString()} on a {@code RawCommandServerDefinition} would otherwise be the whole
+     * command line, which is what the definition's own {@code toString()} produces.
+     *
+     * @param definition the server definition this group node stands for
+     */
+    private record DefinitionGroup(@NotNull LanguageServerDefinition definition) {
 
         @Override
         public String toString() {
+            return definition.getDisplayName();
+        }
+
+        /**
+         * The definition's full description, shown on hover.
+         */
+        @NotNull
+        String tooltip() {
+            return definition.toString();
+        }
+    }
+
+    private record ServerLeaf(@NotNull LanguageServerWrapper wrapper) {
+
+        /**
+         * The project's name rather than its full root path: the path is too long for a tree that
+         * occupies a quarter of the tool window, and it is available as the node's tooltip.
+         */
+        @Override
+        public String toString() {
+            String projectName = wrapper.getProject() == null ? null : wrapper.getProject().getName();
+            if (projectName != null && !projectName.isEmpty()) {
+                return projectName;
+            }
             String rootPath = wrapper.getProjectRootPath();
-            return rootPath != null ? rootPath : wrapper.getServerDefinition().toString();
+            return rootPath != null ? rootPath : wrapper.getServerDefinition().getDisplayName();
+        }
+
+        /**
+         * The full project root path, shown on hover.
+         */
+        @Nullable
+        String tooltip() {
+            return wrapper.getProjectRootPath();
         }
     }
 
@@ -493,22 +583,38 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
      */
     private static final class ConnectedFilesPanel extends JPanel {
 
+        private static final String NO_SERVER_TEXT = "Select a server to see its connected files.";
+        private static final String NO_FILES_TEXT = "No files connected.";
+
         private final DefaultListModel<String> model = new DefaultListModel<>();
+        private final JBList<String> list;
+        private List<String> shown = List.of();
 
         ConnectedFilesPanel() {
             super(new BorderLayout());
-            JBList<String> list = new JBList<>(model);
+            list = new JBList<>(model);
             list.setCellRenderer(new ConnectedFileRenderer());
-            list.getEmptyText().setText("No files connected");
+            list.getEmptyText().setText(NO_SERVER_TEXT);
             ListSpeedSearch.installOn(list);
             add(new JBScrollPane(list), BorderLayout.CENTER);
         }
 
+        /**
+         * Re-reads the selected server's connected files. Called on every flush tick, so the model is
+         * only rebuilt when the file set actually changed: rebuilding it unconditionally would discard
+         * the user's list selection and any in-progress speed search ten times a second.
+         */
         void refresh(@Nullable LanguageServerWrapper wrapper) {
-            model.clear();
-            if (wrapper != null) {
-                wrapper.getConnectedFiles().stream().sorted().forEach(model::addElement);
+            list.getEmptyText().setText(wrapper == null ? NO_SERVER_TEXT : NO_FILES_TEXT);
+            List<String> files = wrapper == null
+                    ? List.of()
+                    : wrapper.getConnectedFiles().stream().sorted().toList();
+            if (files.equals(shown)) {
+                return;
             }
+            shown = files;
+            model.clear();
+            files.forEach(model::addElement);
         }
 
         private static final class ConnectedFileRenderer extends ColoredListCellRenderer<String> {
@@ -590,7 +696,26 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
             table.getColumnModel().getColumn(2).setCellRenderer(centered);
             table.getColumnModel().getColumn(3).setCellRenderer(centered);
             table.getColumnModel().getColumn(4).setCellRenderer(new FailureRateRenderer());
+            centerHeadersFromColumn(table, 1);
             add(new JBScrollPane(table), BorderLayout.CENTER);
+        }
+
+        /**
+         * Centres the header text of every column from {@code firstColumn} on, matching the centred
+         * cell renderers below them. Wraps whatever renderer the look and feel already installed
+         * rather than replacing it, so the header keeps its native painting and only the alignment
+         * changes.
+         */
+        private static void centerHeadersFromColumn(@NotNull JBTable table, int firstColumn) {
+            TableCellRenderer original = table.getTableHeader().getDefaultRenderer();
+            table.getTableHeader().setDefaultRenderer((tbl, value, selected, focused, row, column) -> {
+                Component component =
+                        original.getTableCellRendererComponent(tbl, value, selected, focused, row, column);
+                if (component instanceof JLabel label) {
+                    label.setHorizontalAlignment(column >= firstColumn ? SwingConstants.CENTER : SwingConstants.LEFT);
+                }
+                return component;
+            });
         }
 
         void refresh(@Nullable LanguageServerWrapper wrapper) {

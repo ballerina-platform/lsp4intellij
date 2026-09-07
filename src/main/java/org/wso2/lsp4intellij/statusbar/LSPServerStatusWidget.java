@@ -15,6 +15,7 @@
  */
 package org.wso2.lsp4intellij.statusbar;
 
+import com.intellij.icons.AllIcons;
 import com.intellij.ide.DataManager;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -48,10 +49,9 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -165,13 +165,40 @@ public class LSPServerStatusWidget implements StatusBarWidget {
          */
         @NotNull
         private DefaultActionGroup flatActionGroup(@Nullable LanguageServerWrapper wrapper) {
-            List<AnAction> actions = new ArrayList<>();
-            actions.add(new Restart(wrapper));
+            DefaultActionGroup group = new DefaultActionGroup();
+            if (wrapper != null) {
+                // A titled separator naming the server the actions below apply to, so the popup says
+                // what it is acting on instead of showing two unattributed verbs.
+                group.addSeparator(serverLabel(wrapper));
+            }
+            group.add(new Restart(wrapper));
             OpenInspectorAction openInspector = openInspectorActionFor(wrapper);
             if (openInspector != null) {
-                actions.add(openInspector);
+                group.add(openInspector);
             }
-            return new DefaultActionGroup(actions);
+            return group;
+        }
+
+        /**
+         * The server's short name followed by its current status, for example {@code bal - Initialized}.
+         * Deliberately not {@code getServerDefinition().toString()}, which a
+         * {@code RawCommandServerDefinition} renders as its whole command line.
+         */
+        @NotNull
+        private String serverLabel(@NotNull LanguageServerWrapper wrapper) {
+            String status = wrapper.getStatus().name();
+            return wrapper.getServerDefinition().getDisplayName() + " - "
+                    + status.charAt(0) + status.substring(1).toLowerCase(Locale.ROOT);
+        }
+
+        /**
+         * The status icon this server's definition provides for its current status, reused from the
+         * same provider the widget icon itself uses.
+         */
+        @Nullable
+        private Icon statusIcon(@NotNull LanguageServerWrapper wrapper) {
+            return GUIUtils.getIconProviderFor(wrapper.getServerDefinition())
+                    .getStatusIcons().get(wrapper.getStatus());
         }
 
         /**
@@ -185,7 +212,10 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                     .sorted(Comparator.comparing(w -> w.getServerDefinition().toString()))
                     .forEach(wrapper -> {
                         DefaultActionGroup serverGroup =
-                                new DefaultActionGroup(wrapper.getServerDefinition().toString(), true);
+                                new DefaultActionGroup(serverLabel(wrapper), true);
+                        // The submenu carries its server's status icon, so an unhealthy server is
+                        // visible without opening it.
+                        serverGroup.getTemplatePresentation().setIcon(statusIcon(wrapper));
                         serverGroup.add(new Restart(wrapper));
                         OpenInspectorAction openInspector = openInspectorActionFor(wrapper);
                         if (openInspector != null) {
@@ -215,7 +245,8 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
             Restart(@Nullable LanguageServerWrapper wrapper) {
                 super(Lsp4IntellijBundle.message("action.restart"),
-                      Lsp4IntellijBundle.message("action.restart.description"), null);
+                      Lsp4IntellijBundle.message("action.restart.description"),
+                      AllIcons.Actions.Restart);
                 this.wrapper = wrapper;
             }
 
@@ -239,7 +270,8 @@ public class LSPServerStatusWidget implements StatusBarWidget {
 
             OpenInspectorAction(@Nullable LanguageServerWrapper wrapper) {
                 super(Lsp4IntellijBundle.message("action.open.inspector"),
-                      Lsp4IntellijBundle.message("action.open.inspector.description"), null);
+                      Lsp4IntellijBundle.message("action.open.inspector.description"),
+                      AllIcons.Toolwindows.ToolWindowMessages);
                 this.wrapper = wrapper;
             }
 

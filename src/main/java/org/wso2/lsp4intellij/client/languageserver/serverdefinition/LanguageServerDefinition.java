@@ -104,6 +104,20 @@ public class LanguageServerDefinition {
     }
 
     /**
+     * A short name for this server, for UI that has one line to spend on it - a tree node, a menu
+     * entry, a status bar popup. {@link #toString()} is not usable there: subclasses render it as a
+     * full command line, so {@code RawCommandServerDefinition} produces the entire executable path
+     * plus arguments.
+     *
+     * <p>Defaults to the file extensions this definition serves, for example {@code bal}, or
+     * {@code bal, balx} for a definition covering several. Subclasses that know a real product name
+     * should override this to return it.
+     */
+    public String getDisplayName() {
+        return ext == null || ext.isEmpty() ? "Language server" : ext.replace(SPLIT_CHAR, ", ");
+    }
+
+    /**
      * Creates a StreamConnectionProvider given the working directory.
      *
      * @param workingDir The root directory
