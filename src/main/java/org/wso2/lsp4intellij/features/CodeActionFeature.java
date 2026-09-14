@@ -15,12 +15,9 @@
  */
 package org.wso2.lsp4intellij.features;
 
-import com.intellij.lang.annotation.Annotation;
-import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.util.TextRange;
-import groovy.lang.Tuple3;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -40,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.wso2.lsp4intellij.requests.Timeouts.CODEACTION;
 import static org.wso2.lsp4intellij.requests.Timeouts.EXECUTE_COMMAND;
@@ -70,11 +68,18 @@ public final class CodeActionFeature {
     private final DiagnosticsFeature diagnosticsFeature;
     private final CodeActionOverrides overrides;
 
-    private List<Annotation> annotations = new ArrayList<>();
-    private AnnotationHolder anonHolder;
+    // CopyOnWriteArrayList, not ArrayList: LSPAnnotator.apply() iterates these on the daemon's
+    // background annotator thread (ExternalAnnotator.apply() runs under a read action taken on that
+    // thread, never on the EDT), while showCodeActions() below mutates them on the EDT once an async
+    // code-action response arrives - a real cross-thread race, not just same-thread interleaving.
+    // CopyOnWriteArrayList makes a concurrent structural change during iteration impossible to
+    // observe as a ConcurrentModificationException; a reader just sees the list as it was when its
+    // iteration started.
+    private List<LspAnnotation> annotations = new CopyOnWriteArrayList<>();
+    private boolean hasAnnotated;
     private volatile boolean codeActionSyncRequired = false;
     private boolean isTriggerIntentionActions = false;
-    private final List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> silentAnnotations = new ArrayList<>();
+    private final List<SilentAnnotation> silentAnnotations = new CopyOnWriteArrayList<>();
 
     public CodeActionFeature(Editor editor, LanguageServerWrapper wrapper, TextDocumentIdentifier identifier,
             DiagnosticsFeature diagnosticsFeature, CodeActionOverrides overrides) {
@@ -88,17 +93,22 @@ public final class CodeActionFeature {
     /**
      * @return The current diagnostic annotations
      */
-    public synchronized List<Annotation> getAnnotations() {
+    public synchronized List<LspAnnotation> getAnnotations() {
         this.codeActionSyncRequired = false;
         return this.annotations;
     }
 
-    public synchronized void setAnnotations(List<Annotation> annotations) {
-        this.annotations = annotations;
+    public synchronized void setAnnotations(List<LspAnnotation> annotations) {
+        this.annotations = new CopyOnWriteArrayList<>(annotations);
     }
 
-    public synchronized void setAnonHolder(AnnotationHolder holder) {
-        this.anonHolder = holder;
+    /**
+     * Records that {@code LSPAnnotator} has rendered at least one annotation pass for this editor.
+     * Replaces a retained {@code AnnotationHolder} reference the annotator used to hand back here —
+     * only ever null-checked below, never called into, so a flag is all this needs.
+     */
+    public synchronized void markAnnotated() {
+        this.hasAnnotated = true;
     }
 
     public synchronized boolean isCodeActionSyncRequired() {
@@ -206,14 +216,14 @@ public final class CodeActionFeature {
             return;
         }
         if (annotations == null) {
-            annotations = new ArrayList<>();
+            annotations = new CopyOnWriteArrayList<>();
         }
 
         codeActions.forEach(element -> {
                 if (element.isLeft()) {
                     Command command = element.getLeft();
-                    Annotation annotWithCodeAction = null;
-                    for (Annotation annotation : annotations) {
+                    LspAnnotation annotWithCodeAction = null;
+                    for (LspAnnotation annotation : annotations) {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
@@ -234,8 +244,8 @@ public final class CodeActionFeature {
                 } else if (element.isRight()) {
                     CodeAction codeAction = element.getRight();
                     List<Diagnostic> diagnosticContext = codeAction.getDiagnostics();
-                    Annotation annotWithCodeAction = null;
-                    for (Annotation annotation : annotations) {
+                    LspAnnotation annotWithCodeAction = null;
+                    for (LspAnnotation annotation : annotations) {
                         int start = annotation.getStartOffset();
                         int end = annotation.getEndOffset();
                         if (start <= caretPos && end >= caretPos) {
@@ -257,7 +267,7 @@ public final class CodeActionFeature {
                     // If the code actions does not have a diagnostics context, creates an intention action for
                     // the current line.
                     if ((diagnosticContext == null || diagnosticContext.isEmpty())
-                            && anonHolder != null && !codeActionSyncRequired) {
+                            && hasAnnotated && !codeActionSyncRequired) {
                         // Calculates text range of the current line.
                         int line = editor.getCaretModel().getCurrentCaret().getLogicalPosition().line;
                         int startOffset = editor.getDocument().getLineStartOffset(line);
@@ -266,17 +276,16 @@ public final class CodeActionFeature {
                         CodeAction finalCodeAction = codeAction;
                         boolean found = silentAnnotations.stream()
                                 .anyMatch(silentAnnotation ->
-                                        silentAnnotation.getSecond().getStartOffset() == startOffset &&
-                                        silentAnnotation.getSecond().getEndOffset() == endOffset &&
-                                        silentAnnotation.getThird().getText().equals(finalCodeAction.getTitle())
+                                        silentAnnotation.range().getStartOffset() == startOffset &&
+                                        silentAnnotation.range().getEndOffset() == endOffset &&
+                                        silentAnnotation.fix().getText().equals(finalCodeAction.getTitle())
                                  );
                         if (!found) {
-                            Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> sAnnotation =
-                                    new Tuple3<>(
-                                            HighlightSeverity.INFORMATION,
-                                            range,
-                                            new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
-                                    );
+                            SilentAnnotation sAnnotation = new SilentAnnotation(
+                                    HighlightSeverity.INFORMATION,
+                                    range,
+                                    new LSPCodeActionFix(FileUtils.editorToURIString(editor), codeAction)
+                            );
                             silentAnnotations.add(sAnnotation);
                             isTriggerIntentionActions = true;
                         }
@@ -291,7 +300,7 @@ public final class CodeActionFeature {
         }
     }
 
-    public List<Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix>> getSilentAnnotations() {
+    public List<SilentAnnotation> getSilentAnnotations() {
         return silentAnnotations;
     }
 

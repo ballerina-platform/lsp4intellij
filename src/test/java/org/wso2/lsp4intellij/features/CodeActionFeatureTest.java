@@ -15,12 +15,9 @@
  */
 package org.wso2.lsp4intellij.features;
 
-import com.intellij.lang.annotation.Annotation;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.util.TextRange;
-import groovy.lang.Tuple3;
 import junit.framework.TestCase;
-import org.wso2.lsp4intellij.contributors.fixes.LSPCodeActionFix;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,10 +44,16 @@ public class CodeActionFeatureTest extends TestCase {
     }
 
     public void testSetAnnotationsThenGetRoundTrips() {
-        List<Annotation> annotations = new ArrayList<>();
+        LspAnnotation annotation = new LspAnnotation(HighlightSeverity.ERROR, "message", new TextRange(0, 1));
+        List<LspAnnotation> annotations = new ArrayList<>();
+        annotations.add(annotation);
         feature.setAnnotations(annotations);
 
-        assertSame(annotations, feature.getAnnotations());
+        // Not assertSame: setAnnotations wraps the list into a CopyOnWriteArrayList (see the field
+        // comment on CodeActionFeature.annotations for why - LSPAnnotator.apply() and
+        // showCodeActions() touch it from different threads), so the returned list is a different
+        // object with the same contents, not the exact reference passed in.
+        assertEquals(annotations, feature.getAnnotations());
     }
 
     public void testCodeActionSyncNotRequiredInitially() {
@@ -69,8 +72,7 @@ public class CodeActionFeatureTest extends TestCase {
     public void testSilentAnnotationsIsTheLiveMutableList() {
         assertTrue(feature.getSilentAnnotations().isEmpty());
 
-        Tuple3<HighlightSeverity, TextRange, LSPCodeActionFix> annotation =
-                new Tuple3<>(HighlightSeverity.ERROR, new TextRange(0, 1), null);
+        SilentAnnotation annotation = new SilentAnnotation(HighlightSeverity.ERROR, new TextRange(0, 1), null);
         feature.getSilentAnnotations().add(annotation);
 
         // The same live list, not a defensive copy: documentChanged() clears the feature's
