@@ -134,6 +134,9 @@ public final class TracingMessageConsumer implements MessageConsumer {
 
     /**
      * A request seen by one of the two consumers and not yet answered.
+     *
+     * @param method     the request's JSON-RPC method
+     * @param startNanos {@link System#nanoTime()} when the request passed through
      */
     public record InFlightRequest(@NotNull String method, long startNanos) {
     }
