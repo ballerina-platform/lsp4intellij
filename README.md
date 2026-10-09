@@ -24,6 +24,7 @@ Designed for plugin developers, it streamlines LSP integration and supports lang
 - [Quick Start](#quick-start)
 - [Developer Guide](#developer-guide)
 - [Features](#features)
+  - [LSP Inspector](#lsp-inspector)
 - [License](#license)
 - [Contributors](#contributors)
 - [Inspiration](#inspiration)
@@ -149,6 +150,39 @@ LSP4IntelliJ supports a wide range of LSP capabilities.
 See the [Features guide](docs/features.md) for descriptions, triggers, and demos of each capability.
 
 > **Note:** Features are mainly tested on IntelliJ IDEA.
+
+### LSP Inspector
+
+The LSP Inspector is a tool window that shows, for each language server in the project:
+
+- **Log**: status changes (starting, started, initialized, stopping, stopped) and crashes,
+  `window/logMessage` and `window/showMessage` notifications from the server, and, when tracing is
+  on, every JSON-RPC message in both directions. A traced response shows the method of the request
+  it answers and the time between request and response, for example
+  `textDocument/hover (12) 38 ms`. Error responses are shown at error level.
+- **Timeouts**: success and failure counts per request type.
+- **Connected Files**: the files currently open on the server.
+
+The toolbar selects the server and filters the log by level and by source. The **Trace** dropdown
+sets JSON-RPC tracing per server: `OFF` (the default) records nothing, `MESSAGES` records method, id
+and direction, and `VERBOSE` also records each message's full payload. Changing it also sends
+`$/setTrace` to the server.
+
+Log capture runs whether or not the tool window is registered. Each server keeps up to 10,000
+entries or 4,000,000 characters of text, whichever limit is hit first, dropping the oldest entries.
+A stopped server's log stays readable until a new instance of the same server starts logging.
+
+The tool window is optional. To show it, register it in `plugin.xml` under the id `LSP Inspector`:
+
+```xml
+<extensions defaultExtensionNs="com.intellij">
+    <toolWindow id="LSP Inspector" anchor="bottom"
+                factoryClass="org.wso2.lsp4intellij.inspector.LspInspectorToolWindowFactory"/>
+</extensions>
+```
+
+With it registered, clicking the status bar icon also offers **Open LSP Inspector** for each server.
+Without it, that action is not shown.
 
 ---
 
