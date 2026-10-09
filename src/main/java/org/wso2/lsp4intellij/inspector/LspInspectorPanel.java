@@ -119,6 +119,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final JPanel logPanel = new JPanel(new BorderLayout());
     private final ConnectedFilesPanel connectedFilesPanel = new ConnectedFilesPanel();
     private final TimeoutsPanel timeoutsPanel = new TimeoutsPanel();
+    private final JTabbedPane tabs = new JTabbedPane();
     private final Map<LanguageServerWrapper, ConsoleView> consoles = new HashMap<>();
     private final Set<LanguageServerWrapper> knownWrappers = new LinkedHashSet<>();
     private final ConcurrentLinkedQueue<PendingEntry> pendingEntries = new ConcurrentLinkedQueue<>();
@@ -139,10 +140,10 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         this.project = project;
         this.toolWindow = toolWindow;
 
-        JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Log", logPanel);
         tabs.addTab("Timeouts", timeoutsPanel);
         tabs.addTab("Connected Files", connectedFilesPanel);
+        tabs.addChangeListener(e -> refreshSelectedTab());
 
         add(buildToolbar().getComponent(), BorderLayout.NORTH);
         add(tabs, BorderLayout.CENTER);
@@ -207,8 +208,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
             pruneReplacedWrappers();
             refreshServers();
             reprintAllConsoles();
-            connectedFilesPanel.refresh(getSelectedWrapper());
-            timeoutsPanel.refresh(getSelectedWrapper());
+            refreshSelectedTab();
             scheduleFlush();
         } else {
             flushScheduled = false;
@@ -231,8 +231,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         if (refreshKnownWrappers()) {
             refreshServers();
         }
-        connectedFilesPanel.refresh(getSelectedWrapper());
-        timeoutsPanel.refresh(getSelectedWrapper());
+        refreshSelectedTab();
         scheduleFlush();
     }
 
@@ -334,8 +333,20 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         }
         selectedWrapper = wrapper;
         showConsoleFor(wrapper);
-        connectedFilesPanel.refresh(wrapper);
-        timeoutsPanel.refresh(wrapper);
+        refreshSelectedTab();
+    }
+
+    /**
+     * Refreshes the Timeouts or Connected Files tab if it is the one showing. Both are polled on every
+     * flush, so the hidden one is skipped and catches up when it is selected.
+     */
+    private void refreshSelectedTab() {
+        Component selected = tabs.getSelectedComponent();
+        if (selected == timeoutsPanel) {
+            timeoutsPanel.refresh(getSelectedWrapper());
+        } else if (selected == connectedFilesPanel) {
+            connectedFilesPanel.refresh(getSelectedWrapper());
+        }
     }
 
     @Nullable
@@ -411,7 +422,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         };
         console.print(time + " " + marker + " " + entry.summary() + "\n", contentTypeFor(entry.level()));
         if (entry.detail() != null) {
-            console.print("    " + entry.detail() + "\n", ConsoleViewContentType.SYSTEM_OUTPUT);
+            console.print("    " + entry.detail().replace("\n", "\n    ") + "\n",
+                    ConsoleViewContentType.SYSTEM_OUTPUT);
         }
     }
 
@@ -612,11 +624,15 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                 Timeouts timeout = rows.get(row);
                 int success = stats == null ? 0 : stats.getSuccessCount(timeout);
                 int failures = stats == null ? 0 : stats.getFailureCount(timeout);
+                if (data[row][1].equals(success) && data[row][2].equals(failures)) {
+                    continue;
+                }
                 data[row][1] = success;
                 data[row][2] = failures;
                 data[row][3] = success + failures;
+                // Per row rather than fireTableDataChanged(), which would clear the table's selection.
+                model.fireTableRowsUpdated(row, row);
             }
-            model.fireTableDataChanged();
         }
 
         @NotNull

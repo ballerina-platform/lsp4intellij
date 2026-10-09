@@ -16,6 +16,7 @@
 package org.wso2.lsp4intellij.logging;
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.jsonrpc.Endpoint;
 import org.eclipse.lsp4j.jsonrpc.RemoteEndpoint;
 import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler;
@@ -23,6 +24,8 @@ import org.eclipse.lsp4j.jsonrpc.json.StreamMessageConsumer;
 import org.eclipse.lsp4j.jsonrpc.messages.Message;
 import org.eclipse.lsp4j.jsonrpc.messages.NotificationMessage;
 import org.eclipse.lsp4j.jsonrpc.messages.RequestMessage;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
@@ -30,8 +33,11 @@ import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Tests for {@link TracingMessageConsumer}: the {@code OFF}/{@code MESSAGES}/{@code VERBOSE}
@@ -54,7 +60,8 @@ public class TracingMessageConsumerTest extends BasePlatformTestCase {
 
     public void testOffLevelRecordsNothingButStillForwards() {
         RecordingStreamMessageConsumer delegate = new RecordingStreamMessageConsumer();
-        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.OFF);
+        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.OFF,
+                new HashMap<>());
         RequestMessage message = requestMessage("1", "textDocument/hover");
 
         consumer.consume(message);
@@ -65,7 +72,8 @@ public class TracingMessageConsumerTest extends BasePlatformTestCase {
 
     public void testMessagesLevelRecordsMethodIdAndDirection() {
         RecordingStreamMessageConsumer delegate = new RecordingStreamMessageConsumer();
-        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.MESSAGES);
+        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.MESSAGES,
+                new HashMap<>());
         RequestMessage message = requestMessage("7", "textDocument/hover");
 
         consumer.consume(message);
@@ -82,7 +90,8 @@ public class TracingMessageConsumerTest extends BasePlatformTestCase {
 
     public void testVerboseLevelRecordsThePayload() {
         RecordingRemoteEndpoint delegate = new RecordingRemoteEndpoint();
-        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.VERBOSE);
+        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.VERBOSE,
+                new HashMap<>());
         NotificationMessage message = notificationMessage("textDocument/didOpen");
 
         consumer.consume(message);
@@ -96,7 +105,8 @@ public class TracingMessageConsumerTest extends BasePlatformTestCase {
 
     public void testDirectionForStreamMessageConsumerIsTraceOut() {
         RecordingStreamMessageConsumer delegate = new RecordingStreamMessageConsumer();
-        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.MESSAGES);
+        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.MESSAGES,
+                new HashMap<>());
 
         consumer.consume(notificationMessage("a"));
 
@@ -105,11 +115,64 @@ public class TracingMessageConsumerTest extends BasePlatformTestCase {
 
     public void testDirectionForRemoteEndpointIsTraceIn() {
         RecordingRemoteEndpoint delegate = new RecordingRemoteEndpoint();
-        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.MESSAGES);
+        TracingMessageConsumer consumer = new TracingMessageConsumer(delegate, wrapper, () -> LspTraceLevel.MESSAGES,
+                new HashMap<>());
 
         consumer.consume(notificationMessage("b"));
 
         assertEquals(LspLogSource.TRACE_IN, LspLogStore.getInstance(getProject()).entries(wrapper).get(0).source());
+    }
+
+    public void testResponseIsSummarizedWithTheMethodOfTheRequestItAnswers() {
+        Map<String, TracingMessageConsumer.InFlightRequest> inFlight = new HashMap<>();
+        TracingMessageConsumer out = new TracingMessageConsumer(new RecordingStreamMessageConsumer(), wrapper,
+                () -> LspTraceLevel.MESSAGES, inFlight);
+        TracingMessageConsumer in = new TracingMessageConsumer(new RecordingRemoteEndpoint(), wrapper,
+                () -> LspTraceLevel.MESSAGES, inFlight);
+
+        out.consume(requestMessage("3", "textDocument/hover"));
+        in.consume(responseMessage("3", null));
+
+        LspLogEntry response = LspLogStore.getInstance(getProject()).entries(wrapper).get(1);
+        assertTrue(response.summary(), response.summary().matches("textDocument/hover \\(3\\) \\d+ ms"));
+        assertEquals(MessageType.Log, response.level());
+        assertTrue("an answered request must not stay tracked", inFlight.isEmpty());
+    }
+
+    public void testRequestIsTrackedWhileTracingIsOff() {
+        Map<String, TracingMessageConsumer.InFlightRequest> inFlight = new HashMap<>();
+        AtomicReference<LspTraceLevel> level = new AtomicReference<>(LspTraceLevel.OFF);
+        TracingMessageConsumer out = new TracingMessageConsumer(new RecordingStreamMessageConsumer(), wrapper,
+                level::get, inFlight);
+        TracingMessageConsumer in = new TracingMessageConsumer(new RecordingRemoteEndpoint(), wrapper,
+                level::get, inFlight);
+
+        out.consume(requestMessage("4", "textDocument/definition"));
+        level.set(LspTraceLevel.MESSAGES);
+        in.consume(responseMessage("4", null));
+
+        LspLogEntry response = LspLogStore.getInstance(getProject()).entries(wrapper).get(0);
+        assertTrue(response.summary(), response.summary().startsWith("textDocument/definition (4) "));
+    }
+
+    public void testErrorResponseIsRecordedAtErrorLevel() {
+        TracingMessageConsumer in = new TracingMessageConsumer(new RecordingRemoteEndpoint(), wrapper,
+                () -> LspTraceLevel.MESSAGES, new HashMap<>());
+
+        in.consume(responseMessage("5", new ResponseError(-32601, "Unhandled method", null)));
+
+        LspLogEntry response = LspLogStore.getInstance(getProject()).entries(wrapper).get(0);
+        assertEquals(MessageType.Error, response.level());
+        assertEquals("response (5) error -32601: Unhandled method", response.summary());
+    }
+
+    private static ResponseMessage responseMessage(String id, ResponseError error) {
+        ResponseMessage message = new ResponseMessage();
+        message.setId(id);
+        if (error != null) {
+            message.setError(error);
+        }
+        return message;
     }
 
     private static RequestMessage requestMessage(String id, String method) {

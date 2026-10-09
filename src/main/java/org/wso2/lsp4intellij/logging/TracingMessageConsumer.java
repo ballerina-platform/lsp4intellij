@@ -21,10 +21,12 @@ import org.eclipse.lsp4j.jsonrpc.json.StreamMessageConsumer;
 import org.eclipse.lsp4j.jsonrpc.messages.Message;
 import org.eclipse.lsp4j.jsonrpc.messages.NotificationMessage;
 import org.eclipse.lsp4j.jsonrpc.messages.RequestMessage;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage;
 import org.jetbrains.annotations.NotNull;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -48,39 +50,70 @@ public final class TracingMessageConsumer implements MessageConsumer {
     private final LanguageServerWrapper wrapper;
     private final Supplier<LspTraceLevel> levelSupplier;
     private final LspLogSource direction;
+    private final Map<String, InFlightRequest> inFlight;
 
+    /**
+     * @param inFlight shared with the consumer for the opposite direction, so a response can be
+     *                 matched to the request it answers. Keys are the request id prefixed with the
+     *                 direction the request travelled in.
+     */
     public TracingMessageConsumer(@NotNull MessageConsumer delegate, @NotNull LanguageServerWrapper wrapper,
-            @NotNull Supplier<LspTraceLevel> levelSupplier) {
+            @NotNull Supplier<LspTraceLevel> levelSupplier, @NotNull Map<String, InFlightRequest> inFlight) {
         this.delegate = delegate;
         this.wrapper = wrapper;
         this.levelSupplier = levelSupplier;
         this.direction = delegate instanceof StreamMessageConsumer ? LspLogSource.TRACE_OUT : LspLogSource.TRACE_IN;
+        this.inFlight = inFlight;
     }
 
     @Override
     public void consume(Message message) {
+        // Requests are tracked even while tracing is off, so a response still finds its request if
+        // tracing is switched on in between, and no entry is left behind if it is switched off.
+        InFlightRequest request = track(message);
         LspTraceLevel level = levelSupplier.get();
         if (level != LspTraceLevel.OFF) {
-            record(message, level);
+            record(message, level, request);
         }
         delegate.consume(message);
     }
 
-    private void record(Message message, LspTraceLevel level) {
+    /**
+     * Records an outgoing or incoming request, or removes and returns the request a response answers.
+     */
+    private InFlightRequest track(Message message) {
+        if (message instanceof RequestMessage request) {
+            inFlight.put(direction.name() + request.getId(),
+                    new InFlightRequest(request.getMethod(), System.nanoTime()));
+        } else if (message instanceof ResponseMessage response) {
+            LspLogSource requestDirection =
+                    direction == LspLogSource.TRACE_IN ? LspLogSource.TRACE_OUT : LspLogSource.TRACE_IN;
+            return inFlight.remove(requestDirection.name() + response.getId());
+        }
+        return null;
+    }
+
+    private void record(Message message, LspTraceLevel level, InFlightRequest request) {
         LspLogStore store = LspLogStore.getInstanceIfCreated(wrapper.getProject());
         if (store == null) {
             return;
         }
         String detail = level == LspTraceLevel.VERBOSE ? serialize(message) : null;
-        store.append(wrapper, direction, MessageType.Log, summarize(message), detail);
+        ResponseError error = message instanceof ResponseMessage response ? response.getError() : null;
+        MessageType type = error == null ? MessageType.Log : MessageType.Error;
+        store.append(wrapper, direction, type, summarize(message, request, error), detail);
     }
 
-    private static String summarize(Message message) {
-        if (message instanceof RequestMessage request) {
-            return request.getMethod() + " (" + request.getId() + ")";
+    private static String summarize(Message message, InFlightRequest request, ResponseError error) {
+        if (message instanceof RequestMessage requestMessage) {
+            return requestMessage.getMethod() + " (" + requestMessage.getId() + ")";
         }
         if (message instanceof ResponseMessage response) {
-            return "response (" + response.getId() + ")";
+            String summary = request == null
+                    ? "response (" + response.getId() + ")"
+                    : request.method() + " (" + response.getId() + ") "
+                            + (System.nanoTime() - request.startNanos()) / 1_000_000 + " ms";
+            return error == null ? summary : summary + " error " + error.getCode() + ": " + error.getMessage();
         }
         if (message instanceof NotificationMessage notification) {
             return notification.getMethod();
@@ -97,5 +130,11 @@ public final class TracingMessageConsumer implements MessageConsumer {
      */
     private static String serialize(Message message) {
         return message.toString();
+    }
+
+    /**
+     * A request seen by one of the two consumers and not yet answered.
+     */
+    public record InFlightRequest(@NotNull String method, long startNanos) {
     }
 }
