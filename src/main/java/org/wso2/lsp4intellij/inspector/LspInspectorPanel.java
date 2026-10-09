@@ -47,6 +47,7 @@ import com.intellij.util.messages.MessageBusConnection;
 import org.eclipse.lsp4j.MessageType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 import org.wso2.lsp4intellij.Lsp4IntellijBundle;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.logging.LspLogEntry;
@@ -197,7 +198,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
      * re-printed from it. Queueing instead would let {@link #pendingEntries} grow without limit behind
      * a hidden tool window during a verbose trace.
      */
-    private void updateFlushState() {
+    void updateFlushState() {
         boolean visible = toolWindow.isVisible();
         if (visible == flushScheduled) {
             return;
@@ -224,7 +225,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         flushAlarm.addRequest(this::flush, FLUSH_INTERVAL_MILLIS);
     }
 
-    private void flush() {
+    void flush() {
         if (!flushScheduled) {
             return;
         }
@@ -265,9 +266,10 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
 
     /**
      * Adds every wrapper {@link LspServerManager} currently knows about to {@link #knownWrappers}.
-     * Never removes one, so a server's node stays in the tree after it stops: a server that has just
-     * died is the one whose log someone is most likely to want to read, matching how
-     * {@link LspLogStore} keeps a stopped server's buffer around. Returns whether the set grew.
+     * Never removes one, so a server stays in the server selector after it stops: a server that has
+     * just died is the one whose log someone is most likely to want to read, matching how
+     * {@link LspLogStore} keeps a stopped server's buffer around. {@link #forgetWrapper} removes it
+     * once its buffer is gone. Returns whether the set grew.
      */
     private boolean refreshKnownWrappers() {
         LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
@@ -471,11 +473,11 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     }
 
     /**
-     * "Connected Files" tab content: the files connected to whichever server is selected in the tree,
-     * replacing what used to be the {@code ShowConnectedFiles} modal dialog on the status bar widget.
-     * Refreshed via {@link #refresh(LanguageServerWrapper)}, called from the tree selection listener
-     * and from every {@link #flush()} tick so the list does not go stale while the selection has not
-     * changed.
+     * "Connected Files" tab content: the files connected to whichever server is selected in the
+     * server selector, replacing what used to be the {@code ShowConnectedFiles} modal dialog on the
+     * status bar widget. Refreshed via {@link #refresh(LanguageServerWrapper)} when the server
+     * selection or the selected tab changes, and on every {@link #flush()} tick while this tab is
+     * showing, so the list does not go stale while the selection has not changed.
      *
      * <p>Each entry is rendered as its file name (the part someone actually scans for) with the
      * containing directory as dimmed secondary text, rather than the full URI
@@ -537,15 +539,15 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
 
     /**
      * "Timeouts" tab content: the {@link TimeoutStats} counters for whichever server is selected in
-     * the tree, replacing what used to be the {@code ShowTimeouts} modal dialog on the status bar
+     * the server selector, replacing what used to be the {@code ShowTimeouts} modal dialog on the status bar
      * widget. A table rather than formatted text so the failure rate can be colored per row - gray
      * for a request kind nothing has exercised yet, green once every call has succeeded, red once any
      * has failed - the same at-a-glance signal the old dialog gave with inline HTML, without building
      * HTML by hand.
      *
-     * <p>Refreshed via {@link #refresh(LanguageServerWrapper)}, called from the tree selection
-     * listener and from every {@link #flush()} tick so the counters do not go stale while the
-     * selection has not changed.
+     * <p>Refreshed via {@link #refresh(LanguageServerWrapper)} when the server selection or the
+     * selected tab changes, and on every {@link #flush()} tick while this tab is showing, so the
+     * counters do not go stale while the selection has not changed.
      */
     private static final class TimeoutsPanel extends JPanel {
 
@@ -822,7 +824,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     /**
      * Sets the JSON-RPC trace level for the selected server via
      * {@link LanguageServerWrapper#setTraceLevel(LspTraceLevel)}, and reflects that server's current
-     * {@link LanguageServerWrapper#getTraceLevel()} in its own label. Tracks the tree selection since
+     * {@link LanguageServerWrapper#getTraceLevel()} in its own label. Tracks the server selector since
      * the trace level is per server.
      */
     private final class TraceLevelAction extends ComboBoxAction implements DumbAware {
@@ -930,6 +932,17 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                 console.requestScrollingToEnd();
             }
         }
+    }
+
+    @TestOnly
+    @NotNull
+    Set<LanguageServerWrapper> knownWrappersForTest() {
+        return Set.copyOf(knownWrappers);
+    }
+
+    @TestOnly
+    int pendingEntryCountForTest() {
+        return pendingEntries.size();
     }
 
     private record PendingEntry(@NotNull LanguageServerWrapper wrapper, @NotNull LspLogEntry entry) {

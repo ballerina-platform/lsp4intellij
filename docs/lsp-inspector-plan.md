@@ -69,7 +69,7 @@ window is registered.
 | `LspLogSource` | enum: `SERVER_LOG`, `SERVER_MESSAGE`, `LIFECYCLE`, `TRACE_OUT`, `TRACE_IN` |
 | `LspTraceLevel` | enum: `OFF`, `MESSAGES`, `VERBOSE` |
 | `LspLogStore` | `@Service(Service.Level.PROJECT)`, `Disposable`. Holds one bounded deque per `LanguageServerWrapper`, capacity 10000, oldest entry evicted on overflow. Publishes each entry on a `MessageBus` topic |
-| `LspLogListener` | `MessageBus` topic interface: `entryAdded(LspLogEntry)`, `serverCleared(String serverId)` |
+| `LspLogListener` | `MessageBus` topic interface: `entryAdded(LanguageServerWrapper, LspLogEntry)`, `serverCleared(LanguageServerWrapper)` |
 | `TracingMessageConsumer` | `MessageConsumer` decorator that turns each message into an entry |
 
 `LspLogStore` is looked up with `getServiceIfCreated` on read paths, matching the contract
@@ -159,19 +159,18 @@ its own investigation independent of the inspector.
 
 ### `entryAdded` is published on the JSON-RPC dispatch thread
 
-`LspLogStore.append` calls `syncPublisher(...).entryAdded(entry)` on whichever thread
+`LspLogStore.append` calls `syncPublisher(...).entryAdded(wrapper, entry)` on whichever thread
 produced the entry, which for trace entries is an lsp4j dispatch thread. The milestone 2
 listener must marshal to EDT and coalesce: a verbose trace produces entries far faster than
 Swing can repaint, and one repaint per entry will stall the UI.
 
 ### Log buffers keep their wrapper reachable
 
-`LspLogStore` keys buffers by `LanguageServerWrapper` identity and no longer drops a buffer
-when its wrapper is disposed, so a retained buffer keeps that (already drained) wrapper
-reachable until the project closes — one object per server per session. Accepted rather than
-engineered around, because the alternative is re-keying the map. If it ever matters, keying
-by `definition.ext` — already what `LspLogEntry.serverId` holds — removes the retention
-entirely.
+`LspLogStore` keys buffers by `LanguageServerWrapper` identity and does not drop a buffer
+when its wrapper is disposed, so the log of a server that just died stays readable. A
+retained buffer is removed when a new wrapper for the same `definition.ext` records its
+first entry, so at most one stopped instance per server is kept. Each buffer is limited to
+`CAPACITY` entries and `MAX_CHARS` characters of summary and detail text.
 
 ## Milestones
 

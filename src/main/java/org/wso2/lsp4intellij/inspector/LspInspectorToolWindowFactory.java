@@ -24,6 +24,7 @@ import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 import org.jetbrains.annotations.NotNull;
+import org.wso2.lsp4intellij.Lsp4IntellijBundle;
 
 import javax.swing.Icon;
 
@@ -47,6 +48,15 @@ public final class LspInspectorToolWindowFactory implements ToolWindowFactory, D
      * widget treats null as "do not show the action" rather than throwing.
      */
     public static final String TOOL_WINDOW_ID = "LSP Inspector";
+
+    /**
+     * Sets the localized stripe title. {@link #TOOL_WINDOW_ID} stays fixed because it is the lookup
+     * key consumers register under.
+     */
+    @Override
+    public void init(@NotNull ToolWindow toolWindow) {
+        toolWindow.setStripeTitle(Lsp4IntellijBundle.message("inspector.title"));
+    }
 
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
