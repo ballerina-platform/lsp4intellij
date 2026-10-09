@@ -22,6 +22,7 @@ import com.intellij.icons.AllIcons;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.ActionToolbar;
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;
@@ -46,6 +47,7 @@ import com.intellij.util.messages.MessageBusConnection;
 import org.eclipse.lsp4j.MessageType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.wso2.lsp4intellij.Lsp4IntellijBundle;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.logging.LspLogEntry;
 import org.wso2.lsp4intellij.logging.LspLogListener;
@@ -113,7 +115,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
 
     private static final int FLUSH_INTERVAL_MILLIS = 100;
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
-    private static final String NO_SERVERS_TEXT = "No LSP servers are running for this project.";
+    private static final String NO_SERVERS_TEXT = Lsp4IntellijBundle.message("inspector.empty.no.servers");
 
     private final Project project;
     private final JPanel logPanel = new JPanel(new BorderLayout());
@@ -128,8 +130,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final ToolWindow toolWindow;
 
     private LspInspectorFilter filter = LspInspectorFilter.ALL;
-    private String levelFilterLabel = "All Levels";
-    private String sourceFilterLabel = "All Sources";
+    private String levelFilterLabel = Lsp4IntellijBundle.message("inspector.filter.level.all");
+    private String sourceFilterLabel = Lsp4IntellijBundle.message("inspector.filter.source.all");
     // Read by the message bus listener on JSON-RPC threads, so events are dropped while hidden.
     private volatile boolean flushScheduled = false;
     @Nullable
@@ -140,9 +142,9 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         this.project = project;
         this.toolWindow = toolWindow;
 
-        tabs.addTab("Log", logPanel);
-        tabs.addTab("Timeouts", timeoutsPanel);
-        tabs.addTab("Connected Files", connectedFilesPanel);
+        tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.log"), logPanel);
+        tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.timeouts"), timeoutsPanel);
+        tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.connected.files"), connectedFilesPanel);
         tabs.addChangeListener(e -> refreshSelectedTab());
 
         add(buildToolbar().getComponent(), BorderLayout.NORTH);
@@ -483,8 +485,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
      */
     private static final class ConnectedFilesPanel extends JPanel {
 
-        private static final String NO_SERVER_TEXT = "Select a server to see its connected files.";
-        private static final String NO_FILES_TEXT = "No files connected.";
+        private static final String NO_SERVER_TEXT = Lsp4IntellijBundle.message("inspector.files.no.server");
+        private static final String NO_FILES_TEXT = Lsp4IntellijBundle.message("inspector.files.none");
 
         private final DefaultListModel<String> model = new DefaultListModel<>();
         private final JBList<String> list;
@@ -547,7 +549,12 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
      */
     private static final class TimeoutsPanel extends JPanel {
 
-        private static final String[] COLUMNS = {"Request", "Success", "Failures", "Total", "Failure Rate"};
+        private static final String[] COLUMNS = {
+                Lsp4IntellijBundle.message("inspector.timeouts.column.request"),
+                Lsp4IntellijBundle.message("inspector.timeouts.column.success"),
+                Lsp4IntellijBundle.message("inspector.timeouts.column.failures"),
+                Lsp4IntellijBundle.message("inspector.timeouts.column.total"),
+                Lsp4IntellijBundle.message("inspector.timeouts.column.failure.rate")};
 
         private final List<Timeouts> rows = List.of(Timeouts.values());
         private final Object[][] data = new Object[rows.size()][COLUMNS.length];
@@ -648,6 +655,11 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
          */
         private static final class FailureRateRenderer extends DefaultTableCellRenderer {
 
+            private static final JBColor SUCCESS_COLOR =
+                    JBColor.namedColor("Label.successForeground", new JBColor(0x368746, 0x5FB865));
+            private static final JBColor ERROR_COLOR =
+                    JBColor.namedColor("Label.errorForeground", new JBColor(0xC7222D, 0xFF5261));
+
             FailureRateRenderer() {
                 setHorizontalAlignment(SwingConstants.CENTER);
             }
@@ -662,7 +674,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                 Component component = super.getTableCellRendererComponent(table, text, isSelected, hasFocus, row,
                         column);
                 if (!isSelected) {
-                    component.setForeground(total == 0 ? JBColor.GRAY : failures == 0 ? JBColor.GREEN : JBColor.RED);
+                    component.setForeground(total == 0 ? JBColor.GRAY : failures == 0 ? SUCCESS_COLOR : ERROR_COLOR);
                 }
                 return component;
             }
@@ -680,11 +692,18 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
             getTemplatePresentation().setIcon(AllIcons.Nodes.Console);
         }
 
+        @NotNull
+        @Override
+        public ActionUpdateThread getActionUpdateThread() {
+            // update() reads this panel's Swing state.
+            return ActionUpdateThread.EDT;
+        }
+
         @Override
         public void update(@NotNull AnActionEvent e) {
             LanguageServerWrapper wrapper = getSelectedWrapper();
             e.getPresentation().setText(wrapper == null
-                    ? "No servers"
+                    ? Lsp4IntellijBundle.message("inspector.server.none")
                     : wrapper.getServerDefinition().getDisplayName());
             e.getPresentation().setDescription(wrapper == null ? null : wrapper.getServerDefinition().toString());
             // Nothing to choose between while this project runs a single server.
@@ -710,16 +729,23 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final class LevelFilterAction extends ComboBoxAction implements DumbAware {
 
         private final List<Option> options = List.of(
-                new Option("All Levels", null),
-                new Option("Error", MessageType.Error),
-                new Option("Warning+", MessageType.Warning),
-                new Option("Info+", MessageType.Info));
+                new Option(Lsp4IntellijBundle.message("inspector.filter.level.all"), null),
+                new Option(Lsp4IntellijBundle.message("inspector.filter.level.error"), MessageType.Error),
+                new Option(Lsp4IntellijBundle.message("inspector.filter.level.warning"), MessageType.Warning),
+                new Option(Lsp4IntellijBundle.message("inspector.filter.level.info"), MessageType.Info));
 
         private record Option(@NotNull String label, @Nullable MessageType minLevel) {
         }
 
         LevelFilterAction() {
             getTemplatePresentation().setIcon(AllIcons.General.Filter);
+        }
+
+        @NotNull
+        @Override
+        public ActionUpdateThread getActionUpdateThread() {
+            // update() reads this panel's Swing state.
+            return ActionUpdateThread.EDT;
         }
 
         @Override
@@ -748,18 +774,26 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final class SourceFilterAction extends ComboBoxAction implements DumbAware {
 
         private final List<Option> options = List.of(
-                new Option("All Sources", null),
-                new Option("Server Log", LspLogSource.SERVER_LOG),
-                new Option("Server Message", LspLogSource.SERVER_MESSAGE),
-                new Option("Lifecycle", LspLogSource.LIFECYCLE),
-                new Option("Trace Out", LspLogSource.TRACE_OUT),
-                new Option("Trace In", LspLogSource.TRACE_IN));
+                new Option(Lsp4IntellijBundle.message("inspector.filter.source.all"), null),
+                new Option(Lsp4IntellijBundle.message("inspector.filter.source.server.log"), LspLogSource.SERVER_LOG),
+                new Option(Lsp4IntellijBundle.message("inspector.filter.source.server.message"),
+                        LspLogSource.SERVER_MESSAGE),
+                new Option(Lsp4IntellijBundle.message("inspector.filter.source.lifecycle"), LspLogSource.LIFECYCLE),
+                new Option(Lsp4IntellijBundle.message("inspector.filter.source.trace.out"), LspLogSource.TRACE_OUT),
+                new Option(Lsp4IntellijBundle.message("inspector.filter.source.trace.in"), LspLogSource.TRACE_IN));
 
         private record Option(@NotNull String label, @Nullable LspLogSource source) {
         }
 
         SourceFilterAction() {
             getTemplatePresentation().setIcon(AllIcons.General.Filter);
+        }
+
+        @NotNull
+        @Override
+        public ActionUpdateThread getActionUpdateThread() {
+            // update() reads this panel's Swing state.
+            return ActionUpdateThread.EDT;
         }
 
         @Override
@@ -797,11 +831,20 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
             getTemplatePresentation().setIcon(AllIcons.Debugger.Console);
         }
 
+        @NotNull
+        @Override
+        public ActionUpdateThread getActionUpdateThread() {
+            // update() reads this panel's Swing state.
+            return ActionUpdateThread.EDT;
+        }
+
         @Override
         public void update(@NotNull AnActionEvent e) {
             LanguageServerWrapper wrapper = getSelectedWrapper();
             e.getPresentation().setEnabled(wrapper != null);
-            e.getPresentation().setText(wrapper == null ? "Trace" : "Trace: " + wrapper.getTraceLevel().name());
+            e.getPresentation().setText(wrapper == null
+                    ? Lsp4IntellijBundle.message("inspector.trace")
+                    : Lsp4IntellijBundle.message("inspector.trace.level", wrapper.getTraceLevel().name()));
         }
 
         @NotNull
@@ -826,7 +869,15 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final class ClearAction extends AnAction implements DumbAware {
 
         ClearAction() {
-            super("Clear", "Clear the buffered log for the selected server", AllIcons.Actions.GC);
+            super(Lsp4IntellijBundle.message("inspector.action.clear"),
+                    Lsp4IntellijBundle.message("inspector.action.clear.description"), AllIcons.Actions.GC);
+        }
+
+        @NotNull
+        @Override
+        public ActionUpdateThread getActionUpdateThread() {
+            // update() reads this panel's Swing state.
+            return ActionUpdateThread.EDT;
         }
 
         @Override
@@ -854,8 +905,16 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final class ScrollToEndAction extends AnAction implements DumbAware {
 
         ScrollToEndAction() {
-            super("Scroll to End", "Scroll the selected server's console to the last entry",
+            super(Lsp4IntellijBundle.message("inspector.action.scroll.to.end"),
+                    Lsp4IntellijBundle.message("inspector.action.scroll.to.end.description"),
                     AllIcons.RunConfigurations.Scroll_down);
+        }
+
+        @NotNull
+        @Override
+        public ActionUpdateThread getActionUpdateThread() {
+            // update() reads this panel's Swing state.
+            return ActionUpdateThread.EDT;
         }
 
         @Override
