@@ -19,6 +19,7 @@ LSP4IntelliJ surfaces these LSP capabilities in JetBrains IDEs.
 - [Hover Support](#hover-support)
 - [Workspace Symbols](#workspace-symbols)
 - [Renaming Support](#renaming-support)
+- [LSP Inspector](#lsp-inspector)
 - [Work in progress](#work-in-progress)
 
 <!-- tocstop -->
@@ -82,6 +83,19 @@ Click **Navigate** in the top menu, then **Symbol…**, and enter the name of th
 Place the cursor on the element to rename and press `Shift+F6` to trigger in-place renaming.
 
 ![In-place rename of a symbol triggered with Shift+F6](../resources/images/lsp4intellij-renaming.gif)
+
+## LSP Inspector
+
+Open **View → Tool Windows → LSP Inspector**, or click the language server icon in the status bar and choose **Open LSP Inspector**. If the project runs more than one language server, pick one from the dropdown at the left of the toolbar.
+
+- **Log** shows the server's status changes, crashes, and the log and show-message notifications it sends. Use the level and source dropdowns to filter it; **Error** shows only crashes, error messages, and failed requests.
+- To see JSON-RPC traffic, set **Trace** to `MESSAGES` (method, id and direction of each message) or `VERBOSE` (the full payload as well). Each response shows the method of the request it answers and how long the server took, for example `textDocument/hover (12) 38 ms`. Tracing is `OFF` by default and is set per server.
+- **Timeouts** shows, per request type, how many requests got a response within their timeout and how many timed out.
+- **Connected Files** lists the files currently open on the server.
+
+**Clear** empties the selected server's log, and **Scroll to End** jumps to the newest entry.
+
+> **Note:** The tool window appears only if the plugin using LSP4IntelliJ registers it. See [LSP Inspector](../README.md#lsp-inspector) in the README.
 
 ---
 
