@@ -34,22 +34,18 @@ import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
 import com.intellij.ui.ColoredListCellRenderer;
-import com.intellij.ui.ColoredTreeCellRenderer;
 import com.intellij.ui.JBColor;
-import com.intellij.ui.JBSplitter;
 import com.intellij.ui.ListSpeedSearch;
 import com.intellij.ui.SimpleTextAttributes;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.table.JBTable;
-import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.Alarm;
 import com.intellij.util.messages.MessageBusConnection;
 import org.eclipse.lsp4j.MessageType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.logging.LspLogEntry;
 import org.wso2.lsp4intellij.logging.LspLogListener;
@@ -66,7 +62,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -80,20 +75,20 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
-import javax.swing.JTree;
 import javax.swing.SwingConstants;
-import javax.swing.ToolTipManager;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreePath;
-import javax.swing.tree.TreeSelectionModel;
 
 /**
- * Left: a tree of the servers running for this project, grouped by server definition. Right: one
- * {@link ConsoleView} per server, created lazily and cached for as long as this panel lives.
+ * The Inspector's content: a toolbar whose first control picks which of this project's servers is
+ * being inspected, over tabs showing that server's log, timeout statistics and connected files. One
+ * {@link ConsoleView} per server is created lazily and cached for as long as this panel lives.
+ *
+ * <p>The server picker is a toolbar dropdown rather than a tree, because a project has exactly one
+ * wrapper per server definition ({@code LspServerManager.getOrCreateWrapper} files one wrapper under
+ * each of its definition's extensions), so a tree of servers would be one flat row deep and would
+ * spend a quarter of the tool window's width saying what one dropdown says in a line.
  *
  * <p>{@link LspLogListener#entryAdded(LspLogEntry)} fires synchronously on whichever thread produced
  * the entry, which for a traced message is an lsp4j dispatch thread, not the EDT. This panel never
@@ -101,8 +96,8 @@ import javax.swing.tree.TreeSelectionModel;
  * a recurring {@link Alarm} request — always run on the EDT, since the alarm is created with
  * {@link Alarm.ThreadToUse#SWING_THREAD} — drains the queue in a batch every
  * {@value #FLUSH_INTERVAL_MILLIS}ms. The same tick also re-checks
- * {@link LspServerManager#allWrappers()} and rebuilds the tree if the set of known servers grew, so a
- * server that starts after this panel is already open still appears without a separate poller.
+ * {@link LspServerManager#allWrappers()}, so a server that starts after this panel is already open
+ * still appears in the picker without a separate poller.
  *
  * <p>That timer only runs while the tool window is visible; hiding it cancels the alarm, so a console
  * nobody is looking at costs nothing. Entries published while it is hidden are discarded rather than
@@ -114,77 +109,61 @@ import javax.swing.tree.TreeSelectionModel;
  * are registered as children of this panel's own {@link Disposable}, so
  * {@link LspInspectorToolWindowFactory} disposing this panel tears down all three.
  */
-public final class LspInspectorPanel extends JBSplitter implements Disposable {
+public final class LspInspectorPanel extends JPanel implements Disposable {
 
     private static final int FLUSH_INTERVAL_MILLIS = 100;
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final String NO_SERVERS_TEXT = "No LSP servers are running for this project.";
-    private static final String SELECT_A_SERVER_TEXT = "Select a server to view its log.";
 
     private final Project project;
-    private final Tree tree;
-    private final DefaultMutableTreeNode root = new DefaultMutableTreeNode();
-    private final DefaultTreeModel treeModel = new DefaultTreeModel(root);
-    private final JPanel rightPanel = new JPanel(new BorderLayout());
     private final JPanel logPanel = new JPanel(new BorderLayout());
     private final ConnectedFilesPanel connectedFilesPanel = new ConnectedFilesPanel();
     private final TimeoutsPanel timeoutsPanel = new TimeoutsPanel();
     private final Map<LanguageServerWrapper, ConsoleView> consoles = new HashMap<>();
-    private final Map<String, LanguageServerWrapper> serverIdToWrapper = new HashMap<>();
     private final Set<LanguageServerWrapper> knownWrappers = new LinkedHashSet<>();
-    private final ConcurrentLinkedQueue<LspLogEntry> pendingEntries = new ConcurrentLinkedQueue<>();
-    private final ConcurrentLinkedQueue<String> pendingClears = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<PendingEntry> pendingEntries = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<LanguageServerWrapper> pendingClears = new ConcurrentLinkedQueue<>();
     private final Alarm flushAlarm;
     private final ToolWindow toolWindow;
 
     private LspInspectorFilter filter = LspInspectorFilter.ALL;
     private String levelFilterLabel = "All Levels";
     private String sourceFilterLabel = "All Sources";
-    private boolean flushScheduled = false;
+    // Read by the message bus listener on JSON-RPC threads, so events are dropped while hidden.
+    private volatile boolean flushScheduled = false;
+    @Nullable
+    private LanguageServerWrapper selectedWrapper;
 
     public LspInspectorPanel(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        super(false, 0.25f);
+        super(new BorderLayout());
         this.project = project;
         this.toolWindow = toolWindow;
-
-        tree = new Tree(treeModel);
-        tree.setRootVisible(false);
-        tree.setShowsRootHandles(true);
-        tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-        tree.getEmptyText().setText(NO_SERVERS_TEXT);
-        // The node labels are deliberately short; the full command line and project path live here.
-        tree.setCellRenderer(new ServerTreeRenderer());
-        ToolTipManager.sharedInstance().registerComponent(tree);
-        tree.addTreeSelectionListener(e -> {
-            LanguageServerWrapper selected = getSelectedWrapper();
-            showConsoleFor(selected);
-            connectedFilesPanel.refresh(selected);
-            timeoutsPanel.refresh(selected);
-        });
 
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Log", logPanel);
         tabs.addTab("Timeouts", timeoutsPanel);
         tabs.addTab("Connected Files", connectedFilesPanel);
 
-        rightPanel.add(buildToolbar().getComponent(), BorderLayout.NORTH);
-        rightPanel.add(tabs, BorderLayout.CENTER);
-        showEmptyState(SELECT_A_SERVER_TEXT);
-
-        setFirstComponent(new JBScrollPane(tree));
-        setSecondComponent(rightPanel);
+        add(buildToolbar().getComponent(), BorderLayout.NORTH);
+        add(tabs, BorderLayout.CENTER);
+        showEmptyState(NO_SERVERS_TEXT);
 
         flushAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, this);
         MessageBusConnection connection = project.getMessageBus().connect(this);
         connection.subscribe(LspLogListener.TOPIC, new LspLogListener() {
             @Override
-            public void entryAdded(@NotNull LspLogEntry entry) {
-                pendingEntries.offer(entry);
+            public void entryAdded(@NotNull LanguageServerWrapper wrapper, @NotNull LspLogEntry entry) {
+                // While hidden nothing drains the queue; showing the window reprints from LspLogStore.
+                if (flushScheduled) {
+                    pendingEntries.offer(new PendingEntry(wrapper, entry));
+                }
             }
 
             @Override
-            public void serverCleared(@NotNull String serverId) {
-                pendingClears.offer(serverId);
+            public void serverCleared(@NotNull LanguageServerWrapper wrapper) {
+                if (flushScheduled) {
+                    pendingClears.offer(wrapper);
+                }
             }
         });
 
@@ -196,7 +175,7 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         });
 
         refreshKnownWrappers();
-        rebuildTree();
+        refreshServers();
         updateFlushState();
     }
 
@@ -225,7 +204,8 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
             pendingEntries.clear();
             pendingClears.clear();
             refreshKnownWrappers();
-            rebuildTree();
+            pruneReplacedWrappers();
+            refreshServers();
             reprintAllConsoles();
             connectedFilesPanel.refresh(getSelectedWrapper());
             timeoutsPanel.refresh(getSelectedWrapper());
@@ -249,7 +229,7 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         drainPendingClears();
         drainPendingEntries();
         if (refreshKnownWrappers()) {
-            rebuildTree();
+            refreshServers();
         }
         connectedFilesPanel.refresh(getSelectedWrapper());
         timeoutsPanel.refresh(getSelectedWrapper());
@@ -257,28 +237,27 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
     }
 
     private void drainPendingClears() {
-        String serverId;
-        while ((serverId = pendingClears.poll()) != null) {
-            LanguageServerWrapper wrapper = serverIdToWrapper.get(serverId);
-            ConsoleView console = wrapper == null ? null : consoles.get(wrapper);
-            if (console != null) {
-                console.clear();
+        LanguageServerWrapper wrapper;
+        while ((wrapper = pendingClears.poll()) != null) {
+            if (isLive(wrapper)) {
+                ConsoleView console = consoles.get(wrapper);
+                if (console != null) {
+                    console.clear();
+                }
+            } else {
+                forgetWrapper(wrapper);
             }
         }
     }
 
     private void drainPendingEntries() {
-        LspLogEntry entry;
-        while ((entry = pendingEntries.poll()) != null) {
-            LanguageServerWrapper wrapper = serverIdToWrapper.get(entry.serverId());
-            if (wrapper == null) {
-                // Not in the tree yet; LspLogStore already has it and the tree will catch up on the
-                // next tick, at which point the console is primed from the full buffer.
-                continue;
-            }
-            ConsoleView console = consoles.get(wrapper);
-            if (console != null && filter.matches(entry)) {
-                printEntry(console, entry);
+        PendingEntry pending;
+        while ((pending = pendingEntries.poll()) != null) {
+            // A wrapper without a console yet is skipped: its console is primed from the full
+            // LspLogStore buffer when it is first shown.
+            ConsoleView console = consoles.get(pending.wrapper());
+            if (console != null && filter.matches(pending.entry())) {
+                printEntry(console, pending.entry());
             }
         }
     }
@@ -295,93 +274,78 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         return knownWrappers.addAll(current);
     }
 
-    private void rebuildTree() {
-        LanguageServerWrapper previouslySelected = getSelectedWrapper();
-
-        root.removeAllChildren();
-        serverIdToWrapper.clear();
-        Map<String, DefaultMutableTreeNode> groups = new LinkedHashMap<>();
-        for (LanguageServerWrapper wrapper : knownWrappers) {
-            String serverId = wrapper.getServerDefinition().ext;
-            serverIdToWrapper.put(serverId, wrapper);
-            DefaultMutableTreeNode group = groups.get(serverId);
-            if (group == null) {
-                group = new DefaultMutableTreeNode(new DefinitionGroup(wrapper.getServerDefinition()));
-                groups.put(serverId, group);
-                root.add(group);
-            }
-            group.add(new DefaultMutableTreeNode(new ServerLeaf(wrapper)));
-        }
-        treeModel.reload();
-        for (int row = 0; row < tree.getRowCount(); row++) {
-            tree.expandRow(row);
-        }
-        if (previouslySelected != null) {
-            selectWrapper(previouslySelected);
-        } else if (tree.getSelectionPath() == null) {
-            // Nothing has ever been selected: select the first server so the Log, Timeouts and
-            // Connected Files tabs have a subject as soon as the tool window opens. Without this
-            // every tab renders its empty state even though a server is running.
-            selectFirstServer();
-        }
-    }
-
     /**
-     * Selects the first server leaf in the tree, if there is one.
+     * Re-indexes {@link #knownWrappers} for entry routing and makes sure something is selected: the
+     * first known server, if this panel has no selection yet. Without that the tabs would render their
+     * empty states even though a server is running, since the dropdown starts empty.
      */
-    private void selectFirstServer() {
-        for (int row = 0; row < tree.getRowCount(); row++) {
-            TreePath path = tree.getPathForRow(row);
-            Object userObject = ((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject();
-            if (userObject instanceof ServerLeaf) {
-                tree.setSelectionPath(path);
-                return;
+    /**
+     * Forgets disposed wrappers whose buffer is gone. Their {@code serverCleared} event is dropped
+     * while this window is hidden, so this catches up when it is shown again.
+     */
+    private void pruneReplacedWrappers() {
+        LspLogStore store = LspLogStore.getInstanceIfCreated(project);
+        for (LanguageServerWrapper wrapper : List.copyOf(knownWrappers)) {
+            if (!isLive(wrapper) && (store == null || store.entries(wrapper).isEmpty())) {
+                forgetWrapper(wrapper);
             }
         }
     }
 
-    private void selectWrapper(@NotNull LanguageServerWrapper wrapper) {
-        for (int i = 0; i < root.getChildCount(); i++) {
-            DefaultMutableTreeNode group = (DefaultMutableTreeNode) root.getChildAt(i);
-            for (int j = 0; j < group.getChildCount(); j++) {
-                DefaultMutableTreeNode leaf = (DefaultMutableTreeNode) group.getChildAt(j);
-                if (leaf.getUserObject() instanceof ServerLeaf serverLeaf && serverLeaf.wrapper() == wrapper) {
-                    tree.setSelectionPath(new TreePath(leaf.getPath()));
-                    return;
-                }
-            }
+    private boolean isLive(@NotNull LanguageServerWrapper wrapper) {
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        return manager != null && manager.allWrappers().contains(wrapper);
+    }
+
+    /**
+     * Drops a disposed wrapper whose log buffer was removed, either because a newer wrapper for the
+     * same server replaced it or because it was cleared explicitly.
+     */
+    private void forgetWrapper(@NotNull LanguageServerWrapper wrapper) {
+        knownWrappers.remove(wrapper);
+        ConsoleView console = consoles.remove(wrapper);
+        if (console != null) {
+            Disposer.dispose(console);
+        }
+        if (wrapper == selectedWrapper) {
+            selectedWrapper = null;
+        }
+        refreshServers();
+    }
+
+    private void refreshServers() {
+        if (selectedWrapper == null || !knownWrappers.contains(selectedWrapper)) {
+            selectServer(knownWrappers.stream().findFirst().orElse(null));
         }
     }
 
     /**
-     * Selects {@code wrapper}'s node in the tree, which in turn shows its console, connected files and
-     * timeouts via the tree selection listener installed in the constructor. Adds {@code wrapper} to
-     * {@link #knownWrappers} first in case this panel has not ticked since the server started, so the
-     * node exists to select.
+     * Shows {@code wrapper}'s log, timeouts and connected files, and makes the toolbar dropdown read
+     * its name. Passing null returns the panel to its empty state.
      *
-     * <p>The one entry point {@link org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget} uses to
-     * jump here for a specific server, so it never has to reach into this panel's tree or model.
-     * Must be called on the EDT, like every other method on this Swing component.
+     * <p>Also the one entry point {@link org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget} uses to
+     * jump here for a specific server, so it never has to reach into this panel's internals. Adds
+     * {@code wrapper} to {@link #knownWrappers} first, in case this panel has not ticked since that
+     * server started. Must be called on the EDT, like every other method on this Swing component.
      */
-    public void selectServer(@NotNull LanguageServerWrapper wrapper) {
-        knownWrappers.add(wrapper);
-        rebuildTree();
-        selectWrapper(wrapper);
+    public void selectServer(@Nullable LanguageServerWrapper wrapper) {
+        if (wrapper != null) {
+            knownWrappers.add(wrapper);
+        }
+        selectedWrapper = wrapper;
+        showConsoleFor(wrapper);
+        connectedFilesPanel.refresh(wrapper);
+        timeoutsPanel.refresh(wrapper);
     }
 
     @Nullable
     private LanguageServerWrapper getSelectedWrapper() {
-        TreePath path = tree.getSelectionPath();
-        if (path == null) {
-            return null;
-        }
-        Object userObject = ((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject();
-        return userObject instanceof ServerLeaf serverLeaf ? serverLeaf.wrapper() : null;
+        return selectedWrapper;
     }
 
     private void showConsoleFor(@Nullable LanguageServerWrapper wrapper) {
         if (wrapper == null) {
-            showEmptyState(SELECT_A_SERVER_TEXT);
+            showEmptyState(NO_SERVERS_TEXT);
             return;
         }
         ConsoleView console = consoles.computeIfAbsent(wrapper, this::createConsole);
@@ -480,6 +444,8 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
     @NotNull
     private ActionToolbar buildToolbar() {
         DefaultActionGroup group = new DefaultActionGroup();
+        group.add(new ServerSelectorAction());
+        group.addSeparator();
         group.add(new LevelFilterAction());
         group.add(new SourceFilterAction());
         group.add(new TraceLevelAction());
@@ -488,84 +454,6 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar("LspInspector", group, true);
         toolbar.setTargetComponent(this);
         return toolbar;
-    }
-
-    /**
-     * Tree leaf user object for one running (or previously running) server. Overrides
-     * {@code toString()} because {@link LanguageServerWrapper} does not, and the default tree cell
-     * renderer displays a node's user object via {@code toString()}.
-     *
-     * @param wrapper the server this leaf represents
-     */
-    /**
-     * Renders tree nodes with their short label and carries the long form as the node's tooltip, so
-     * the full command line and project path stay reachable without widening the tree.
-     */
-    private static final class ServerTreeRenderer extends ColoredTreeCellRenderer {
-
-        @Override
-        public void customizeCellRenderer(@NotNull JTree tree, Object value, boolean selected,
-                boolean expanded, boolean leaf, int row, boolean hasFocus) {
-            Object userObject = value instanceof DefaultMutableTreeNode node ? node.getUserObject() : null;
-            if (userObject instanceof DefinitionGroup group) {
-                append(group.toString());
-                setToolTipText(group.tooltip());
-            } else if (userObject instanceof ServerLeaf serverLeaf) {
-                append(serverLeaf.toString());
-                setToolTipText(serverLeaf.tooltip());
-            } else if (userObject != null) {
-                append(userObject.toString());
-                setToolTipText(null);
-            }
-        }
-    }
-
-    /**
-     * A tree group node for one server definition. Renders as the definition's short display name;
-     * its {@link #toString()} on a {@code RawCommandServerDefinition} would otherwise be the whole
-     * command line, which is what the definition's own {@code toString()} produces.
-     *
-     * @param definition the server definition this group node stands for
-     */
-    private record DefinitionGroup(@NotNull LanguageServerDefinition definition) {
-
-        @Override
-        public String toString() {
-            return definition.getDisplayName();
-        }
-
-        /**
-         * The definition's full description, shown on hover.
-         */
-        @NotNull
-        String tooltip() {
-            return definition.toString();
-        }
-    }
-
-    private record ServerLeaf(@NotNull LanguageServerWrapper wrapper) {
-
-        /**
-         * The project's name rather than its full root path: the path is too long for a tree that
-         * occupies a quarter of the tool window, and it is available as the node's tooltip.
-         */
-        @Override
-        public String toString() {
-            String projectName = wrapper.getProject() == null ? null : wrapper.getProject().getName();
-            if (projectName != null && !projectName.isEmpty()) {
-                return projectName;
-            }
-            String rootPath = wrapper.getProjectRootPath();
-            return rootPath != null ? rootPath : wrapper.getServerDefinition().getDisplayName();
-        }
-
-        /**
-         * The full project root path, shown on hover.
-         */
-        @Nullable
-        String tooltip() {
-            return wrapper.getProjectRootPath();
-        }
     }
 
     /**
@@ -765,6 +653,44 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
         }
     }
 
+    /**
+     * Picks which server the tabs below show. Replaces what used to be a server tree down the left
+     * side of the panel: a project has one wrapper per server definition, so that tree was never more
+     * than a flat list, and usually a list of one.
+     */
+    private final class ServerSelectorAction extends ComboBoxAction implements DumbAware {
+
+        ServerSelectorAction() {
+            getTemplatePresentation().setIcon(AllIcons.Nodes.Console);
+        }
+
+        @Override
+        public void update(@NotNull AnActionEvent e) {
+            LanguageServerWrapper wrapper = getSelectedWrapper();
+            e.getPresentation().setText(wrapper == null
+                    ? "No servers"
+                    : wrapper.getServerDefinition().getDisplayName());
+            e.getPresentation().setDescription(wrapper == null ? null : wrapper.getServerDefinition().toString());
+            // Nothing to choose between while this project runs a single server.
+            e.getPresentation().setEnabled(knownWrappers.size() > 1);
+        }
+
+        @NotNull
+        @Override
+        protected DefaultActionGroup createPopupActionGroup(@NotNull JComponent button, @NotNull DataContext context) {
+            DefaultActionGroup popup = new DefaultActionGroup();
+            for (LanguageServerWrapper wrapper : knownWrappers) {
+                popup.add(new AnAction(wrapper.getServerDefinition().getDisplayName()) {
+                    @Override
+                    public void actionPerformed(@NotNull AnActionEvent e) {
+                        selectServer(wrapper);
+                    }
+                });
+            }
+            return popup;
+        }
+    }
+
     private final class LevelFilterAction extends ComboBoxAction implements DumbAware {
 
         private final List<Option> options = List.of(
@@ -929,5 +855,8 @@ public final class LspInspectorPanel extends JBSplitter implements Disposable {
                 console.requestScrollingToEnd();
             }
         }
+    }
+
+    private record PendingEntry(@NotNull LanguageServerWrapper wrapper, @NotNull LspLogEntry entry) {
     }
 }

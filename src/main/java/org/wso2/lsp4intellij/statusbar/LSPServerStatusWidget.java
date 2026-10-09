@@ -148,7 +148,7 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                         ? flatActionGroup(wrappers.stream().findFirst().orElse(null))
                         : perServerActionGroup(wrappers);
 
-                String title = Lsp4IntellijBundle.message("lsp.server.actions.title");
+                String title = Lsp4IntellijBundle.message("lsp.status.title");
 
                 DataContext context = DataManager.getInstance().getDataContext(component);
                 ListPopup popup = JBPopupFactory.getInstance()
@@ -160,17 +160,13 @@ public class LSPServerStatusWidget implements StatusBarWidget {
         }
 
         /**
-         * The popup for zero or one server: flat, matching the widget's original layout as closely as
-         * possible rather than wrapping the single server in its own submenu.
+         * The popup for zero or one server: just the actions, flat, matching the widget's original
+         * layout rather than wrapping the single server in its own submenu. The server it acts on is
+         * named by the popup's title instead of by a header row inside it.
          */
         @NotNull
         private DefaultActionGroup flatActionGroup(@Nullable LanguageServerWrapper wrapper) {
             DefaultActionGroup group = new DefaultActionGroup();
-            if (wrapper != null) {
-                // A titled separator naming the server the actions below apply to, so the popup says
-                // what it is acting on instead of showing two unattributed verbs.
-                group.addSeparator(serverLabel(wrapper));
-            }
             group.add(new Restart(wrapper));
             OpenInspectorAction openInspector = openInspectorActionFor(wrapper);
             if (openInspector != null) {
@@ -186,9 +182,17 @@ public class LSPServerStatusWidget implements StatusBarWidget {
          */
         @NotNull
         private String serverLabel(@NotNull LanguageServerWrapper wrapper) {
-            String status = wrapper.getStatus().name();
-            return wrapper.getServerDefinition().getDisplayName() + " - "
-                    + status.charAt(0) + status.substring(1).toLowerCase(Locale.ROOT);
+            return wrapper.getServerDefinition().getDisplayName() + " - " + statusText(wrapper.getStatus());
+        }
+
+        /**
+         * One {@link ServerStatus} as display text, for example {@code Initialized}. Not localized,
+         * matching how the rest of the library renders these constants.
+         */
+        @NotNull
+        private String statusText(@NotNull ServerStatus status) {
+            String name = status.name();
+            return name.charAt(0) + name.substring(1).toLowerCase(Locale.ROOT);
         }
 
         /**
@@ -305,11 +309,14 @@ public class LSPServerStatusWidget implements StatusBarWidget {
                 return Lsp4IntellijBundle.message("tooltip.language.server.project", projectName);
             } else if (wrappers.size() == 1) {
                 LanguageServerWrapper wrapper = wrappers.iterator().next();
-                return Lsp4IntellijBundle.message("tooltip.language.server.extension.project",
-                        wrapper.getServerDefinition().ext, projectName);
+                return Lsp4IntellijBundle.message("tooltip.language.server.single",
+                        wrapper.getServerDefinition().getDisplayName(), statusText(wrapper.getStatus()), projectName);
             } else {
-                return Lsp4IntellijBundle.message("tooltip.language.server.multiple.project",
-                        wrappers.size(), projectName);
+                // The same aggregate the icon shows: the least healthy status across every server.
+                ServerStatus aggregate = ServerStatusAggregator.aggregate(
+                        wrappers.stream().map(LanguageServerWrapper::getStatus).toList());
+                return Lsp4IntellijBundle.message("tooltip.language.server.multiple",
+                        wrappers.size(), statusText(aggregate), projectName);
             }
         }
     }

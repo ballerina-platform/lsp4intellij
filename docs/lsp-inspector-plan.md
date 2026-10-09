@@ -1,8 +1,8 @@
-# LSP Console — implementation plan
+# LSP Inspector — implementation plan
 
 Status: proposed, not started
 Base branch: `phase-4-platform-modernization`
-Work branch: `feature/lsp-console`
+Work branch: `feature/lsp-inspector`
 
 ## Goal
 
@@ -26,7 +26,7 @@ Two facts about this repository shape the design:
 1. **lsp4intellij is a library that other plugins embed, not a standalone plugin.** It
    ships no `plugin.xml` (the one under `src/main/resources/META-INF/` is untracked local
    test scaffolding). Every UI-facing class is registered by the consumer plugin in its own
-   `plugin.xml`. The console must therefore work with no tool window registered at all.
+   `plugin.xml`. The inspector must therefore work with no tool window registered at all.
 2. **`MessageHandler` is already the single point every message passes through**, and
    Phase 4's `LspServerManager` establishes the project-scoped `@Service` + `Disposable`
    pattern that the log store follows.
@@ -50,8 +50,8 @@ Out of scope for v1, with reasons:
   `ProcessBuilderServerDefinition`. Worth doing, but after the store and UI are proven.
 - **Removing the existing `idea.log` output.** `DefaultLanguageClient.logMessage` calls
   `LOG.error` for server errors today. v1 leaves that in place so existing consumers see no
-  change; server errors will appear both in the console and in `idea.log`. Routing them to
-  the console only is a behavior change that needs its own decision.
+  change; server errors will appear both in the inspector and in `idea.log`. Routing them to
+  the inspector only is a behavior change that needs its own decision.
 - **Persisting the trace level.** Trace level is per server and lives only for the IDE
   session. No `PersistentStateComponent` until there is evidence people want it to survive
   a restart.
@@ -81,10 +81,10 @@ entries in place, since a server that has just died is the one whose log someone
 read. All buffers are dropped when the project is disposed. The cost is that a buffer keeps
 its drained wrapper reachable until the project closes — one object per server per session.
 
-### `org.wso2.lsp4intellij.console` — UI, opt-in
+### `org.wso2.lsp4intellij.inspector` — UI, opt-in
 
-- `LspConsoleToolWindowFactory` — implements `ToolWindowFactory` and `DumbAware`.
-- `LspConsolePanel` — a `JBSplitter`. Left: a `SimpleTree` of server definition nodes with
+- `LspInspectorToolWindowFactory` — implements `ToolWindowFactory` and `DumbAware`.
+- `LspInspectorPanel` — a `JBSplitter`. Left: a `SimpleTree` of server definition nodes with
   the running wrappers beneath each. Right: one `ConsoleView` per node, created lazily.
 - Toolbar actions: level filter, source filter, trace level, clear, scroll to end.
 
@@ -92,7 +92,7 @@ its drained wrapper reachable until the project closes — one object per server
 re-prints the selected server's buffer, which is affordable because the buffer is bounded.
 
 ```
-┌─ LSP Console ──────────────────────────────┐
+┌─ LSP Inspector ────────────────────────────┐
 │ Servers      │ [Level ▾][Source ▾][🔍][⨯][⇩] │
 │ ▾ ballerina  │ 12:04:11 INFO  server started │
 │   • proj-a   │ 12:04:12 →     textDocument/. │
@@ -127,13 +127,51 @@ re-prints the selected server's buffer, which is affordable because the buffer i
    it contribute their own trace output. It is sent after initialize only when the level is
    not `OFF`: sending it unconditionally would put a notification on the wire for every
    server at startup that it did not receive before this feature existed, which would break
-   the "no behavior change when the console is unused" criterion below.
+   the "no behavior change when the inspector is unused" criterion below.
 
 ### Cost when tracing is off
 
 `TracingMessageConsumer` reads a `volatile LspTraceLevel` and returns immediately when it
 is `OFF`, before touching the message. No JSON is serialized and no object is allocated on
 that path. `OFF` is the default for every server.
+
+## Known constraints and open items
+
+Carried forward from milestone 1. Read this before starting milestone 2.
+
+### The platform's bundled lsp4j shadows the declared 0.23.1 dependency
+
+IntelliJ IDEA Community 2024.3 ships its own older copy of `org.eclipse.lsp4j.jsonrpc`
+inside `lib/lib.jar` for its native LSP support, and that copy wins over the 0.23.1 jar this
+project declares. Verified with `javap` on both jars: the bundled
+`org.eclipse.lsp4j.jsonrpc.messages.Message` has only `getJsonrpc`, `setJsonrpc` and
+`toString`, while the 0.23.1 copy also has `jsonHandler()`, `setJsonHandler()` and
+`toStringFallback()`.
+
+Effect on this feature: `Message.jsonHandler()` would give the exact wire JSON for the
+verbose detail column, and it is unreachable. `TracingMessageConsumer.serialize()` falls back
+to `Message.toString()`. Milestone 2 must not assume exact wire JSON is available.
+
+Effect beyond this feature, unresolved: the library may not be compiling or running against
+the lsp4j version it declares wherever the platform bundles the same class. That is a latent
+`NoSuchMethodError` risk anywhere a post-bundled-version lsp4j API is used, and it deserves
+its own investigation independent of the inspector.
+
+### `entryAdded` is published on the JSON-RPC dispatch thread
+
+`LspLogStore.append` calls `syncPublisher(...).entryAdded(entry)` on whichever thread
+produced the entry, which for trace entries is an lsp4j dispatch thread. The milestone 2
+listener must marshal to EDT and coalesce: a verbose trace produces entries far faster than
+Swing can repaint, and one repaint per entry will stall the UI.
+
+### Log buffers keep their wrapper reachable
+
+`LspLogStore` keys buffers by `LanguageServerWrapper` identity and no longer drops a buffer
+when its wrapper is disposed, so a retained buffer keeps that (already drained) wrapper
+reachable until the project closes — one object per server per session. Accepted rather than
+engineered around, because the alternative is re-keying the map. If it ever matters, keying
+by `definition.ext` — already what `LspLogEntry.serverId` holds — removes the retention
+entirely.
 
 ## Milestones
 
@@ -147,7 +185,7 @@ that path. `OFF` is the default for every server.
    and because its one risky assumption — that lsp4j calls the `MessageHandler` wrapper
    twice, once per direction, in a known order — is better tested before any UI depends on
    it.
-2. **Tool window.** `LspConsoleToolWindowFactory`, `LspConsolePanel`, toolbar actions,
+2. **Tool window.** `LspInspectorToolWindowFactory`, `LspInspectorPanel`, toolbar actions,
    icons.
 3. **Docs and manual verification.** `docs/features.md`, README, and a documented
    `<toolWindow>` entry in `resources/plugin.xml.example`. Manual check with
