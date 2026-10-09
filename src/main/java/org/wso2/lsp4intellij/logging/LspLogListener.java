@@ -17,6 +17,7 @@ package org.wso2.lsp4intellij.logging;
 
 import com.intellij.util.messages.Topic;
 import org.jetbrains.annotations.NotNull;
+import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 
 /**
  * Notified as {@link LspLogStore} changes. Subscribers connect to {@link #TOPIC} on a project's
@@ -28,15 +29,16 @@ public interface LspLogListener {
     Topic<LspLogListener> TOPIC = Topic.create("lsp4intellij LSP log", LspLogListener.class);
 
     /**
-     * An entry was appended to one server's buffer.
+     * An entry was appended to {@code wrapper}'s buffer.
      */
-    void entryAdded(@NotNull LspLogEntry entry);
+    void entryAdded(@NotNull LanguageServerWrapper wrapper, @NotNull LspLogEntry entry);
 
     /**
-     * The buffer for the given server id was removed because that server's wrapper stopped for good.
+     * {@code wrapper}'s buffer was removed, either by an explicit clear or because a newer wrapper for
+     * the same server started recording and replaced it.
      * Not fired when the project itself is disposing: every buffer is dropped then, but the message
      * bus a listener would be notified on is on its way out at the same time, so {@link LspLogStore}
      * clears its state directly instead of publishing one event per server.
      */
-    void serverCleared(@NotNull String serverId);
+    void serverCleared(@NotNull LanguageServerWrapper wrapper);
 }

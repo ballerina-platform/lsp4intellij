@@ -43,19 +43,29 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>A buffer outlives the server that filled it. Stopping or disposing a wrapper does not clear its
  * entries, because a server that has just died is the one whose log someone is most likely to want to
- * read; {@link #removeBuffer(LanguageServerWrapper)} exists for an explicit clear instead. The cost is
- * that a buffer keeps its (already drained) wrapper reachable until the project closes, which is one
- * object per server per session.
+ * read; {@link #removeBuffer(LanguageServerWrapper)} exists for an explicit clear instead. A stopped
+ * wrapper's buffer is kept only until a new wrapper for the same server (same
+ * {@link LanguageServerDefinition#ext}) records its first entry, at which point the old buffer is
+ * removed, so at most one stopped instance per server is retained.
+ *
+ * <p>Each buffer is bounded both by {@value #CAPACITY} entries and by {@value #MAX_CHARS} characters
+ * of summary and detail text, because a single verbose trace entry can carry a whole document.
  *
  * <p>Every buffer is dropped by {@link #dispose()} when the project itself is disposed, without
- * publishing one {@link LspLogListener#serverCleared(String)} per server: by then the project's message
- * bus is on its way out as well, so state is cleared directly instead.
+ * publishing one {@link LspLogListener#serverCleared(LanguageServerWrapper)} per server: by then the
+ * project's message bus is on its way out as well, so state is cleared directly instead.
  */
 @Service(Service.Level.PROJECT)
 public final class LspLogStore implements Disposable {
 
     /** Maximum number of entries retained per server; the oldest is evicted once this is exceeded. */
     public static final int CAPACITY = 10_000;
+
+    /**
+     * Maximum characters of summary and detail text retained per server; the oldest entries are
+     * evicted once this is exceeded. The newest entry is always kept, even if it alone is larger.
+     */
+    public static final int MAX_CHARS = 4_000_000;
 
     private final Project project;
     private final Map<LanguageServerWrapper, Buffer> buffers = new ConcurrentHashMap<>();
@@ -99,9 +109,14 @@ public final class LspLogStore implements Disposable {
         LanguageServerDefinition definition = wrapper.getServerDefinition();
         LspLogEntry entry = new LspLogEntry(System.currentTimeMillis(), definition.ext, definition.toString(),
                 source, level, summary, detail);
-        buffers.computeIfAbsent(wrapper, w -> new Buffer()).add(entry);
+        Buffer buffer = buffers.get(wrapper);
+        if (buffer == null) {
+            buffer = buffers.computeIfAbsent(wrapper, w -> new Buffer());
+            removeSupersededBuffers(wrapper);
+        }
+        buffer.add(entry);
         if (!project.isDisposed()) {
-            project.getMessageBus().syncPublisher(LspLogListener.TOPIC).entryAdded(entry);
+            project.getMessageBus().syncPublisher(LspLogListener.TOPIC).entryAdded(wrapper, entry);
         }
     }
 
@@ -116,14 +131,27 @@ public final class LspLogStore implements Disposable {
     }
 
     /**
-     * Removes {@code wrapper}'s buffer and publishes {@link LspLogListener#serverCleared(String)}, if a
-     * buffer existed for it.
+     * Removes {@code wrapper}'s buffer and publishes
+     * {@link LspLogListener#serverCleared(LanguageServerWrapper)}, if a buffer existed for it.
      */
     public void removeBuffer(@NotNull LanguageServerWrapper wrapper) {
         Buffer removed = buffers.remove(wrapper);
         if (removed != null && !project.isDisposed()) {
             project.getMessageBus().syncPublisher(LspLogListener.TOPIC)
-                    .serverCleared(wrapper.getServerDefinition().ext);
+                    .serverCleared(wrapper);
+        }
+    }
+
+    /**
+     * Removes the buffers of every other wrapper serving the same definition as {@code wrapper}: those
+     * wrappers were disposed and {@code wrapper} replaced them.
+     */
+    private void removeSupersededBuffers(@NotNull LanguageServerWrapper wrapper) {
+        String ext = wrapper.getServerDefinition().ext;
+        for (LanguageServerWrapper other : List.copyOf(buffers.keySet())) {
+            if (other != wrapper && other.getServerDefinition().ext.equals(ext)) {
+                removeBuffer(other);
+            }
         }
     }
 
@@ -141,12 +169,18 @@ public final class LspLogStore implements Disposable {
     private static final class Buffer {
 
         private final Deque<LspLogEntry> entries = new ArrayDeque<>();
+        private long chars = 0;
 
         synchronized void add(LspLogEntry entry) {
             entries.addLast(entry);
-            if (entries.size() > CAPACITY) {
-                entries.removeFirst();
+            chars += length(entry);
+            while (entries.size() > CAPACITY || (chars > MAX_CHARS && entries.size() > 1)) {
+                chars -= length(entries.removeFirst());
             }
+        }
+
+        private static long length(LspLogEntry entry) {
+            return entry.summary().length() + (entry.detail() == null ? 0 : entry.detail().length());
         }
 
         synchronized List<LspLogEntry> snapshot() {

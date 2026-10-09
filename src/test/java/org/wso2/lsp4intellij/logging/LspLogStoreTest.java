@@ -74,6 +74,42 @@ public class LspLogStoreTest extends BasePlatformTestCase {
         assertEquals("overflow", after.get(after.size() - 1).summary());
     }
 
+    public void testAppendEvictsTheOldestEntriesOnceTheCharacterBoundIsExceeded() {
+        String detail = "x".repeat(LspLogStore.MAX_CHARS / 3);
+        store.append(wrapperA, LspLogSource.TRACE_OUT, MessageType.Log, "first", detail);
+        store.append(wrapperA, LspLogSource.TRACE_OUT, MessageType.Log, "second", detail);
+        assertEquals("first", store.entries(wrapperA).get(0).summary());
+
+        store.append(wrapperA, LspLogSource.TRACE_OUT, MessageType.Log, "third", detail);
+
+        List<LspLogEntry> entries = store.entries(wrapperA);
+        assertEquals(2, entries.size());
+        assertEquals("second", entries.get(0).summary());
+        assertEquals("third", entries.get(1).summary());
+    }
+
+    public void testAppendKeepsAnEntryLargerThanTheCharacterBound() {
+        store.append(wrapperA, LspLogSource.TRACE_OUT, MessageType.Log, "small", null);
+        store.append(wrapperA, LspLogSource.TRACE_OUT, MessageType.Log, "huge",
+                "x".repeat(LspLogStore.MAX_CHARS + 1));
+
+        List<LspLogEntry> entries = store.entries(wrapperA);
+        assertEquals(1, entries.size());
+        assertEquals("huge", entries.get(0).summary());
+    }
+
+    public void testANewWrapperForTheSameServerReplacesTheOldBuffer() {
+        LanguageServerWrapper replacement = new LanguageServerWrapper(new StubDefinition("lsa"), getProject());
+        store.append(wrapperA, LspLogSource.LIFECYCLE, MessageType.Info, "old", null);
+        store.append(wrapperB, LspLogSource.LIFECYCLE, MessageType.Info, "other server", null);
+
+        store.append(replacement, LspLogSource.LIFECYCLE, MessageType.Info, "new", null);
+
+        assertTrue("the replaced wrapper's buffer must be dropped", store.entries(wrapperA).isEmpty());
+        assertEquals(1, store.entries(wrapperB).size());
+        assertEquals("new", store.entries(replacement).get(0).summary());
+    }
+
     public void testEntriesAreIsolatedBetweenWrappers() {
         store.append(wrapperA, LspLogSource.LIFECYCLE, MessageType.Info, "for a", null);
         store.append(wrapperB, LspLogSource.LIFECYCLE, MessageType.Info, "for b", null);
@@ -89,12 +125,12 @@ public class LspLogStoreTest extends BasePlatformTestCase {
         getProject().getMessageBus().connect(getTestRootDisposable()).subscribe(LspLogListener.TOPIC,
                 new LspLogListener() {
                     @Override
-                    public void entryAdded(LspLogEntry entry) {
+                    public void entryAdded(LanguageServerWrapper wrapper, LspLogEntry entry) {
                         received.set(entry);
                     }
 
                     @Override
-                    public void serverCleared(String serverId) {
+                    public void serverCleared(LanguageServerWrapper wrapper) {
                     }
                 });
 
@@ -108,23 +144,23 @@ public class LspLogStoreTest extends BasePlatformTestCase {
 
     public void testRemoveBufferDropsEntriesAndNotifiesListeners() {
         store.append(wrapperA, LspLogSource.LIFECYCLE, MessageType.Info, "starting", null);
-        AtomicReference<String> cleared = new AtomicReference<>();
+        AtomicReference<LanguageServerWrapper> cleared = new AtomicReference<>();
         getProject().getMessageBus().connect(getTestRootDisposable()).subscribe(LspLogListener.TOPIC,
                 new LspLogListener() {
                     @Override
-                    public void entryAdded(LspLogEntry entry) {
+                    public void entryAdded(LanguageServerWrapper wrapper, LspLogEntry entry) {
                     }
 
                     @Override
-                    public void serverCleared(String serverId) {
-                        cleared.set(serverId);
+                    public void serverCleared(LanguageServerWrapper wrapper) {
+                        cleared.set(wrapper);
                     }
                 });
 
         store.removeBuffer(wrapperA);
 
         assertTrue(store.entries(wrapperA).isEmpty());
-        assertEquals("lsa", cleared.get());
+        assertSame(wrapperA, cleared.get());
     }
 
     public void testDisposeClearsEveryBufferAndRejectsFurtherAppends() {
