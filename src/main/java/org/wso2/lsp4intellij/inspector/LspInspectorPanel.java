@@ -28,11 +28,17 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.fileChooser.FileChooserFactory;
+import com.intellij.openapi.fileChooser.FileSaverDescriptor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.ide.CopyPasteManager;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vfs.VirtualFileWrapper;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
@@ -40,18 +46,27 @@ import com.intellij.ui.ColoredListCellRenderer;
 import com.intellij.ui.DoubleClickListener;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.ListSpeedSearch;
+import com.intellij.ui.OnePixelSplitter;
 import com.intellij.ui.SimpleTextAttributes;
+import com.intellij.ui.TitledSeparator;
+import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.ui.components.JBTextArea;
 import com.intellij.ui.table.JBTable;
 import com.intellij.util.Alarm;
 import com.intellij.util.messages.MessageBusConnection;
+import com.intellij.util.ui.FormBuilder;
+import com.intellij.util.ui.JBFont;
+import com.intellij.util.ui.JBUI;
+import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.MessageType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.wso2.lsp4intellij.Lsp4IntellijBundle;
+import org.wso2.lsp4intellij.client.languageserver.ServerStatus;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
 import org.wso2.lsp4intellij.logging.LspLogEntry;
 import org.wso2.lsp4intellij.logging.LspLogListener;
@@ -66,20 +81,27 @@ import org.wso2.lsp4intellij.utils.FileUtils;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.FlowLayout;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.time.Instant;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import javax.swing.Box;
 import javax.swing.DefaultListModel;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -123,6 +145,10 @@ import javax.swing.table.TableCellRenderer;
 public final class LspInspectorPanel extends JPanel implements Disposable {
 
     private static final int FLUSH_INTERVAL_MILLIS = 100;
+    private static final JBColor SUCCESS_COLOR =
+            JBColor.namedColor("Label.successForeground", new JBColor(0x368746, 0x5FB865));
+    private static final JBColor ERROR_COLOR =
+            JBColor.namedColor("Label.errorForeground", new JBColor(0xC7222D, 0xFF5261));
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final String NO_SERVERS_TEXT = Lsp4IntellijBundle.message("inspector.empty.no.servers");
 
@@ -130,6 +156,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final JPanel logPanel = new JPanel(new BorderLayout());
     private final ConnectedFilesPanel connectedFilesPanel;
     private final TimeoutsPanel timeoutsPanel = new TimeoutsPanel();
+    private final ServerInfoPanel serverInfoPanel = new ServerInfoPanel();
     private final JTabbedPane tabs = new JTabbedPane();
     private final Map<LanguageServerWrapper, ConsoleView> consoles = new HashMap<>();
     private final Set<LanguageServerWrapper> knownWrappers = new LinkedHashSet<>();
@@ -153,6 +180,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         this.connectedFilesPanel = new ConnectedFilesPanel(project);
 
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.log"), logPanel);
+        tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.server.info"), serverInfoPanel);
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.timeouts"), timeoutsPanel);
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.connected.files"), connectedFilesPanel);
         tabs.addChangeListener(e -> refreshSelectedTab());
@@ -350,12 +378,14 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     }
 
     /**
-     * Refreshes the Timeouts or Connected Files tab if it is the one showing. Both are polled on every
-     * flush, so the hidden one is skipped and catches up when it is selected.
+     * Refreshes the Server Info, Timeouts or Connected Files tab if it is the one showing. They are
+     * polled on every flush, so hidden ones are skipped and catch up when selected.
      */
     private void refreshSelectedTab() {
         Component selected = tabs.getSelectedComponent();
-        if (selected == timeoutsPanel) {
+        if (selected == serverInfoPanel) {
+            serverInfoPanel.refresh(getSelectedWrapper());
+        } else if (selected == timeoutsPanel) {
             timeoutsPanel.refresh(getSelectedWrapper());
         } else if (selected == connectedFilesPanel) {
             connectedFilesPanel.refresh(getSelectedWrapper());
@@ -426,17 +456,11 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     }
 
     private void printEntry(@NotNull ConsoleView console, @NotNull LspLogEntry entry) {
-        Instant timestamp = Instant.ofEpochMilli(entry.timestampMillis());
-        String time = TIMESTAMP_FORMAT.format(timestamp.atZone(ZoneId.systemDefault()));
-        String marker = switch (entry.source()) {
-            case TRACE_OUT -> "→";
-            case TRACE_IN -> "←";
-            default -> entry.level().name();
-        };
-        console.print(time + " " + marker + " " + entry.summary() + "\n", contentTypeFor(entry.level()));
-        if (entry.detail() != null) {
-            console.print("    " + entry.detail().replace("\n", "\n    ") + "\n",
-                    ConsoleViewContentType.SYSTEM_OUTPUT);
+        console.print(LspLogText.line(entry, TIMESTAMP_FORMAT, ZoneId.systemDefault()) + "\n",
+                contentTypeFor(entry.level()));
+        String detail = LspLogText.detail(entry);
+        if (detail != null) {
+            console.print(detail + "\n", ConsoleViewContentType.SYSTEM_OUTPUT);
         }
     }
 
@@ -475,6 +499,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         group.add(new SourceFilterAction());
         group.add(new TraceLevelAction());
         group.add(new ClearAction());
+        group.add(new ExportLogAction());
         group.add(new ScrollToEndAction());
         ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar("LspInspector", group, true);
         toolbar.setTargetComponent(this);
@@ -584,6 +609,203 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                     append("  " + directory, SimpleTextAttributes.GRAYED_ATTRIBUTES);
                 }
             }
+        }
+    }
+
+    /**
+     * "Server Info" tab content, split in two. Left: the server's name, status and reported version,
+     * its {@link ServerInfo#details}, its definition, and buttons to copy the definition or restart
+     * the server. Right: the requests lsp4intellij can send grouped by area, each marked supported or
+     * not, with a toggle to show only the unsupported ones. Polled on every {@link #flush()} tick
+     * while showing, since status, crash count and trace level change at runtime; each side is only
+     * rebuilt when something it shows changed.
+     */
+    private static final class ServerInfoPanel extends OnePixelSplitter {
+
+        private final JBScrollPane summaryScroll = new JBScrollPane();
+        private final JBScrollPane capabilitiesScroll = new JBScrollPane();
+        private final JBLabel supportedCount = greyLabel("");
+        private final JBCheckBox unsupportedOnly =
+                new JBCheckBox(Lsp4IntellijBundle.message("inspector.info.unsupported.only"));
+        @Nullable
+        private transient LanguageServerWrapper wrapper;
+        private transient State shown;
+        private boolean built = false;
+
+        /**
+         * Everything the tab shows, compared on each tick to decide whether to rebuild it.
+         *
+         * @param title        the server's display name
+         * @param version      the version it reported, or {@link ServerInfo#NONE}
+         * @param status       its current status
+         * @param definition   its definition's {@code toString()}, which includes the launch command
+         * @param details      {@link ServerInfo#details}
+         * @param capabilities {@link ServerInfo#capabilities}, empty before initialization
+         */
+        private record State(@NotNull String title, @NotNull String version, @NotNull ServerStatus status,
+                @NotNull String definition, @NotNull List<ServerInfo.Row> details,
+                @NotNull List<ServerInfo.CapabilityRow> capabilities) {
+        }
+
+        ServerInfoPanel() {
+            super(false, 0.35f);
+            summaryScroll.setBorder(JBUI.Borders.empty());
+            capabilitiesScroll.setBorder(JBUI.Borders.empty());
+            unsupportedOnly.addActionListener(e -> showCapabilities());
+
+            JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, JBUI.scale(8), 0));
+            JBLabel title = new JBLabel(Lsp4IntellijBundle.message("inspector.info.capabilities"));
+            title.setFont(JBFont.label().asBold());
+            bar.add(title);
+            bar.add(supportedCount);
+            bar.add(unsupportedOnly);
+            bar.setBorder(JBUI.Borders.empty(6, 4));
+            JPanel right = new JPanel(new BorderLayout());
+            right.add(bar, BorderLayout.NORTH);
+            right.add(capabilitiesScroll, BorderLayout.CENTER);
+
+            setFirstComponent(summaryScroll);
+            setSecondComponent(right);
+        }
+
+        void refresh(@Nullable LanguageServerWrapper selected) {
+            State state = selected == null ? null : stateOf(selected);
+            if (built && selected == wrapper && Objects.equals(state, shown)) {
+                return;
+            }
+            built = true;
+            wrapper = selected;
+            shown = state;
+            summaryScroll.setViewportView(state == null ? centeredGreyLabel(NO_SERVERS_TEXT) : summary(state));
+            showCapabilities();
+        }
+
+        @NotNull
+        private static State stateOf(@NotNull LanguageServerWrapper wrapper) {
+            InitializeResult result = wrapper.getInitializeResult();
+            return new State(wrapper.getServerDefinition().getDisplayName(), ServerInfo.version(wrapper),
+                    wrapper.getStatus(), wrapper.getServerDefinition().toString(), ServerInfo.details(wrapper),
+                    ServerInfo.capabilities(result == null ? null : result.getCapabilities()));
+        }
+
+        @NotNull
+        private JComponent summary(@NotNull State state) {
+            JBLabel name = new JBLabel(state.title());
+            name.setFont(JBFont.h3().asBold());
+            JBLabel status = new JBLabel("● " + ServerInfo.statusText(state.status()));
+            status.setForeground(state.status() == ServerStatus.INITIALIZED
+                    ? SUCCESS_COLOR : SimpleTextAttributes.GRAYED_ATTRIBUTES.getFgColor());
+            JPanel title = new JPanel(new FlowLayout(FlowLayout.LEFT, JBUI.scale(10), 0));
+            title.add(name);
+            title.add(status);
+
+            FormBuilder form = FormBuilder.createFormBuilder().addComponent(title);
+            if (!ServerInfo.NONE.equals(state.version())) {
+                form.addComponent(greyLabel(state.version()));
+            }
+            form.addVerticalGap(JBUI.scale(8));
+            for (ServerInfo.Row row : state.details()) {
+                JBLabel value = new JBLabel(row.value());
+                value.setCopyable(true);
+                form.addLabeledComponent(greyLabel(row.name()), value);
+            }
+            form.addVerticalGap(JBUI.scale(8));
+            form.addComponent(greyLabel(Lsp4IntellijBundle.message("inspector.info.definition")));
+            JBTextArea definition = new JBTextArea(state.definition());
+            definition.setEditable(false);
+            definition.setLineWrap(true);
+            definition.setOpaque(false);
+            definition.setBorder(JBUI.Borders.empty());
+            definition.setFont(JBFont.label());
+            form.addComponent(definition);
+
+            JButton copy = new JButton(Lsp4IntellijBundle.message("inspector.info.copy"));
+            copy.addActionListener(e -> CopyPasteManager.getInstance()
+                    .setContents(new StringSelection(state.definition())));
+            JButton restart = new JButton(Lsp4IntellijBundle.message("inspector.info.restart"));
+            LanguageServerWrapper target = wrapper;
+            restart.addActionListener(e -> {
+                if (target != null) {
+                    target.restart();
+                }
+            });
+            JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            buttons.add(copy);
+            buttons.add(Box.createHorizontalStrut(JBUI.scale(6)));
+            buttons.add(restart);
+            form.addVerticalGap(JBUI.scale(4));
+            form.addComponent(buttons);
+            return topAligned(form.getPanel());
+        }
+
+        /**
+         * Rebuilds the right side from {@link #shown}: also called when the toggle changes, which does
+         * not change the state.
+         */
+        private void showCapabilities() {
+            List<ServerInfo.CapabilityRow> rows = shown == null ? List.of() : shown.capabilities();
+            long supported = rows.stream().filter(ServerInfo.CapabilityRow::supported).count();
+            supportedCount.setText(rows.isEmpty() ? ""
+                    : Lsp4IntellijBundle.message("inspector.info.supported.count", supported, rows.size()));
+            unsupportedOnly.setEnabled(!rows.isEmpty());
+            if (shown == null) {
+                capabilitiesScroll.setViewportView(null);
+                return;
+            }
+            if (rows.isEmpty()) {
+                capabilitiesScroll.setViewportView(
+                        centeredGreyLabel(Lsp4IntellijBundle.message("inspector.info.not.initialized")));
+                return;
+            }
+            FormBuilder form = FormBuilder.createFormBuilder();
+            String group = null;
+            for (ServerInfo.CapabilityRow row : rows) {
+                if (unsupportedOnly.isSelected() && row.supported()) {
+                    continue;
+                }
+                if (!row.group().equals(group)) {
+                    group = row.group();
+                    form.addComponent(new TitledSeparator(group));
+                }
+                JBLabel feature = new JBLabel(row.label(), row.supported()
+                        ? AllIcons.RunConfigurations.TestPassed
+                        : AllIcons.RunConfigurations.TestIgnored, SwingConstants.LEFT);
+                feature.setToolTipText(row.method());
+                if (!row.supported()) {
+                    feature.setForeground(SimpleTextAttributes.GRAYED_ATTRIBUTES.getFgColor());
+                }
+                feature.setBorder(JBUI.Borders.emptyLeft(8));
+                form.addComponent(feature);
+            }
+            if (group == null) {
+                capabilitiesScroll.setViewportView(
+                        centeredGreyLabel(Lsp4IntellijBundle.message("inspector.info.all.supported")));
+                return;
+            }
+            capabilitiesScroll.setViewportView(topAligned(form.getPanel()));
+        }
+
+        @NotNull
+        private static JComponent topAligned(@NotNull JPanel content) {
+            content.setBorder(JBUI.Borders.empty(8, 12));
+            // Keeps the content at its preferred height instead of stretching it over the viewport.
+            JPanel top = new JPanel(new BorderLayout());
+            top.add(content, BorderLayout.NORTH);
+            return top;
+        }
+
+        @NotNull
+        private static JBLabel greyLabel(@NotNull String text) {
+            JBLabel label = new JBLabel(text);
+            label.setForeground(SimpleTextAttributes.GRAYED_ATTRIBUTES.getFgColor());
+            return label;
+        }
+
+        @NotNull
+        private static JComponent centeredGreyLabel(@NotNull String text) {
+            JBLabel label = new JBLabel(text, SwingConstants.CENTER);
+            label.setForeground(SimpleTextAttributes.GRAYED_ATTRIBUTES.getFgColor());
+            return label;
         }
     }
 
@@ -711,10 +933,6 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
          */
         private static final class FailureRateRenderer extends DefaultTableCellRenderer {
 
-            private static final JBColor SUCCESS_COLOR =
-                    JBColor.namedColor("Label.successForeground", new JBColor(0x368746, 0x5FB865));
-            private static final JBColor ERROR_COLOR =
-                    JBColor.namedColor("Label.errorForeground", new JBColor(0xC7222D, 0xFF5261));
 
             FailureRateRenderer() {
                 setHorizontalAlignment(SwingConstants.CENTER);
@@ -963,6 +1181,63 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
             if (console != null) {
                 console.clear();
             }
+        }
+    }
+
+    /**
+     * Saves the selected server's properties, capabilities and log, with the current filter applied,
+     * to a file the user picks.
+     */
+    private final class ExportLogAction extends AnAction implements DumbAware {
+
+        ExportLogAction() {
+            super(Lsp4IntellijBundle.message("inspector.action.export"),
+                    Lsp4IntellijBundle.message("inspector.action.export.description"),
+                    AllIcons.ToolbarDecorator.Export);
+        }
+
+        @NotNull
+        @Override
+        public ActionUpdateThread getActionUpdateThread() {
+            // update() reads this panel's Swing state.
+            return ActionUpdateThread.EDT;
+        }
+
+        @Override
+        public void update(@NotNull AnActionEvent e) {
+            e.getPresentation().setEnabled(getSelectedWrapper() != null);
+        }
+
+        @Override
+        public void actionPerformed(@NotNull AnActionEvent e) {
+            LanguageServerWrapper wrapper = getSelectedWrapper();
+            if (wrapper == null) {
+                return;
+            }
+            FileSaverDescriptor descriptor = new FileSaverDescriptor(
+                    Lsp4IntellijBundle.message("inspector.export.title"),
+                    Lsp4IntellijBundle.message("inspector.export.description"), "log");
+            VirtualFileWrapper target = FileChooserFactory.getInstance()
+                    .createSaveFileDialog(descriptor, project)
+                    .save(wrapper.getServerDefinition().getDisplayName() + "-lsp.log");
+            if (target == null) {
+                return;
+            }
+            InitializeResult result = wrapper.getInitializeResult();
+            LspLogStore store = LspLogStore.getInstanceIfCreated(project);
+            String text = LspLogText.export(ServerInfo.properties(wrapper),
+                    ServerInfo.capabilities(result == null ? null : result.getCapabilities()),
+                    store == null ? List.of() : store.entries(wrapper), filter, ZoneId.systemDefault());
+            Path path = target.getFile().toPath();
+            ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                try {
+                    Files.writeString(path, text);
+                } catch (IOException ex) {
+                    ApplicationManager.getApplication().invokeLater(() -> Messages.showErrorDialog(project,
+                            Lsp4IntellijBundle.message("inspector.export.failed", path, ex.getMessage()),
+                            Lsp4IntellijBundle.message("inspector.export.title")));
+                }
+            });
         }
     }
 

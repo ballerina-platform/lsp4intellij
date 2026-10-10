@@ -156,7 +156,8 @@ public class LanguageServerWrapper {
     private LanguageServer languageServer;
     private LanguageClient client;
     private RequestManager requestManager;
-    private InitializeResult initializeResult;
+    // Set on the launcher thread, read by the LSP Inspector on the EDT.
+    private volatile InitializeResult initializeResult;
     private Future<?> launcherFuture;
     private ExecutorService launcherExecutor;
     private final ExecutorService dispatcher;
@@ -729,6 +730,23 @@ public class LanguageServerWrapper {
 
     public ServerStatus getStatus() {
         return status;
+    }
+
+    /**
+     * Returns the server's {@code initialize} response, or null if it has not initialized. Unlike
+     * {@link #getServerCapabilities()}, never starts the server or waits for it.
+     */
+    @Nullable
+    public InitializeResult getInitializeResult() {
+        return initializeResult;
+    }
+
+    /**
+     * Returns how many times the server has crashed since the last time the user was asked whether
+     * to keep restarting it.
+     */
+    public int getCrashCount() {
+        return crashCount.get();
     }
 
     private void setStatus(ServerStatus status) {
