@@ -387,6 +387,26 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     }
 
     /**
+     * Switches to the Requests tab, for the status bar widget's waiting-requests shortcut. Must be
+     * called on the EDT.
+     */
+    public void showRequestsTab() {
+        tabs.setSelectedComponent(requestsPanel);
+    }
+
+    /**
+     * Switches to the Log tab showing only errors from every source, for the status bar widget's
+     * recent-crashes shortcut. Crashes are logged at error level. Must be called on the EDT.
+     */
+    public void showErrors() {
+        levelFilterLabel = Lsp4IntellijBundle.message("inspector.filter.level.error");
+        sourceFilterLabel = Lsp4IntellijBundle.message("inspector.filter.source.all");
+        filter = new LspInspectorFilter(MessageType.Error, null);
+        reprintSelected();
+        tabs.setSelectedComponent(logPanel);
+    }
+
+    /**
      * Refreshes the Server Info, Requests, Timeouts or Connected Files tab if it is the one showing. They are
      * polled on every flush, so hidden ones are skipped and catch up when selected.
      */

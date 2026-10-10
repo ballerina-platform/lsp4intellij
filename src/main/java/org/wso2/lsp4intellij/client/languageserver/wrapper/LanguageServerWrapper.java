@@ -25,7 +25,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.wm.impl.status.widget.StatusBarWidgetsManager;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.remoteServer.util.CloudNotifier;
@@ -101,8 +100,6 @@ import org.wso2.lsp4intellij.requests.RequestStats;
 import org.wso2.lsp4intellij.requests.TimeoutStats;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.services.LspServerManager;
-import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidget;
-import org.wso2.lsp4intellij.statusbar.LSPServerStatusWidgetFactory;
 import org.wso2.lsp4intellij.utils.FileUtils;
 import org.wso2.lsp4intellij.utils.LSPException;
 
@@ -778,7 +775,6 @@ public class LanguageServerWrapper {
 
     private void setStatus(ServerStatus status) {
         this.status = status;
-        getWidget().ifPresent(widget -> widget.setStatus(status));
         recordLifecycle(status);
     }
 
@@ -898,17 +894,12 @@ public class LanguageServerWrapper {
         return connected;
     }
 
-    private void removeWidget() {
-        getWidget().ifPresent(LSPServerStatusWidget::dispose);
-    }
-
     /**
      * Cleanup when the project is disposed. This removes the project from static maps
      * to prevent memory leaks.
      */
     public synchronized void dispose() {
         stop(true);
-        removeWidget();
         dispatcher.shutdownNow();
         IntellijLanguageClient.removeWrapper(this);
         // This server's log buffer is deliberately left in place: a server that has just died is
@@ -1030,20 +1021,6 @@ public class LanguageServerWrapper {
             }
             reloadEditors(project);
         });
-    }
-
-    private Optional<LSPServerStatusWidget> getWidget() {
-        try {
-            LSPServerStatusWidgetFactory factory = ((LSPServerStatusWidgetFactory) project
-                    .getService(StatusBarWidgetsManager.class).findWidgetFactory("LSP"));
-            if (factory != null) {
-                return Optional.of(factory.getWidget(project));
-            } else {
-                return Optional.empty();
-            }
-        } catch (Exception e) {
-            return Optional.empty();
-        }
     }
 
     /**
