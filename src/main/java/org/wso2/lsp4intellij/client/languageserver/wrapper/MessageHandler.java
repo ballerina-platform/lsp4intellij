@@ -26,7 +26,6 @@ import org.wso2.lsp4intellij.logging.LspTraceLevel;
 import org.wso2.lsp4intellij.logging.TracingMessageConsumer;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -37,15 +36,17 @@ class MessageHandler implements Function<MessageConsumer, MessageConsumer> {
     private final BooleanSupplier isRunning;
     private final LanguageServerWrapper wrapper;
     private final Supplier<LspTraceLevel> traceLevel;
-    private final Map<String, TracingMessageConsumer.InFlightRequest> inFlight = new ConcurrentHashMap<>();
+    private final Map<String, TracingMessageConsumer.InFlightRequest> inFlight;
     private LanguageServer languageServer;
 
     MessageHandler(@NotNull ServerListener listener, @NotNull BooleanSupplier isRunning,
-            @NotNull LanguageServerWrapper wrapper, @NotNull Supplier<LspTraceLevel> traceLevel) {
+            @NotNull LanguageServerWrapper wrapper, @NotNull Supplier<LspTraceLevel> traceLevel,
+            @NotNull Map<String, TracingMessageConsumer.InFlightRequest> inFlight) {
         this.listener = listener;
         this.isRunning = isRunning;
         this.wrapper = wrapper;
         this.traceLevel = traceLevel;
+        this.inFlight = inFlight;
     }
 
     @Override

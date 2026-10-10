@@ -29,6 +29,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import org.wso2.lsp4intellij.requests.RequestStats;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
@@ -153,6 +154,25 @@ public class TracingMessageConsumerTest extends BasePlatformTestCase {
 
         LspLogEntry response = LspLogStore.getInstance(getProject()).entries(wrapper).get(0);
         assertTrue(response.summary(), response.summary().startsWith("textDocument/definition (4) "));
+    }
+
+    public void testResponseTimesAreRecordedWhileTracingIsOff() {
+        Map<String, TracingMessageConsumer.InFlightRequest> inFlight = new HashMap<>();
+        TracingMessageConsumer out = new TracingMessageConsumer(new RecordingStreamMessageConsumer(), wrapper,
+                () -> LspTraceLevel.OFF, inFlight);
+        TracingMessageConsumer in = new TracingMessageConsumer(new RecordingRemoteEndpoint(), wrapper,
+                () -> LspTraceLevel.OFF, inFlight);
+
+        out.consume(requestMessage("8", "textDocument/rename"));
+        TracingMessageConsumer.InFlightRequest pending = inFlight.values().iterator().next();
+        in.consume(responseMessage("8", new ResponseError(-32603, "Internal error", null)));
+
+        assertEquals("8", pending.id());
+        assertEquals(LspLogSource.TRACE_OUT, pending.direction());
+        RequestStats.Summary summary = wrapper.getRequestStats().summaries().get(0);
+        assertEquals("textDocument/rename", summary.method());
+        assertEquals(1, summary.count());
+        assertEquals(1, summary.errors());
     }
 
     public void testErrorResponseIsRecordedAtErrorLevel() {

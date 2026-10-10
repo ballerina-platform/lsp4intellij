@@ -71,9 +71,14 @@ public final class TracingMessageConsumer implements MessageConsumer {
         // Requests are tracked even while tracing is off, so a response still finds its request if
         // tracing is switched on in between, and no entry is left behind if it is switched off.
         InFlightRequest request = track(message);
+        ResponseError error = message instanceof ResponseMessage response ? response.getError() : null;
+        long elapsedMillis = request == null ? 0 : (System.nanoTime() - request.startNanos()) / 1_000_000;
+        if (request != null) {
+            wrapper.getRequestStats().recordResponse(request.method(), elapsedMillis, error != null);
+        }
         LspTraceLevel level = levelSupplier.get();
         if (level != LspTraceLevel.OFF) {
-            recordEntry(message, level, request);
+            recordEntry(message, level, request, error, elapsedMillis);
         }
         delegate.consume(message);
     }
@@ -84,7 +89,7 @@ public final class TracingMessageConsumer implements MessageConsumer {
     private InFlightRequest track(Message message) {
         if (message instanceof RequestMessage request) {
             inFlight.put(direction.name() + request.getId(),
-                    new InFlightRequest(request.getMethod(), System.nanoTime()));
+                    new InFlightRequest(request.getMethod(), request.getId(), direction, System.nanoTime()));
         } else if (message instanceof ResponseMessage response) {
             LspLogSource requestDirection =
                     direction == LspLogSource.TRACE_IN ? LspLogSource.TRACE_OUT : LspLogSource.TRACE_IN;
@@ -93,26 +98,26 @@ public final class TracingMessageConsumer implements MessageConsumer {
         return null;
     }
 
-    private void recordEntry(Message message, LspTraceLevel level, InFlightRequest request) {
+    private void recordEntry(Message message, LspTraceLevel level, InFlightRequest request, ResponseError error,
+            long elapsedMillis) {
         LspLogStore store = LspLogStore.getInstanceIfCreated(wrapper.getProject());
         if (store == null) {
             return;
         }
         String detail = level == LspTraceLevel.VERBOSE ? serialize(message) : null;
-        ResponseError error = message instanceof ResponseMessage response ? response.getError() : null;
         MessageType type = error == null ? MessageType.Log : MessageType.Error;
-        store.append(wrapper, direction, type, summarize(message, request, error), detail);
+        store.append(wrapper, direction, type, summarize(message, request, error, elapsedMillis), detail);
     }
 
-    private static String summarize(Message message, InFlightRequest request, ResponseError error) {
+    private static String summarize(Message message, InFlightRequest request, ResponseError error,
+            long elapsedMillis) {
         if (message instanceof RequestMessage requestMessage) {
             return requestMessage.getMethod() + " (" + requestMessage.getId() + ")";
         }
         if (message instanceof ResponseMessage response) {
             String summary = request == null
                     ? "response (" + response.getId() + ")"
-                    : request.method() + " (" + response.getId() + ") "
-                            + (System.nanoTime() - request.startNanos()) / 1_000_000 + " ms";
+                    : request.method() + " (" + response.getId() + ") " + elapsedMillis + " ms";
             return error == null ? summary : summary + " error " + error.getCode() + ": " + error.getMessage();
         }
         if (message instanceof NotificationMessage notification) {
@@ -136,8 +141,12 @@ public final class TracingMessageConsumer implements MessageConsumer {
      * A request seen by one of the two consumers and not yet answered.
      *
      * @param method     the request's JSON-RPC method
+     * @param id         the request's JSON-RPC id
+     * @param direction  {@link LspLogSource#TRACE_OUT} for a request the client sent,
+     *                   {@link LspLogSource#TRACE_IN} for one the server sent
      * @param startNanos {@link System#nanoTime()} when the request passed through
      */
-    public record InFlightRequest(@NotNull String method, long startNanos) {
+    public record InFlightRequest(@NotNull String method, @NotNull String id, @NotNull LspLogSource direction,
+                                  long startNanos) {
     }
 }

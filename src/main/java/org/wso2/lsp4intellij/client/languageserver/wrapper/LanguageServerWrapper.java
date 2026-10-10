@@ -95,7 +95,9 @@ import org.wso2.lsp4intellij.listeners.LSPCaretListenerImpl;
 import org.wso2.lsp4intellij.logging.LspLogSource;
 import org.wso2.lsp4intellij.logging.LspLogStore;
 import org.wso2.lsp4intellij.logging.LspTraceLevel;
+import org.wso2.lsp4intellij.logging.TracingMessageConsumer;
 import org.wso2.lsp4intellij.requests.RequestExecutor;
+import org.wso2.lsp4intellij.requests.RequestStats;
 import org.wso2.lsp4intellij.requests.TimeoutStats;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.services.LspServerManager;
@@ -111,6 +113,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -170,6 +173,10 @@ public class LanguageServerWrapper {
     private volatile ServerStatus status = STOPPED;
     private volatile LspTraceLevel traceLevel = LspTraceLevel.OFF;
     private final TimeoutStats timeoutStats = new TimeoutStats();
+    private final RequestStats requestStats = new RequestStats();
+    // Requests sent or received by the current server process and not yet answered. Replaced on each
+    // start, so a request the previous process never answered does not stay listed.
+    private volatile Map<String, TracingMessageConsumer.InFlightRequest> inFlightRequests = new ConcurrentHashMap<>();
     private static final Logger LOG = Logger.getInstance(LanguageServerWrapper.class);
     private static final CloudNotifier notifier = new CloudNotifier("Language Server Protocol client");
 
@@ -326,6 +333,25 @@ public class LanguageServerWrapper {
      */
     public TimeoutStats getTimeoutStats() {
         return timeoutStats;
+    }
+
+    /**
+     * Returns this wrapper's per-method response times, read by the LSP Inspector's Requests tab.
+     */
+    @NotNull
+    public RequestStats getRequestStats() {
+        return requestStats;
+    }
+
+    /**
+     * Returns the requests the current server process has sent or received and not yet answered,
+     * oldest first. Requests left unanswered by a process that stopped stay listed until the next start.
+     */
+    @NotNull
+    public List<TracingMessageConsumer.InFlightRequest> getPendingRequests() {
+        List<TracingMessageConsumer.InFlightRequest> pending = new ArrayList<>(inFlightRequests.values());
+        pending.sort(Comparator.comparingLong(TracingMessageConsumer.InFlightRequest::startNanos));
+        return pending;
     }
 
     public void notifySuccess(Timeouts timeouts) {
@@ -599,9 +625,10 @@ public class LanguageServerWrapper {
                 InitializeParams initParams = getInitParams();
                 ExecutorService executorService = Executors.newCachedThreadPool();
                 launcherExecutor = executorService;
+                inFlightRequests = new ConcurrentHashMap<>();
                 MessageHandler messageHandler = new MessageHandler(
                         serverDefinition.getServerListener(), () -> getStatus() != STOPPED,
-                        this, this::getTraceLevel);
+                        this, this::getTraceLevel, inFlightRequests);
                 if (extManager != null && extManager.getExtendedServerInterface() != null) {
                     Class<? extends LanguageServer> remoteServerInterFace = extManager.getExtendedServerInterface();
                     client = extManager.getExtendedClientFor(new ServerWrapperBaseClientContext(this));

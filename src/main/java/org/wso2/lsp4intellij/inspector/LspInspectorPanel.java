@@ -147,7 +147,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private static final int FLUSH_INTERVAL_MILLIS = 100;
     private static final JBColor SUCCESS_COLOR =
             JBColor.namedColor("Label.successForeground", new JBColor(0x368746, 0x5FB865));
-    private static final JBColor ERROR_COLOR =
+    static final JBColor ERROR_COLOR =
             JBColor.namedColor("Label.errorForeground", new JBColor(0xC7222D, 0xFF5261));
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final String NO_SERVERS_TEXT = Lsp4IntellijBundle.message("inspector.empty.no.servers");
@@ -157,6 +157,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final ConnectedFilesPanel connectedFilesPanel;
     private final TimeoutsPanel timeoutsPanel = new TimeoutsPanel();
     private final ServerInfoPanel serverInfoPanel = new ServerInfoPanel();
+    private final RequestsPanel requestsPanel = new RequestsPanel();
     private final JTabbedPane tabs = new JTabbedPane();
     private final Map<LanguageServerWrapper, ConsoleView> consoles = new HashMap<>();
     private final Set<LanguageServerWrapper> knownWrappers = new LinkedHashSet<>();
@@ -184,6 +185,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
 
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.log"), logPanel);
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.server.info"), serverInfoPanel);
+        tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.requests"), requestsPanel);
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.timeouts"), timeoutsPanel);
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.connected.files"), connectedFilesPanel);
         tabs.addChangeListener(e -> refreshSelectedTab());
@@ -385,13 +387,15 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     }
 
     /**
-     * Refreshes the Server Info, Timeouts or Connected Files tab if it is the one showing. They are
+     * Refreshes the Server Info, Requests, Timeouts or Connected Files tab if it is the one showing. They are
      * polled on every flush, so hidden ones are skipped and catch up when selected.
      */
     private void refreshSelectedTab() {
         Component selected = tabs.getSelectedComponent();
         if (selected == serverInfoPanel) {
             serverInfoPanel.refresh(getSelectedWrapper());
+        } else if (selected == requestsPanel) {
+            requestsPanel.refresh(getSelectedWrapper());
         } else if (selected == timeoutsPanel) {
             timeoutsPanel.refresh(getSelectedWrapper());
         } else if (selected == connectedFilesPanel) {
@@ -817,6 +821,24 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     }
 
     /**
+     * Centres the header text of every column from {@code firstColumn} on, matching the centred
+     * cell renderers below them. Wraps whatever renderer the look and feel already installed
+     * rather than replacing it, so the header keeps its native painting and only the alignment
+     * changes.
+     */
+    static void centerHeadersFromColumn(@NotNull JBTable table, int firstColumn) {
+        TableCellRenderer original = table.getTableHeader().getDefaultRenderer();
+        table.getTableHeader().setDefaultRenderer((tbl, value, selected, focused, row, column) -> {
+            Component component =
+                    original.getTableCellRendererComponent(tbl, value, selected, focused, row, column);
+            if (component instanceof JLabel label) {
+                label.setHorizontalAlignment(column >= firstColumn ? SwingConstants.CENTER : SwingConstants.LEFT);
+            }
+            return component;
+        });
+    }
+
+    /**
      * "Timeouts" tab content: the {@link TimeoutStats} counters for whichever server is selected in
      * the server selector, replacing what used to be the {@code ShowTimeouts} modal dialog on the status bar
      * widget. A table rather than formatted text so the failure rate can be colored per row - gray
@@ -890,24 +912,6 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
             table.getColumnModel().getColumn(4).setCellRenderer(new FailureRateRenderer());
             centerHeadersFromColumn(table, 1);
             add(new JBScrollPane(table), BorderLayout.CENTER);
-        }
-
-        /**
-         * Centres the header text of every column from {@code firstColumn} on, matching the centred
-         * cell renderers below them. Wraps whatever renderer the look and feel already installed
-         * rather than replacing it, so the header keeps its native painting and only the alignment
-         * changes.
-         */
-        private static void centerHeadersFromColumn(@NotNull JBTable table, int firstColumn) {
-            TableCellRenderer original = table.getTableHeader().getDefaultRenderer();
-            table.getTableHeader().setDefaultRenderer((tbl, value, selected, focused, row, column) -> {
-                Component component =
-                        original.getTableCellRendererComponent(tbl, value, selected, focused, row, column);
-                if (component instanceof JLabel label) {
-                    label.setHorizontalAlignment(column >= firstColumn ? SwingConstants.CENTER : SwingConstants.LEFT);
-                }
-                return component;
-            });
         }
 
         void refresh(@Nullable LanguageServerWrapper wrapper) {
