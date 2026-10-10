@@ -28,13 +28,16 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
 import com.intellij.ui.ColoredListCellRenderer;
+import com.intellij.ui.DoubleClickListener;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.ListSpeedSearch;
 import com.intellij.ui.SimpleTextAttributes;
@@ -58,10 +61,14 @@ import org.wso2.lsp4intellij.logging.LspTraceLevel;
 import org.wso2.lsp4intellij.requests.TimeoutStats;
 import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.services.LspServerManager;
+import org.wso2.lsp4intellij.utils.FileUtils;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -121,7 +128,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
 
     private final Project project;
     private final JPanel logPanel = new JPanel(new BorderLayout());
-    private final ConnectedFilesPanel connectedFilesPanel = new ConnectedFilesPanel();
+    private final ConnectedFilesPanel connectedFilesPanel;
     private final TimeoutsPanel timeoutsPanel = new TimeoutsPanel();
     private final JTabbedPane tabs = new JTabbedPane();
     private final Map<LanguageServerWrapper, ConsoleView> consoles = new HashMap<>();
@@ -143,6 +150,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         super(new BorderLayout());
         this.project = project;
         this.toolWindow = toolWindow;
+        this.connectedFilesPanel = new ConnectedFilesPanel(project);
 
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.log"), logPanel);
         tabs.addTab(Lsp4IntellijBundle.message("inspector.tab.timeouts"), timeoutsPanel);
@@ -480,10 +488,10 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
      * selection or the selected tab changes, and on every {@link #flush()} tick while this tab is
      * showing, so the list does not go stale while the selection has not changed.
      *
-     * <p>Each entry is rendered as its file name (the part someone actually scans for) with the
-     * containing directory as dimmed secondary text, rather than the full URI
-     * {@link LanguageServerWrapper#getConnectedFiles()} returns - the same primary/secondary split the
-     * IDE's own file lists use. Entries are sorted so the list does not reorder itself on every
+     * <p>Each entry is rendered as its file-type icon and file name with the containing directory as
+     * dimmed secondary text, rather than the full URI {@link LanguageServerWrapper#getConnectedFiles()}
+     * returns - the same primary/secondary split the IDE's own file lists use. Double-click or Enter
+     * opens the file in the editor. Entries are sorted so the list does not reorder itself on every
      * refresh, and a {@link ListSpeedSearch} lets someone jump to a file by typing part of its name.
      */
     private static final class ConnectedFilesPanel extends JPanel {
@@ -491,17 +499,45 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         private static final String NO_SERVER_TEXT = Lsp4IntellijBundle.message("inspector.files.no.server");
         private static final String NO_FILES_TEXT = Lsp4IntellijBundle.message("inspector.files.none");
 
+        private final transient Project project;
         private final DefaultListModel<String> model = new DefaultListModel<>();
         private final JBList<String> list;
         private List<String> shown = List.of();
+        // Resolved once per change of the file set, not on every paint; null for a URI with no file.
+        private transient Map<String, VirtualFile> resolved = Map.of();
 
-        ConnectedFilesPanel() {
+        ConnectedFilesPanel(@NotNull Project project) {
             super(new BorderLayout());
+            this.project = project;
             list = new JBList<>(model);
             list.setCellRenderer(new ConnectedFileRenderer());
             list.getEmptyText().setText(NO_SERVER_TEXT);
             ListSpeedSearch.installOn(list);
+            new DoubleClickListener() {
+                @Override
+                protected boolean onDoubleClick(@NotNull MouseEvent event) {
+                    return openSelected();
+                }
+            }.installOn(list);
+            list.addKeyListener(new KeyAdapter() {
+                @Override
+                public void keyPressed(KeyEvent event) {
+                    if (event.getKeyCode() == KeyEvent.VK_ENTER && openSelected()) {
+                        event.consume();
+                    }
+                }
+            });
             add(new JBScrollPane(list), BorderLayout.CENTER);
+        }
+
+        private boolean openSelected() {
+            String uri = list.getSelectedValue();
+            VirtualFile file = uri == null ? null : resolved.get(uri);
+            if (file == null || !file.isValid()) {
+                return false;
+            }
+            FileEditorManager.getInstance(project).openFile(file, true);
+            return true;
         }
 
         /**
@@ -518,15 +554,28 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                 return;
             }
             shown = files;
+            Map<String, VirtualFile> byUri = new HashMap<>();
+            files.forEach(uri -> byUri.put(uri, FileUtils.virtualFileFromURI(uri)));
+            resolved = byUri;
             model.clear();
             files.forEach(model::addElement);
         }
 
-        private static final class ConnectedFileRenderer extends ColoredListCellRenderer<String> {
+        private final class ConnectedFileRenderer extends ColoredListCellRenderer<String> {
 
             @Override
             protected void customizeCellRenderer(@NotNull JList<? extends String> list, String value, int index,
                     boolean selected, boolean hasFocus) {
+                VirtualFile file = resolved.get(value);
+                if (file != null) {
+                    setIcon(file.getFileType().getIcon());
+                    append(file.getName());
+                    VirtualFile parent = file.getParent();
+                    if (parent != null) {
+                        append("  " + parent.getPresentableUrl(), SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                    }
+                    return;
+                }
                 int slash = value.lastIndexOf('/');
                 String name = slash < 0 ? value : value.substring(slash + 1);
                 String directory = slash < 0 ? null : value.substring(0, slash);
@@ -554,10 +603,14 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
 
         private static final String[] COLUMNS = {
                 Lsp4IntellijBundle.message("inspector.timeouts.column.request"),
+                Lsp4IntellijBundle.message("inspector.timeouts.column.total"),
                 Lsp4IntellijBundle.message("inspector.timeouts.column.success"),
                 Lsp4IntellijBundle.message("inspector.timeouts.column.failures"),
-                Lsp4IntellijBundle.message("inspector.timeouts.column.total"),
                 Lsp4IntellijBundle.message("inspector.timeouts.column.failure.rate")};
+
+        private static final int TOTAL_COLUMN = 1;
+        private static final int SUCCESS_COLUMN = 2;
+        private static final int FAILURES_COLUMN = 3;
 
         private final List<Timeouts> rows = List.of(Timeouts.values());
         private final transient Object[][] data = new Object[rows.size()][COLUMNS.length];
@@ -634,12 +687,12 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                 Timeouts timeout = rows.get(row);
                 int success = stats == null ? 0 : stats.getSuccessCount(timeout);
                 int failures = stats == null ? 0 : stats.getFailureCount(timeout);
-                if (data[row][1].equals(success) && data[row][2].equals(failures)) {
+                if (data[row][SUCCESS_COLUMN].equals(success) && data[row][FAILURES_COLUMN].equals(failures)) {
                     continue;
                 }
-                data[row][1] = success;
-                data[row][2] = failures;
-                data[row][3] = success + failures;
+                data[row][TOTAL_COLUMN] = success + failures;
+                data[row][SUCCESS_COLUMN] = success;
+                data[row][FAILURES_COLUMN] = failures;
                 // Per row rather than fireTableDataChanged(), which would clear the table's selection.
                 model.fireTableRowsUpdated(row, row);
             }
@@ -670,8 +723,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
                     boolean hasFocus, int row, int column) {
-                int success = (Integer) table.getModel().getValueAt(row, 1);
-                int failures = (Integer) table.getModel().getValueAt(row, 2);
+                int success = (Integer) table.getModel().getValueAt(row, SUCCESS_COLUMN);
+                int failures = (Integer) table.getModel().getValueAt(row, FAILURES_COLUMN);
                 int total = success + failures;
                 String text = total == 0 ? "—" : String.format("%.0f%%", 100.0 * failures / total);
                 Component component = super.getTableCellRendererComponent(table, text, isSelected, hasFocus, row,
