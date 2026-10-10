@@ -160,10 +160,17 @@ The LSP Inspector is a tool window that shows, for each language server in the p
   on, every JSON-RPC message in both directions. A traced response shows the method of the request
   it answers and the time between request and response, for example
   `textDocument/hover (12) 38 ms`. Error responses are shown at error level.
+- **Server Info**: the server's status, the name and version from its `initialize` response, trace
+  level, document sync mode, recent crash count and launch command, and which of the 17 requests
+  LSP4IntelliJ sends the server advertised in its `ServerCapabilities`.
+- **Requests**: requests still waiting for a response, and per-method response times (count,
+  errors, median, 95th percentile and maximum), recorded whether or not tracing is on.
 - **Timeouts**: success and failure counts per request type.
-- **Connected Files**: the files currently open on the server.
+- **Connected Files**: the files currently open on the server. Double-clicking one opens it.
 
-The toolbar selects the server and filters the log by level and by source. The **Trace** dropdown
+The toolbar selects the server and filters the log by level and by source. **Export Log** saves the
+selected server's Server Info details followed by its log, with the current filters applied. The
+**Trace** dropdown
 sets JSON-RPC tracing per server: `OFF` (the default) records nothing, `MESSAGES` records method, id
 and direction, and `VERBOSE` also records each message's full payload. Changing it also sends
 `$/setTrace` to the server.
@@ -171,6 +178,9 @@ and direction, and `VERBOSE` also records each message's full payload. Changing 
 Log capture runs whether or not the tool window is registered. Each server keeps up to 10,000
 entries or 4,000,000 characters of text, whichever limit is hit first, dropping the oldest entries.
 A stopped server's log stays readable until a new instance of the same server starts logging.
+Response-time counts, error counts and maximums cover every response since the server was first
+started in the project, including across restarts; the median and 95th percentile cover each
+method's last 1,000 responses. The list of waiting requests is cleared each time the server starts.
 
 The tool window is optional. To show it, register it in `plugin.xml` under the id `LSP Inspector`:
 
@@ -181,8 +191,10 @@ The tool window is optional. To show it, register it in `plugin.xml` under the i
 </extensions>
 ```
 
-With it registered, clicking the status bar icon also offers **Open LSP Inspector** for each server.
-Without it, that action is not shown.
+Clicking the status bar icon offers **Restart** and the **Trace** levels for each server. With the
+tool window registered, it also offers **Open LSP Inspector**, and, while requests are waiting or
+after the server crashed, a shortcut to the Requests tab or to the log filtered to errors. Without
+it, those actions are not shown.
 
 ---
 
