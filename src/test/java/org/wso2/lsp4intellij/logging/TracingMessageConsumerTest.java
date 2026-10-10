@@ -239,6 +239,7 @@ public class TracingMessageConsumerTest extends BasePlatformTestCase {
 
                 @Override
                 public void notify(String method, Object parameter) {
+                    // The endpoint is only a type marker for the direction check; nothing is sent.
                 }
             });
         }

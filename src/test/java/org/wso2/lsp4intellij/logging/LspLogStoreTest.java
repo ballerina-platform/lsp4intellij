@@ -131,6 +131,7 @@ public class LspLogStoreTest extends BasePlatformTestCase {
 
                     @Override
                     public void serverCleared(LanguageServerWrapper wrapper) {
+                        // Not under test here.
                     }
                 });
 
@@ -149,6 +150,7 @@ public class LspLogStoreTest extends BasePlatformTestCase {
                 new LspLogListener() {
                     @Override
                     public void entryAdded(LanguageServerWrapper wrapper, LspLogEntry entry) {
+                        // Not under test here.
                     }
 
                     @Override

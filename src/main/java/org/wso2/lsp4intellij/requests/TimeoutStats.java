@@ -26,9 +26,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * which UI (if any) a consumer plugin registers - previously this state lived only inside the status
  * bar widget, so a consumer that did not register that widget silently lost every counter.
  *
- * <p>{@link #record} is called from request paths, not the EDT, and possibly by more than one thread
+ * <p>{@link #recordResult} is called from request paths, not the EDT, and possibly by more than one thread
  * at once for the same {@link Timeouts} kind. Both maps are populated once for every {@link Timeouts}
- * constant at construction time, so a call to {@link #record} never races on map structure - only the
+ * constant at construction time, so a call to {@link #recordResult} never races on map structure - only the
  * per-kind {@link AtomicInteger} is mutated concurrently.
  */
 public final class TimeoutStats {
@@ -46,7 +46,7 @@ public final class TimeoutStats {
     /**
      * Records the outcome of one request of the given kind.
      */
-    public void record(Timeouts timeout, boolean success) {
+    public void recordResult(Timeouts timeout, boolean success) {
         (success ? successCounts : failureCounts).get(timeout).incrementAndGet();
     }
 

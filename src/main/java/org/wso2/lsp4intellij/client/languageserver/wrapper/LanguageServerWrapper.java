@@ -316,7 +316,7 @@ public class LanguageServerWrapper {
     }
 
     public void notifyResult(Timeouts timeouts, boolean success) {
-        timeoutStats.record(timeouts, success);
+        timeoutStats.recordResult(timeouts, success);
     }
 
     /**

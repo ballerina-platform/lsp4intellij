@@ -73,7 +73,7 @@ public final class TracingMessageConsumer implements MessageConsumer {
         InFlightRequest request = track(message);
         LspTraceLevel level = levelSupplier.get();
         if (level != LspTraceLevel.OFF) {
-            record(message, level, request);
+            recordEntry(message, level, request);
         }
         delegate.consume(message);
     }
@@ -93,7 +93,7 @@ public final class TracingMessageConsumer implements MessageConsumer {
         return null;
     }
 
-    private void record(Message message, LspTraceLevel level, InFlightRequest request) {
+    private void recordEntry(Message message, LspTraceLevel level, InFlightRequest request) {
         LspLogStore store = LspLogStore.getInstanceIfCreated(wrapper.getProject());
         if (store == null) {
             return;

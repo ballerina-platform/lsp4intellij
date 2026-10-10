@@ -44,9 +44,9 @@ public class TimeoutStatsTest {
     public void testRecordCountsSuccessesAndFailuresSeparately() {
         TimeoutStats stats = new TimeoutStats();
 
-        stats.record(Timeouts.HOVER, true);
-        stats.record(Timeouts.HOVER, true);
-        stats.record(Timeouts.HOVER, false);
+        stats.recordResult(Timeouts.HOVER, true);
+        stats.recordResult(Timeouts.HOVER, true);
+        stats.recordResult(Timeouts.HOVER, false);
 
         Assert.assertEquals(2, stats.getSuccessCount(Timeouts.HOVER));
         Assert.assertEquals(1, stats.getFailureCount(Timeouts.HOVER));
@@ -56,8 +56,8 @@ public class TimeoutStatsTest {
     public void testCountersAreIsolatedPerTimeoutKind() {
         TimeoutStats stats = new TimeoutStats();
 
-        stats.record(Timeouts.COMPLETION, true);
-        stats.record(Timeouts.DEFINITION, false);
+        stats.recordResult(Timeouts.COMPLETION, true);
+        stats.recordResult(Timeouts.DEFINITION, false);
 
         Assert.assertEquals(1, stats.getSuccessCount(Timeouts.COMPLETION));
         Assert.assertEquals(0, stats.getFailureCount(Timeouts.COMPLETION));
@@ -85,7 +85,7 @@ public class TimeoutStatsTest {
                 try {
                     start.await();
                     for (int r = 0; r < recordsPerThread; r++) {
-                        stats.record(Timeouts.COMPLETION, success);
+                        stats.recordResult(Timeouts.COMPLETION, success);
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();

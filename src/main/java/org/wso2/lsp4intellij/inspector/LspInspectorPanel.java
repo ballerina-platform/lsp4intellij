@@ -60,6 +60,7 @@ import org.wso2.lsp4intellij.requests.Timeouts;
 import org.wso2.lsp4intellij.services.LspServerManager;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -130,13 +131,13 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final Alarm flushAlarm;
     private final ToolWindow toolWindow;
 
-    private LspInspectorFilter filter = LspInspectorFilter.ALL;
+    private transient LspInspectorFilter filter = LspInspectorFilter.ALL;
     private String levelFilterLabel = Lsp4IntellijBundle.message("inspector.filter.level.all");
     private String sourceFilterLabel = Lsp4IntellijBundle.message("inspector.filter.source.all");
     // Read by the message bus listener on JSON-RPC threads, so events are dropped while hidden.
     private volatile boolean flushScheduled = false;
     @Nullable
-    private LanguageServerWrapper selectedWrapper;
+    private transient LanguageServerWrapper selectedWrapper;
 
     public LspInspectorPanel(@NotNull Project project, @NotNull ToolWindow toolWindow) {
         super(new BorderLayout());
@@ -278,11 +279,6 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     }
 
     /**
-     * Re-indexes {@link #knownWrappers} for entry routing and makes sure something is selected: the
-     * first known server, if this panel has no selection yet. Without that the tabs would render their
-     * empty states even though a server is running, since the dropdown starts empty.
-     */
-    /**
      * Forgets disposed wrappers whose buffer is gone. Their {@code serverCleared} event is dropped
      * while this window is hidden, so this catches up when it is shown again.
      */
@@ -316,6 +312,11 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         refreshServers();
     }
 
+    /**
+     * Makes sure something is selected: the first of {@link #knownWrappers}, if this panel has no
+     * selection yet. Without that the tabs would render their
+     * empty states even though a server is running, since the dropdown starts empty.
+     */
     private void refreshServers() {
         if (selectedWrapper == null || !knownWrappers.contains(selectedWrapper)) {
             selectServer(knownWrappers.stream().findFirst().orElse(null));
@@ -559,7 +560,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                 Lsp4IntellijBundle.message("inspector.timeouts.column.failure.rate")};
 
         private final List<Timeouts> rows = List.of(Timeouts.values());
-        private final Object[][] data = new Object[rows.size()][COLUMNS.length];
+        private final transient Object[][] data = new Object[rows.size()][COLUMNS.length];
         private final AbstractTableModel model = new AbstractTableModel() {
             @Override
             public int getRowCount() {
@@ -676,9 +677,17 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                 Component component = super.getTableCellRendererComponent(table, text, isSelected, hasFocus, row,
                         column);
                 if (!isSelected) {
-                    component.setForeground(total == 0 ? JBColor.GRAY : failures == 0 ? SUCCESS_COLOR : ERROR_COLOR);
+                    component.setForeground(foregroundFor(total, failures));
                 }
                 return component;
+            }
+
+            @NotNull
+            private static Color foregroundFor(int total, int failures) {
+                if (total == 0) {
+                    return JBColor.GRAY;
+                }
+                return failures == 0 ? SUCCESS_COLOR : ERROR_COLOR;
             }
         }
     }

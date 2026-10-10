@@ -180,7 +180,7 @@ public final class LspLogStore implements Disposable {
         }
 
         private static long length(LspLogEntry entry) {
-            return entry.summary().length() + (entry.detail() == null ? 0 : entry.detail().length());
+            return (long) entry.summary().length() + (entry.detail() == null ? 0 : entry.detail().length());
         }
 
         synchronized List<LspLogEntry> snapshot() {
