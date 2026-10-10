@@ -166,12 +166,15 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final ToolWindow toolWindow;
 
     private transient LspInspectorFilter filter = LspInspectorFilter.ALL;
-    private String levelFilterLabel = Lsp4IntellijBundle.message("inspector.filter.level.all");
-    private String sourceFilterLabel = Lsp4IntellijBundle.message("inspector.filter.source.all");
+    // The fields below are read by the toolbar actions' update() on a background thread.
+    private volatile String levelFilterLabel = Lsp4IntellijBundle.message("inspector.filter.level.all");
+    private volatile String sourceFilterLabel = Lsp4IntellijBundle.message("inspector.filter.source.all");
     // Read by the message bus listener on JSON-RPC threads, so events are dropped while hidden.
     private volatile boolean flushScheduled = false;
     @Nullable
-    private transient LanguageServerWrapper selectedWrapper;
+    private transient volatile LanguageServerWrapper selectedWrapper;
+    // knownWrappers.size(), kept separately because the set itself is only safe on the EDT.
+    private volatile int knownWrapperCount = 0;
 
     public LspInspectorPanel(@NotNull Project project, @NotNull ToolWindow toolWindow) {
         super(new BorderLayout());
@@ -311,7 +314,9 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private boolean refreshKnownWrappers() {
         LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
         Set<LanguageServerWrapper> current = manager == null ? Set.of() : manager.allWrappers();
-        return knownWrappers.addAll(current);
+        boolean grew = knownWrappers.addAll(current);
+        knownWrapperCount = knownWrappers.size();
+        return grew;
     }
 
     /**
@@ -338,6 +343,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
      */
     private void forgetWrapper(@NotNull LanguageServerWrapper wrapper) {
         knownWrappers.remove(wrapper);
+        knownWrapperCount = knownWrappers.size();
         ConsoleView console = consoles.remove(wrapper);
         if (console != null) {
             Disposer.dispose(console);
@@ -371,6 +377,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     public void selectServer(@Nullable LanguageServerWrapper wrapper) {
         if (wrapper != null) {
             knownWrappers.add(wrapper);
+            knownWrapperCount = knownWrappers.size();
         }
         selectedWrapper = wrapper;
         showConsoleFor(wrapper);
@@ -977,8 +984,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         @NotNull
         @Override
         public ActionUpdateThread getActionUpdateThread() {
-            // update() reads this panel's Swing state.
-            return ActionUpdateThread.EDT;
+            // update() reads only volatile fields.
+            return ActionUpdateThread.BGT;
         }
 
         @Override
@@ -989,7 +996,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
                     : wrapper.getServerDefinition().getDisplayName());
             e.getPresentation().setDescription(wrapper == null ? null : wrapper.getServerDefinition().toString());
             // Nothing to choose between while this project runs a single server.
-            e.getPresentation().setEnabled(knownWrappers.size() > 1);
+            e.getPresentation().setEnabled(knownWrapperCount > 1);
         }
 
         @NotNull
@@ -1026,8 +1033,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         @NotNull
         @Override
         public ActionUpdateThread getActionUpdateThread() {
-            // update() reads this panel's Swing state.
-            return ActionUpdateThread.EDT;
+            // update() reads only volatile fields.
+            return ActionUpdateThread.BGT;
         }
 
         @Override
@@ -1074,8 +1081,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         @NotNull
         @Override
         public ActionUpdateThread getActionUpdateThread() {
-            // update() reads this panel's Swing state.
-            return ActionUpdateThread.EDT;
+            // update() reads only volatile fields.
+            return ActionUpdateThread.BGT;
         }
 
         @Override
@@ -1116,8 +1123,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         @NotNull
         @Override
         public ActionUpdateThread getActionUpdateThread() {
-            // update() reads this panel's Swing state.
-            return ActionUpdateThread.EDT;
+            // update() reads only volatile fields.
+            return ActionUpdateThread.BGT;
         }
 
         @Override
@@ -1158,8 +1165,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         @NotNull
         @Override
         public ActionUpdateThread getActionUpdateThread() {
-            // update() reads this panel's Swing state.
-            return ActionUpdateThread.EDT;
+            // update() reads only volatile fields.
+            return ActionUpdateThread.BGT;
         }
 
         @Override
@@ -1199,8 +1206,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         @NotNull
         @Override
         public ActionUpdateThread getActionUpdateThread() {
-            // update() reads this panel's Swing state.
-            return ActionUpdateThread.EDT;
+            // update() reads only volatile fields.
+            return ActionUpdateThread.BGT;
         }
 
         @Override
@@ -1252,8 +1259,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         @NotNull
         @Override
         public ActionUpdateThread getActionUpdateThread() {
-            // update() reads this panel's Swing state.
-            return ActionUpdateThread.EDT;
+            // update() reads only volatile fields.
+            return ActionUpdateThread.BGT;
         }
 
         @Override
