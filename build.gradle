@@ -136,6 +136,12 @@ publishing {
             from components.intellijPlatform
             artifact tasks.named('sourcesJar')
             artifact tasks.named('javadocJar')
+            // The composed jar component maps every dependency to runtime scope, but these appear in public signatures
+            pom.withXml {
+                asNode().dependencies.dependency
+                        .findAll { it.artifactId.text() in ['org.eclipse.lsp4j', 'commons-lang3'] }
+                        .each { it.scope[0].value = 'compile' }
+            }
         }
     }
 }
