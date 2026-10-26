@@ -6,6 +6,7 @@ plugins {
     id 'jacoco'
     id 'checkstyle'
     id 'signing'
+    id 'maven-publish'
     id 'org.jetbrains.intellij.platform' version '2.19.0'
     id 'com.github.hierynomus.license' version '0.16.1'
     id 'com.github.gradle-git-version-calculator' version '1.1.0'
@@ -121,6 +122,27 @@ jacocoTestReport {
         xml.outputLocation = layout.buildDirectory.file('reports/jacoco/test/jacoco.xml')
         html.required = true
     }
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+// Publish the composed (instrumented) jar instead of the base jar the 'java' component carries
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.intellijPlatform
+            artifact tasks.named('sourcesJar')
+            artifact tasks.named('javadocJar')
+        }
+    }
+}
+
+// The composed jar variant declares 'composed-jar' library elements, which plain Gradle consumers cannot match; publish the POM only
+tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
 }
 
 sonarqube {
