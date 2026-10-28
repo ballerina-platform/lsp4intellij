@@ -23,11 +23,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import org.wso2.lsp4intellij.services.LspServerManager;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -143,13 +145,17 @@ public final class LspLogStore implements Disposable {
     }
 
     /**
-     * Removes the buffers of every other wrapper serving the same definition as {@code wrapper}: those
-     * wrappers were disposed and {@code wrapper} replaced them.
+     * Removes the buffers of every other wrapper serving the same definition as {@code wrapper} that
+     * {@link LspServerManager} no longer has registered: those wrappers were disposed and
+     * {@code wrapper} replaced them. A registered wrapper keeps its buffer even if it shares the
+     * definition, as can happen with overlapping definitions such as {@code a,b} and {@code b,c}.
      */
     private void removeSupersededBuffers(@NotNull LanguageServerWrapper wrapper) {
         String ext = wrapper.getServerDefinition().ext;
+        LspServerManager manager = LspServerManager.getInstanceIfCreated(project);
+        Set<LanguageServerWrapper> registered = manager == null ? Set.of() : manager.allWrappers();
         for (LanguageServerWrapper other : List.copyOf(buffers.keySet())) {
-            if (other != wrapper && other.getServerDefinition().ext.equals(ext)) {
+            if (other != wrapper && other.getServerDefinition().ext.equals(ext) && !registered.contains(other)) {
                 removeBuffer(other);
             }
         }

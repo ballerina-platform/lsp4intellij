@@ -21,6 +21,7 @@ import org.eclipse.lsp4j.MessageType;
 import org.wso2.lsp4intellij.client.connection.StreamConnectionProvider;
 import org.wso2.lsp4intellij.client.languageserver.serverdefinition.LanguageServerDefinition;
 import org.wso2.lsp4intellij.client.languageserver.wrapper.LanguageServerWrapper;
+import org.wso2.lsp4intellij.services.LspServerManager;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -108,6 +109,24 @@ public class LspLogStoreTest extends BasePlatformTestCase {
         assertTrue("the replaced wrapper's buffer must be dropped", store.entries(wrapperA).isEmpty());
         assertEquals(1, store.entries(wrapperB).size());
         assertEquals("new", store.entries(replacement).get(0).summary());
+    }
+
+    public void testANewWrapperForTheSameServerKeepsARegisteredWrappersBuffer() {
+        StubDefinition definition = new StubDefinition("lsr");
+        LanguageServerWrapper live = LspServerManager.getInstance(getProject())
+                .getOrCreateWrapper(definition.ext, definition, null);
+        try {
+            store.append(live, LspLogSource.LIFECYCLE, MessageType.Info, "live", null);
+
+            LanguageServerWrapper other = new LanguageServerWrapper(new StubDefinition("lsr"), getProject());
+            store.append(other, LspLogSource.LIFECYCLE, MessageType.Info, "other", null);
+
+            assertEquals("a registered wrapper's buffer must be kept", 1, store.entries(live).size());
+            assertEquals(1, store.entries(other).size());
+        } finally {
+            // The project and its services are shared across light tests.
+            LspServerManager.getInstance(getProject()).unregister(live, new String[]{definition.ext});
+        }
     }
 
     public void testEntriesAreIsolatedBetweenWrappers() {
