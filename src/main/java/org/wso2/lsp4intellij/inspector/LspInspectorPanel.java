@@ -98,6 +98,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.swing.Box;
 import javax.swing.DefaultListModel;
@@ -145,6 +146,12 @@ import javax.swing.table.TableCellRenderer;
 public final class LspInspectorPanel extends JPanel implements Disposable {
 
     private static final int FLUSH_INTERVAL_MILLIS = 100;
+    /**
+     * The most entries queued between two flushes. Past it, the queue is dropped and the consoles are
+     * re-printed from the bounded {@link LspLogStore}, so a burst of traffic neither grows the queue
+     * without limit nor keeps the EDT busy printing it.
+     */
+    static final int MAX_PENDING_ENTRIES = 2_000;
     private static final JBColor SUCCESS_COLOR =
             JBColor.namedColor("Label.successForeground", new JBColor(0x368746, 0x5FB865));
     static final JBColor ERROR_COLOR =
@@ -162,6 +169,8 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final Map<LanguageServerWrapper, ConsoleView> consoles = new HashMap<>();
     private final Set<LanguageServerWrapper> knownWrappers = new LinkedHashSet<>();
     private final ConcurrentLinkedQueue<PendingEntry> pendingEntries = new ConcurrentLinkedQueue<>();
+    private final AtomicInteger pendingEntryCount = new AtomicInteger();
+    private volatile boolean pendingEntriesOverflowed;
     private final ConcurrentLinkedQueue<LanguageServerWrapper> pendingClears = new ConcurrentLinkedQueue<>();
     private final Alarm flushAlarm;
     private final ToolWindow toolWindow;
@@ -200,9 +209,15 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
             @Override
             public void entryAdded(@NotNull LanguageServerWrapper wrapper, @NotNull LspLogEntry entry) {
                 // While hidden nothing drains the queue; showing the window reprints from LspLogStore.
-                if (flushScheduled) {
-                    pendingEntries.offer(new PendingEntry(wrapper, entry));
+                if (!flushScheduled) {
+                    return;
                 }
+                if (pendingEntryCount.incrementAndGet() > MAX_PENDING_ENTRIES) {
+                    pendingEntryCount.decrementAndGet();
+                    pendingEntriesOverflowed = true;
+                    return;
+                }
+                pendingEntries.offer(new PendingEntry(wrapper, entry));
             }
 
             @Override
@@ -247,7 +262,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         }
         if (visible) {
             flushScheduled = true;
-            pendingEntries.clear();
+            discardPendingEntries();
             pendingClears.clear();
             refreshKnownWrappers();
             pruneReplacedWrappers();
@@ -258,7 +273,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
         } else {
             flushScheduled = false;
             flushAlarm.cancelAllRequests();
-            pendingEntries.clear();
+            discardPendingEntries();
             pendingClears.clear();
         }
     }
@@ -295,14 +310,27 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     }
 
     private void drainPendingEntries() {
+        if (pendingEntriesOverflowed) {
+            pendingEntriesOverflowed = false;
+            discardPendingEntries();
+            reprintAllConsoles();
+            return;
+        }
         PendingEntry pending;
         while ((pending = pendingEntries.poll()) != null) {
+            pendingEntryCount.decrementAndGet();
             // A wrapper without a console yet is skipped: its console is primed from the full
             // LspLogStore buffer when it is first shown.
             ConsoleView console = consoles.get(pending.wrapper());
             if (console != null && filter.matches(pending.entry())) {
                 printEntry(console, pending.entry());
             }
+        }
+    }
+
+    private void discardPendingEntries() {
+        while (pendingEntries.poll() != null) {
+            pendingEntryCount.decrementAndGet();
         }
     }
 

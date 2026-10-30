@@ -66,6 +66,21 @@ public class LspInspectorPanelTest extends BasePlatformTestCase {
         assertEquals(1, panel.pendingEntryCountForTest());
     }
 
+    public void testQueueStopsAtItsLimitAndIsDroppedOnFlush() {
+        when(toolWindow.isVisible()).thenReturn(true);
+        LspInspectorPanel panel = createPanel();
+        LanguageServerWrapper wrapper = new LanguageServerWrapper(new StubDefinition("cap"), getProject());
+
+        for (int i = 0; i < LspInspectorPanel.MAX_PENDING_ENTRIES + 10; i++) {
+            store.append(wrapper, LspLogSource.SERVER_LOG, MessageType.Log, "line " + i, null);
+        }
+        assertEquals(LspInspectorPanel.MAX_PENDING_ENTRIES, panel.pendingEntryCountForTest());
+
+        panel.flush();
+
+        assertEquals(0, panel.pendingEntryCountForTest());
+    }
+
     public void testReplacedWrapperIsForgottenOnFlush() {
         when(toolWindow.isVisible()).thenReturn(true);
         LspInspectorPanel panel = createPanel();
