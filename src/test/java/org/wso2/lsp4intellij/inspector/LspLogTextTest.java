@@ -61,8 +61,14 @@ public class LspLogTextTest {
         String text = LspLogText.export(properties, capabilities, entries,
                 new LspInspectorFilter(MessageType.Error, null), ZoneOffset.UTC);
 
-        Assert.assertEquals("Name: bal\n\nHover (textDocument/hover): Yes\n\n"
-                + "1970-01-01 00:00:01.000 Error boom\n    trace\n", text);
+        Assert.assertEquals("""
+                Name: bal
+
+                Hover (textDocument/hover): Yes
+
+                1970-01-01 00:00:01.000 Error boom
+                    trace
+                """, text);
     }
 
     private static LspLogEntry entry(LspLogSource source, MessageType level, String summary, String detail) {

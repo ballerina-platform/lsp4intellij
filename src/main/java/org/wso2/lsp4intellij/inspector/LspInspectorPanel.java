@@ -158,12 +158,13 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
             JBColor.namedColor("Label.errorForeground", new JBColor(0xC7222D, 0xFF5261));
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final String NO_SERVERS_TEXT = Lsp4IntellijBundle.message("inspector.empty.no.servers");
+    private static final String ALL_SOURCES_TEXT = Lsp4IntellijBundle.message("inspector.filter.source.all");
 
     private final Project project;
     private final JPanel logPanel = new JPanel(new BorderLayout());
     private final ConnectedFilesPanel connectedFilesPanel;
     private final TimeoutsPanel timeoutsPanel = new TimeoutsPanel();
-    private final ServerInfoPanel serverInfoPanel = new ServerInfoPanel();
+    private final transient ServerInfoPanel serverInfoPanel = new ServerInfoPanel();
     private final RequestsPanel requestsPanel = new RequestsPanel();
     private final JTabbedPane tabs = new JTabbedPane();
     private final Map<LanguageServerWrapper, ConsoleView> consoles = new HashMap<>();
@@ -178,7 +179,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private transient LspInspectorFilter filter = LspInspectorFilter.ALL;
     // The fields below are read by the toolbar actions' update() on a background thread.
     private volatile String levelFilterLabel = Lsp4IntellijBundle.message("inspector.filter.level.all");
-    private volatile String sourceFilterLabel = Lsp4IntellijBundle.message("inspector.filter.source.all");
+    private volatile String sourceFilterLabel = ALL_SOURCES_TEXT;
     // Read by the message bus listener on JSON-RPC threads, so events are dropped while hidden.
     private volatile boolean flushScheduled = false;
     @Nullable
@@ -428,7 +429,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
      */
     public void showErrors() {
         levelFilterLabel = Lsp4IntellijBundle.message("inspector.filter.level.error");
-        sourceFilterLabel = Lsp4IntellijBundle.message("inspector.filter.source.all");
+        sourceFilterLabel = ALL_SOURCES_TEXT;
         filter = new LspInspectorFilter(MessageType.Error, null);
         reprintSelected();
         tabs.setSelectedComponent(logPanel);
@@ -1115,7 +1116,7 @@ public final class LspInspectorPanel extends JPanel implements Disposable {
     private final class SourceFilterAction extends ComboBoxAction implements DumbAware {
 
         private final List<Option> options = List.of(
-                new Option(Lsp4IntellijBundle.message("inspector.filter.source.all"), null),
+                new Option(ALL_SOURCES_TEXT, null),
                 new Option(Lsp4IntellijBundle.message("inspector.filter.source.server.log"), LspLogSource.SERVER_LOG),
                 new Option(Lsp4IntellijBundle.message("inspector.filter.source.server.message"),
                         LspLogSource.SERVER_MESSAGE),

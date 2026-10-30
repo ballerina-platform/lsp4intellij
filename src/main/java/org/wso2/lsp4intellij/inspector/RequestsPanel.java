@@ -66,7 +66,7 @@ final class RequestsPanel extends JPanel {
 
     private final JBLabel summary = new JBLabel();
     private final TitledSeparator pendingTitle = new TitledSeparator();
-    private final RowTable pending = new RowTable(
+    private final transient RowTable pending = new RowTable(
             new String[]{
                     Lsp4IntellijBundle.message("inspector.requests.column.method"),
                     Lsp4IntellijBundle.message("inspector.requests.column.id"),
@@ -75,7 +75,7 @@ final class RequestsPanel extends JPanel {
             new Class<?>[]{String.class, String.class, String.class, Long.class},
             Lsp4IntellijBundle.message("inspector.requests.none.pending"));
     private final JBScrollPane pendingScroll = new JBScrollPane(pending.table);
-    private final RowTable responseTimes = new RowTable(
+    private final transient RowTable responseTimes = new RowTable(
             new String[]{
                     Lsp4IntellijBundle.message("inspector.requests.column.method"),
                     Lsp4IntellijBundle.message("inspector.requests.column.count"),
